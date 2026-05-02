@@ -1,4 +1,8 @@
-.PHONY: build clean test run migrate-up migrate-down migrate-status tidy lint
+.PHONY: build clean test test-integration run migrate-up migrate-down migrate-status tidy lint
+
+MIGRATE_IMAGE ?= migrate/migrate
+MIGRATE_NETWORK ?= buildnix_default
+MIGRATE_DATABASE_URL ?= postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable
 
 build:
 	@mkdir -p bin
@@ -10,18 +14,21 @@ clean:
 test:
 	go test ./... -v -race -cover
 
+test-integration:
+	@test -n "$(TEST_DATABASE_URL)" || (echo "TEST_DATABASE_URL deve apontar para um Postgres descartavel" && exit 1)
+	go test ./internal/infra/database/postgres -run Integration -count=1 -v
+
 run: build
 	./bin/buildnix-backend-webapi
 
 migrate-up:
-	@which goose > /dev/null || go install github.com/pressly/goose/v3/cmd/goose@latest
-	goose -dir migrations/postgres postgres "$(DATABASE_URL)" up
+	docker run --rm --network $(MIGRATE_NETWORK) -v "$(PWD)/migrations/postgres:/migrations" $(MIGRATE_IMAGE) -path=/migrations -database "$(MIGRATE_DATABASE_URL)" up
 
 migrate-down:
-	goose -dir migrations/postgres postgres "$(DATABASE_URL)" down
+	docker run --rm --network $(MIGRATE_NETWORK) -v "$(PWD)/migrations/postgres:/migrations" $(MIGRATE_IMAGE) -path=/migrations -database "$(MIGRATE_DATABASE_URL)" down 1
 
 migrate-status:
-	goose -dir migrations/postgres postgres "$(DATABASE_URL)" status
+	docker run --rm --network $(MIGRATE_NETWORK) -v "$(PWD)/migrations/postgres:/migrations" $(MIGRATE_IMAGE) -path=/migrations -database "$(MIGRATE_DATABASE_URL)" version
 
 tidy:
 	go mod tidy

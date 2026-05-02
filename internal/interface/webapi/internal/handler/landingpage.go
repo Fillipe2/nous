@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"io"
 	"net/http"
 
 	"buildnix-backend/internal/app/dto"
@@ -202,14 +201,4 @@ func (h *LandingPageHandler) DesbloquearEdicao(w http.ResponseWriter, r *http.Re
 	}
 
 	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "edicao desbloqueada"})
-}
-
-func (h *LandingPageHandler) ExportarLandingPage(w http.ResponseWriter, r *http.Request) {
-	_ = chi.URLParam(r, "id")
-	_, err := io.ReadAll(r.Body)
-	if err != nil {
-		responderErro(w, http.StatusBadRequest, "erro ao ler dados")
-		return
-	}
-	responderJSON(w, http.StatusAccepted, map[string]string{"mensagem": "exportacao recebida - use POST /landingpages/{id}/exportar com multipart"})
 }

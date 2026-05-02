@@ -3,6 +3,8 @@ package lead
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -26,7 +28,8 @@ func (u *UseCase) CapturarLead(ctx context.Context, input dto.CapturarLeadInput,
 	if input.Nome == "" {
 		return nil, fmt.Errorf("nome e obrigatorio")
 	}
-	if input.Email == "" || !strings.Contains(input.Email, "@") {
+	input.Email = strings.TrimSpace(input.Email)
+	if input.Email == "" || !emailValido(input.Email) {
 		return nil, fmt.Errorf("email valido e obrigatorio")
 	}
 	if input.Telefone == "" && input.Whatsapp == "" {
@@ -55,7 +58,7 @@ func (u *UseCase) CapturarLead(ctx context.Context, input dto.CapturarLeadInput,
 		return nil, fmt.Errorf("capturar lead salvar: %w", err)
 	}
 
-	_ = u.publisher.Publicar(ctx, evento.Evento{
+	if err := u.publisher.Publicar(ctx, evento.Evento{
 		EventId:        uuid.New().String(),
 		EventType:      "lead.capturado",
 		SchemaVersion:  1,
@@ -74,9 +77,16 @@ func (u *UseCase) CapturarLead(ctx context.Context, input dto.CapturarLeadInput,
 			"mensagem":       l.Mensagem,
 			"criado_em":      l.CriadoEm,
 		},
-	})
+	}); err != nil {
+		log.Printf("publicar evento lead.capturado: %v", err)
+	}
 
 	return mapearLeadOutput(l), nil
+}
+
+func emailValido(email string) bool {
+	endereco, err := mail.ParseAddress(email)
+	return err == nil && endereco.Address == email
 }
 
 func (u *UseCase) ObterLead(ctx context.Context, id string) (*dto.LeadOutput, error) {

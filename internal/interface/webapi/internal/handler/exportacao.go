@@ -4,9 +4,11 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	ucexportacao "buildnix-backend/internal/app/usecase/exportacao"
@@ -39,13 +41,17 @@ func (h *ExportacaoHandler) ExportarLandingPage(w http.ResponseWriter, r *http.R
 		return
 	}
 	defer file.Close()
+	if !contentTypeZIP(header.Header.Get("Content-Type")) {
+		responderErro(w, http.StatusBadRequest, "arquivo zip invalido")
+		return
+	}
 
 	dados, err := io.ReadAll(file)
 	if err != nil {
 		responderErro(w, http.StatusInternalServerError, "erro ao ler arquivo")
 		return
 	}
-	if !zipValido(dados) {
+	if err := validarZIP(dados); err != nil {
 		responderErro(w, http.StatusBadRequest, "arquivo zip invalido")
 		return
 	}
@@ -125,10 +131,33 @@ func (h *ExportacaoHandler) BaixarExportacao(w http.ResponseWriter, r *http.Requ
 	_, _ = w.Write(dados)
 }
 
-func zipValido(dados []byte) bool {
+func validarZIP(dados []byte) error {
 	if len(dados) == 0 {
-		return false
+		return fmt.Errorf("zip vazio")
 	}
-	_, err := zip.NewReader(bytes.NewReader(dados), int64(len(dados)))
-	return err == nil
+	leitor, err := zip.NewReader(bytes.NewReader(dados), int64(len(dados)))
+	if err != nil {
+		return err
+	}
+	const limiteDescomprimido = 200 << 20
+	var total uint64
+	for _, arquivo := range leitor.File {
+		if arquivo.FileInfo().IsDir() {
+			continue
+		}
+		nome := filepath.Clean(arquivo.Name)
+		if filepath.IsAbs(nome) || strings.HasPrefix(nome, "..") {
+			return fmt.Errorf("entrada zip insegura")
+		}
+		total += arquivo.UncompressedSize64
+		if total > limiteDescomprimido {
+			return fmt.Errorf("zip excede limite descomprimido")
+		}
+	}
+	return nil
+}
+
+func contentTypeZIP(contentType string) bool {
+	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	return contentType == "" || contentType == "application/zip" || contentType == "application/x-zip-compressed" || contentType == "application/octet-stream"
 }

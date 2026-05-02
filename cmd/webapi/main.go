@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,14 +15,18 @@ import (
 )
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	startupCtx, startupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer startupCancel()
 
-	container, err := bootstrap.New(ctx)
+	container, err := bootstrap.New(startupCtx)
 	if err != nil {
 		log.Fatalf("inicializar dependencias: %v", err)
 	}
 	defer container.Close()
+
+	runtimeCtx, runtimeCancel := context.WithCancel(context.Background())
+	defer runtimeCancel()
+	container.StartCleanupJobs(runtimeCtx)
 
 	servidor, err := (&webapi.Server{
 		AuthUseCase:        container.AuthUseCase,
@@ -49,10 +55,12 @@ func main() {
 	<-quit
 
 	log.Println("encerrando servidor...")
+	runtimeCancel()
+	webapi.CloseSharedResources()
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := servidor.Shutdown(shutdownCtx); err != nil {
+	if err := servidor.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("encerramento forcado: %v", err)
 	}
 	log.Println("servidor encerrado")

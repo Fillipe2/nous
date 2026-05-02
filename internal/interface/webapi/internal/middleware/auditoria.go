@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -40,10 +41,7 @@ func RegistrarAuditoria(repository auditoria.Repository) func(http.Handler) http
 			}
 
 			acao := r.Method + " " + r.URL.Path
-			ip := r.RemoteAddr
-			if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-				ip = forwarded
-			}
+			ip := ClienteIP(r)
 
 			a := &auditoria.Auditoria{
 				UsuarioId:       &claims.UsuarioId,
@@ -63,7 +61,9 @@ func RegistrarAuditoria(repository auditoria.Repository) func(http.Handler) http
 			})
 			a.DadosNovos = dados
 
-			_ = repository.Salvar(r.Context(), a)
+			if err := repository.Salvar(r.Context(), a); err != nil {
+				log.Printf("salvar auditoria: %v", err)
+			}
 		})
 	}
 }

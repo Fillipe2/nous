@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	ucauth "buildnix-backend/internal/app/usecase/auth"
@@ -21,6 +22,7 @@ import (
 	"buildnix-backend/internal/domain/auditoria"
 	infrajwt "buildnix-backend/internal/infra/jwt"
 	"buildnix-backend/internal/interface/webapi/internal/handler"
+	"buildnix-backend/internal/interface/webapi/internal/middleware"
 	"buildnix-backend/internal/interface/webapi/internal/router"
 )
 
@@ -51,6 +53,7 @@ func (s *Server) Start(ctx context.Context, address string) (*http.Server, error
 	if s.AuditoriaRepo == nil {
 		return nil, errors.New("repositorio de auditoria da webapi nao configurado")
 	}
+	middleware.ConfigurarRateLimiter(os.Getenv("REDIS_URL"))
 
 	httpServer := &http.Server{
 		Addr:              address,
@@ -87,4 +90,8 @@ func (s *Server) setupRouter() http.Handler {
 		Opcao:       handler.NewOpcaoHandler(s.ClienteUseCase, s.UsuarioUseCase, s.NegocioUseCase, s.CategoriaUseCase, s.TemplateUseCase, s.LandingPageUseCase),
 	}
 	return router.NovoRouter(handlers, s.JWTServico, s.AuditoriaRepo)
+}
+
+func CloseSharedResources() {
+	middleware.CloseRateLimiter()
 }

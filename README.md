@@ -68,7 +68,7 @@ buildnix-backend/
 - Go 1.26.2
 - PostgreSQL 15+
 - GCC para `go test -race`
-- Goose para migrations
+- Docker para rodar migrations com `golang-migrate`
 - Docker e Docker Compose, opcionalmente
 
 ## Configuração
@@ -90,19 +90,39 @@ Variáveis principais:
 | `GOOGLE_CLIENT_ID` | Client ID do Google OAuth2. |
 | `GOOGLE_CLIENT_SECRET` | Client Secret do Google OAuth2. |
 | `GOOGLE_REDIRECT_URL` | Callback OAuth2. |
+| `OAUTH_STATE_SAMESITE` | Modo SameSite do cookie OAuth state: `strict`, `lax` ou `none`. `none` exige `GOOGLE_REDIRECT_URL` em HTTPS; sem HTTPS, a API usa `strict`. |
 | `OBSERVER_URL` | URL do Observer. Vazio mantém operação standalone. |
+| `CORS_ALLOWED_ORIGINS` | Origens autorizadas para CORS, separadas por vírgula. |
+| `REDIS_URL` | Redis opcional para rate limit distribuído em produção multi-instância. |
 | `SERVER_PORT` | Porta HTTP da API. |
 
 Planos customizáveis devem definir `landingpages_customizaveis=true` em `plano.limites`. Planos white label simples devem omitir essa chave ou usar `false`.
 
+### Testes de integração
+
+Os testes contra PostgreSQL real ficam protegidos por `TEST_DATABASE_URL` e criam um schema temporário para aplicar as migrations reais sem tocar nas tabelas existentes do banco informado.
+
+```bash
+TEST_DATABASE_URL="postgres://usuario:senha@localhost:5432/buildnix_test?sslmode=disable" make test-integration
+```
+
+Use um banco descartável para essa URL.
+
+No GitHub Actions, o workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) sobe um PostgreSQL descartável e executa esses testes com `TEST_DATABASE_URL` automaticamente.
+
 ## Migrations
 
 ```bash
-go install github.com/pressly/goose/v3/cmd/goose@latest
+docker compose up -d db
+docker run --rm --network buildnix_default -v "$PWD/migrations/postgres:/migrations" migrate/migrate -path=/migrations -database "postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable" up
+docker run --rm --network buildnix_default -v "$PWD/migrations/postgres:/migrations" migrate/migrate -path=/migrations -database "postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable" version
+```
 
-goose -dir migrations/postgres postgres "$DATABASE_URL" up
-goose -dir migrations/postgres postgres "$DATABASE_URL" status
-goose -dir migrations/postgres postgres "$DATABASE_URL" down
+Com `make` instalado, os atalhos equivalentes sao:
+
+```bash
+make migrate-up
+make migrate-status
 ```
 
 ## Build, Testes e Execução
@@ -128,12 +148,13 @@ make run
 docker compose up --build
 ```
 
-Depois que o PostgreSQL estiver pronto, rode as migrations com Goose usando a `DATABASE_URL` do ambiente.
+Depois que o PostgreSQL estiver pronto, rode as migrations com `make migrate-up`.
 
 ## Endpoints Principais
 
 - `POST /auth/login`
 - `POST /auth/refresh`
+- `GET /health`
 - `GET /auth/google/login`
 - `GET /auth/google/callback`
 - `POST /usuarios`
@@ -153,6 +174,7 @@ Depois que o PostgreSQL estiver pronto, rode as migrations com Goose usando a `D
 - `POST /landingpages/{id}/exportar`
 - `GET /exportacoes/{id}/download`
 - `POST /leads`
+- `GET /swagger`
 - `GET /leads` admin/Sognix
 - `GET /auditoria` admin
 - `GET /swagger/openapi.yaml`

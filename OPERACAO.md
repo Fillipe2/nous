@@ -31,18 +31,26 @@ Se o usuário já existir, o bootstrap deve promover/reativar o admin conforme a
 
 ## Migrations
 
-Instale o Goose:
+As migrations usam o formato `golang-migrate` (`.up.sql` e `.down.sql`). Com Docker, nao e necessario instalar a CLI localmente.
 
 ```bash
-go install github.com/pressly/goose/v3/cmd/goose@latest
+docker compose up -d db
 ```
 
 Comandos:
 
 ```bash
-goose -dir migrations/postgres postgres "$DATABASE_URL" up
-goose -dir migrations/postgres postgres "$DATABASE_URL" status
-goose -dir migrations/postgres postgres "$DATABASE_URL" down
+docker run --rm --network buildnix_default -v "$PWD/migrations/postgres:/migrations" migrate/migrate -path=/migrations -database "postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable" up
+docker run --rm --network buildnix_default -v "$PWD/migrations/postgres:/migrations" migrate/migrate -path=/migrations -database "postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable" version
+docker run --rm --network buildnix_default -v "$PWD/migrations/postgres:/migrations" migrate/migrate -path=/migrations -database "postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable" down 1
+```
+
+Com `make` instalado, os atalhos equivalentes sao:
+
+```bash
+make migrate-up
+make migrate-status
+make migrate-down
 ```
 
 ## Testes e Build
@@ -62,6 +70,8 @@ docker compose up --build
 ```
 
 Depois que o PostgreSQL estiver pronto, rode as migrations.
+
+A imagem da API usa base Alpine versionada, usuário não-root e healthcheck HTTP em `/health`. O `HEALTHCHECK` usa o `wget` do BusyBox disponível no Alpine; se a base mudar para distroless ou scratch, o comando do healthcheck deve ser substituído.
 
 ## Logs e Auditoria
 
@@ -101,8 +111,11 @@ Auditoria:
 - Senhas são armazenadas com bcrypt.
 - Autorização usa RBAC e vínculo usuário-cliente.
 - Refresh tokens são armazenados como hash, rotacionados no refresh e revogados no logout quando enviados no payload.
+- Refresh tokens expirados ou revogados há mais de 24 horas são expurgados por job local iniciado junto com a API.
 - A API aplica headers básicos de segurança e rate limit em endpoints públicos sensíveis.
 - Tráfego em produção deve usar HTTPS no gateway/load balancer.
+- Sem `REDIS_URL`, o rate limit usa memória local e é adequado para desenvolvimento e instância única. Com `REDIS_URL`, o rate limit usa Redis e funciona de forma compartilhada entre múltiplas instâncias. Se o Redis estiver indisponível, a API cai temporariamente para memória local e tenta reconectar periodicamente.
+- `OAUTH_STATE_SAMESITE` aceita `strict`, `lax` ou `none`. O padrão `strict` é o mais restritivo; use `lax` apenas se o provedor OAuth2 do ambiente exigir compatibilidade no redirect. O modo `none` só é aplicado quando `GOOGLE_REDIRECT_URL` usa HTTPS; caso contrário, a API preserva `strict`.
 
 ## Alto Fluxo
 
@@ -110,6 +123,9 @@ Checklist antes de produção:
 
 - Ajustar `pool_max_conns` conforme capacidade do PostgreSQL.
 - Ativar rate limit distribuído no gateway/load balancer.
+- Rodar `make test-integration` com `TEST_DATABASE_URL` apontando para um PostgreSQL descartável antes de promover migrations/repositórios.
+- Garantir que o workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) esteja obrigatório na proteção da branch.
+- Configurar dashboards e alertas mínimos conforme [docs/OBSERVABILIDADE.md](docs/OBSERVABILIDADE.md).
 - Rodar teste de carga em login, `POST /leads`, autosave, exportação e listagens.
 - Monitorar erros 409 para conflito de edição.
 - Monitorar latência, saturação do pool, locks e queries lentas.

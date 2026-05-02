@@ -261,6 +261,14 @@ func (r *UsuarioRepository) RevogarRefreshToken(ctx context.Context, tokenHash s
 	return nil
 }
 
+func (r *UsuarioRepository) ExpurgarRefreshTokens(ctx context.Context, antesDe time.Time) error {
+	stmts := statement.Get()
+	if err := r.connection.Exec(ctx, stmts.ExpurgarUsuarioRefreshTokens, pgx.NamedArgs{"antes_de": antesDe}); err != nil {
+		return fmt.Errorf("expurgar refresh tokens usuario: %w", err)
+	}
+	return nil
+}
+
 func nilableStr(s string) *string {
 	if s == "" {
 		return nil

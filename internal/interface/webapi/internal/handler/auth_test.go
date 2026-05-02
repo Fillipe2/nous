@@ -21,6 +21,7 @@ func TestGoogleLoginRequerConfiguracao(t *testing.T) {
 }
 
 func TestGoogleLoginRedirecionaParaGoogle(t *testing.T) {
+	t.Setenv("OAUTH_STATE_SAMESITE", "")
 	handler := NewAuthHandler(nil, "cliente-test", "segredo-test", "http://localhost:8080/auth/google/callback")
 	request := httptest.NewRequest(http.MethodGet, "/auth/google/login", nil)
 	response := httptest.NewRecorder()
@@ -49,5 +50,53 @@ func TestGoogleLoginRedirecionaParaGoogle(t *testing.T) {
 	cookies := response.Result().Cookies()
 	if len(cookies) == 0 || cookies[0].Name != cookieOAuthState || cookies[0].Value == "" {
 		t.Fatalf("cookie oauth_state nao configurado")
+	}
+	if cookies[0].SameSite != http.SameSiteStrictMode {
+		t.Fatalf("SameSite esperado Strict, recebido %v", cookies[0].SameSite)
+	}
+}
+
+func TestGoogleLoginNaoUsaSameSiteNoneSemHTTPS(t *testing.T) {
+	t.Setenv("OAUTH_STATE_SAMESITE", "none")
+	handler := NewAuthHandler(nil, "cliente-test", "segredo-test", "http://localhost:8080/auth/google/callback")
+	request := httptest.NewRequest(http.MethodGet, "/auth/google/login", nil)
+	response := httptest.NewRecorder()
+
+	handler.GoogleLogin(response, request)
+
+	cookies := response.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("cookie oauth_state nao configurado")
+	}
+	if cookies[0].SameSite != http.SameSiteStrictMode {
+		t.Fatalf("SameSite none sem HTTPS deveria cair para Strict, recebido %v", cookies[0].SameSite)
+	}
+	if cookies[0].Secure {
+		t.Fatal("cookie nao deveria ser Secure com callback HTTP")
+	}
+}
+
+func TestSameSiteOAuthStateConfiguravel(t *testing.T) {
+	t.Setenv("OAUTH_STATE_SAMESITE", "lax")
+	if sameSiteOAuthState(false) != http.SameSiteLaxMode {
+		t.Fatal("SameSite lax nao aplicado")
+	}
+
+	t.Setenv("OAUTH_STATE_SAMESITE", "strict")
+	if sameSiteOAuthState(false) != http.SameSiteStrictMode {
+		t.Fatal("SameSite strict nao aplicado")
+	}
+
+	t.Setenv("OAUTH_STATE_SAMESITE", "none")
+	if sameSiteOAuthState(true) != http.SameSiteNoneMode {
+		t.Fatal("SameSite none nao aplicado")
+	}
+	if sameSiteOAuthState(false) != http.SameSiteStrictMode {
+		t.Fatal("SameSite none sem HTTPS deveria cair para strict")
+	}
+
+	t.Setenv("OAUTH_STATE_SAMESITE", "valor-invalido")
+	if sameSiteOAuthState(false) != http.SameSiteStrictMode {
+		t.Fatal("SameSite invalido deveria cair para strict")
 	}
 }

@@ -20,6 +20,32 @@ tags:
   - name: Auditoria
   - name: Swagger
 paths:
+  /health:
+    get:
+      tags: [Swagger]
+      summary: Healthcheck da API
+      responses:
+        '200':
+          description: API em execução
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /swagger:
+    get:
+      tags: [Swagger]
+      summary: Exibe a interface Swagger UI para testar a API
+      responses:
+        '200':
+          description: Página HTML do Swagger UI
+          content:
+            text/html:
+              schema:
+                type: string
   /swagger/openapi.yaml:
     get:
       tags: [Swagger]

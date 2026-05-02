@@ -2,7 +2,7 @@
 INSERT INTO landingpage (id, cliente_id, negocio_id, categoria_id, template_id, tipo, nome, conteudo,
     status, is_draft, autosave_data, criado_em, atualizado_em, version)
 VALUES (@id, @cliente_id, @negocio_id, @categoria_id, @template_id, @tipo, @nome, @conteudo,
-    @status, @is_draft, @autosave_data, @criado_em, @atualizado_em, @version);
+    @status, @is_draft, @autosave_data::jsonb, @criado_em, @atualizado_em, @version);
 
 -- name: BuscarLandingPagePorID
 SELECT id, cliente_id, negocio_id, categoria_id, template_id, tipo,
@@ -22,7 +22,7 @@ UPDATE landingpage SET status='excluida', atualizado_em=@atualizado_em WHERE id=
 
 -- name: AtualizarAutosaveLandingPage
 UPDATE landingpage
-SET autosave_data=@autosave_data, last_autosave_em=@last_autosave_em, is_draft=true, version=version + 1
+SET autosave_data=@autosave_data::jsonb, last_autosave_em=@last_autosave_em, is_draft=true, version=version + 1
 WHERE id=@id AND version=@version
 RETURNING version;
 
@@ -41,3 +41,8 @@ SELECT EXISTS (
     JOIN usuario_cliente uc ON uc.cliente_id = lp.cliente_id
     WHERE lp.id = @id AND uc.usuario_id = @usuario_id AND lp.status != 'excluida'
 ) AS acesso;
+
+-- name: ContarLandingPagesPorCliente
+SELECT COUNT(*)
+FROM landingpage
+WHERE cliente_id = @cliente_id AND status != 'excluida';

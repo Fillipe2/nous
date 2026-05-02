@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -82,13 +83,14 @@ func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nonce := gerarStateOAuth()
+	callbackSeguro := h.googleCallbackSeguro()
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieOAuthState,
 		Value:    nonce,
 		MaxAge:   300,
 		HttpOnly: true,
-		Secure:   h.googleCallbackSeguro(),
-		SameSite: http.SameSiteLaxMode,
+		Secure:   callbackSeguro,
+		SameSite: sameSiteOAuthState(callbackSeguro),
 		Path:     "/",
 	})
 	url := h.googleConfig.AuthCodeURL(nonce, oauth2.AccessTypeOffline)
@@ -122,13 +124,15 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Invalidar o cookie após uso
+	callbackSeguro := h.googleCallbackSeguro()
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieOAuthState,
 		Value:    "",
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
-		Secure:   h.googleCallbackSeguro(),
+		Secure:   callbackSeguro,
+		SameSite: sameSiteOAuthState(callbackSeguro),
 		Path:     "/",
 	})
 
@@ -184,4 +188,20 @@ func (h *AuthHandler) googleConfigurado() bool {
 func (h *AuthHandler) googleCallbackSeguro() bool {
 	callbackURL, err := url.Parse(h.googleConfig.RedirectURL)
 	return err == nil && callbackURL.Scheme == "https"
+}
+
+func sameSiteOAuthState(callbackSeguro bool) http.SameSite {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("OAUTH_STATE_SAMESITE"))) {
+	case "strict":
+		return http.SameSiteStrictMode
+	case "none":
+		if !callbackSeguro {
+			return http.SameSiteStrictMode
+		}
+		return http.SameSiteNoneMode
+	case "lax":
+		return http.SameSiteLaxMode
+	default:
+		return http.SameSiteStrictMode
+	}
 }

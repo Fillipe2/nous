@@ -41,7 +41,7 @@ func (r *LandingPageRepository) Salvar(ctx context.Context, lp *landingpage.Land
 		"conteudo":      nilableStr(lp.Conteudo),
 		"status":        string(lp.Status),
 		"is_draft":      lp.IsDraft,
-		"autosave_data": []byte(lp.AutosaveData),
+		"autosave_data": nilableJSON(lp.AutosaveData),
 		"criado_em":     lp.CriadoEm,
 		"atualizado_em": lp.AtualizadoEm,
 		"version":       lp.Version,
@@ -106,7 +106,7 @@ func (r *LandingPageRepository) AtualizarAutosave(ctx context.Context, id string
 	stmts := statement.Get()
 	var novaVersao int
 	err := r.connection.QueryRow(ctx, stmts.AtualizarAutosaveLandingPage, pgx.NamedArgs{
-		"autosave_data":    dados,
+		"autosave_data":    string(dados),
 		"last_autosave_em": time.Now(),
 		"version":          version,
 		"id":               id,
@@ -158,6 +158,15 @@ func (r *LandingPageRepository) VerificarAcessoUsuario(ctx context.Context, land
 		return landingpage.ErrNaoAutorizado
 	}
 	return nil
+}
+
+func (r *LandingPageRepository) ContarPorCliente(ctx context.Context, clienteId string) (int, error) {
+	stmts := statement.Get()
+	var total int
+	if err := r.connection.QueryRow(ctx, stmts.ContarLandingPagesPorCliente, pgx.NamedArgs{"cliente_id": clienteId}).Scan(&total); err != nil {
+		return 0, fmt.Errorf("contar landingpages por cliente: %w", err)
+	}
+	return total, nil
 }
 
 func (r *LandingPageRepository) Listar(ctx context.Context, filtro landingpage.FiltroListagem) ([]*landingpage.LandingPage, int, error) {
@@ -256,4 +265,12 @@ func (r *LandingPageRepository) Listar(ctx context.Context, filtro landingpage.F
 		landingPages = append(landingPages, lp)
 	}
 	return landingPages, total, nil
+}
+
+func nilableJSON(dados []byte) *string {
+	if len(dados) == 0 {
+		return nil
+	}
+	valor := string(dados)
+	return &valor
 }

@@ -2,7 +2,10 @@ package router
 
 import (
 	_ "embed"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"buildnix-backend/internal/domain/auditoria"
 	infrajwt "buildnix-backend/internal/infra/jwt"
@@ -15,6 +18,32 @@ import (
 
 //go:embed openapi.yaml
 var openapiYAML []byte
+
+const swaggerHTML = `<!doctype html>
+<html lang="pt-BR">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Buildnix Backend API</title>
+	<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body>
+	<div id="swagger-ui"></div>
+	<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+	<script>
+		window.onload = function () {
+			window.ui = SwaggerUIBundle({
+				url: "/swagger/openapi.yaml",
+				dom_id: "#swagger-ui",
+				deepLinking: true,
+				persistAuthorization: true,
+				displayRequestDuration: true,
+				tryItOutEnabled: true
+			});
+		};
+	</script>
+</body>
+</html>`
 
 type Handlers struct {
 	Auth        *handler.AuthHandler
@@ -42,6 +71,9 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 	r.Use(middleware.LimitarTaxa)
 	r.Use(middleware.LimitarBody)
 	r.Use(cors())
+	r.Get("/health", servirHealth)
+	r.Get("/swagger", servirSwaggerUI)
+	r.Get("/swagger/", servirSwaggerUI)
 	r.Get("/swagger/openapi.yaml", servirOpenAPI)
 
 	autenticar := middleware.Autenticar(jwtServico)
@@ -143,12 +175,31 @@ func servirOpenAPI(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(openapiYAML)
 }
 
+func servirSwaggerUI(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(swaggerHTML))
+}
+
+func servirHealth(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
 func cors() func(http.Handler) http.Handler {
+	origensPermitidas := carregarOrigensCORS()
+	log.Printf("cors origens permitidas: %s", strings.Join(origensPermitidas, ","))
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			origin := r.Header.Get("Origin")
+			if origin != "" && origemPermitida(origin, origensPermitidas) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Add("Vary", "Origin")
+			}
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Max-Age", "600")
 
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)
@@ -158,4 +209,29 @@ func cors() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func carregarOrigensCORS() []string {
+	valor := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	if valor == "" {
+		return []string{"http://localhost:3000", "http://localhost:5173", "http://localhost:8080"}
+	}
+	origens := strings.Split(valor, ",")
+	saida := make([]string, 0, len(origens))
+	for _, origem := range origens {
+		origem = strings.TrimSpace(origem)
+		if origem != "" {
+			saida = append(saida, origem)
+		}
+	}
+	return saida
+}
+
+func origemPermitida(origin string, permitidas []string) bool {
+	for _, permitida := range permitidas {
+		if permitida == "*" || permitida == origin {
+			return true
+		}
+	}
+	return false
 }

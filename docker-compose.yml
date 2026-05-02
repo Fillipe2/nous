@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   buildnix-backend:
     build: .
@@ -13,18 +11,27 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-http://localhost:8080/auth/google/callback}
+      OAUTH_STATE_SAMESITE: ${OAUTH_STATE_SAMESITE:-strict}
       LOG_FILE_PATH: ${LOG_FILE_PATH:-./logs/buildnix-backend.log}
       LOG_MAX_SIZE_MB: ${LOG_MAX_SIZE_MB:-50}
       LOG_MAX_AGE_DAYS: ${LOG_MAX_AGE_DAYS:-30}
       LOG_MAX_BACKUPS: ${LOG_MAX_BACKUPS:-10}
       LOG_COMPRESS: ${LOG_COMPRESS:-true}
       LOG_STDOUT: ${LOG_STDOUT:-true}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8080}
+      REDIS_URL: ${REDIS_URL:-}
       SERVER_PORT: 8080
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - buildnix_backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   db:

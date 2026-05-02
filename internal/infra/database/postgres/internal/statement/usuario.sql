@@ -49,3 +49,7 @@ WHERE token_hash=@token_hash;
 UPDATE usuario_refresh_token
 SET revogado_em=@revogado_em
 WHERE token_hash=@token_hash AND revogado_em IS NULL;
+
+-- name: ExpurgarUsuarioRefreshTokens
+DELETE FROM usuario_refresh_token
+WHERE expires_at < @antes_de OR (revogado_em IS NOT NULL AND revogado_em < @antes_de);

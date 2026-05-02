@@ -41,6 +41,9 @@ func (u *UseCase) CriarLandingPage(ctx context.Context, input dto.CriarLandingPa
 	if err := u.validarPlanoLandingPage(ctx, input.ClienteId, tipo); err != nil {
 		return nil, err
 	}
+	if err := u.validarLimiteLandingPages(ctx, input.ClienteId); err != nil {
+		return nil, err
+	}
 	conteudo, templateId, categoriaId, err := u.prepararTemplateInicial(ctx, input.ClienteId, tipo, input.TemplateId, input.CategoriaId, input.Conteudo)
 	if err != nil {
 		return nil, err
@@ -296,6 +299,30 @@ func (u *UseCase) validarPlanoLandingPage(ctx context.Context, clienteId string,
 		return domain.ErrPlanoNaoPermite
 	}
 	if tipo == domain.TipoCustomizavel && !planoAtivo.Limites.PermiteCustomizavel() {
+		return domain.ErrPlanoNaoPermite
+	}
+	return nil
+}
+
+func (u *UseCase) validarLimiteLandingPages(ctx context.Context, clienteId string) error {
+	if u.planoRepository == nil {
+		return nil
+	}
+	planoAtivo, err := u.planoRepository.BuscarPlanoAtivoPorCliente(ctx, clienteId)
+	if errors.Is(err, plano.ErrAssinaturaAtivaNaoEncontrada) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("validar limite landingpages: %w", err)
+	}
+	if planoAtivo.Limites.MaxLandingPages <= 0 {
+		return nil
+	}
+	total, err := u.repository.ContarPorCliente(ctx, clienteId)
+	if err != nil {
+		return fmt.Errorf("contar landingpages do cliente: %w", err)
+	}
+	if total >= planoAtivo.Limites.MaxLandingPages {
 		return domain.ErrPlanoNaoPermite
 	}
 	return nil

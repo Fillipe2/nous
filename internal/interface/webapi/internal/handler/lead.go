@@ -7,6 +7,7 @@ import (
 	"buildnix-backend/internal/app/dto"
 	uclead "buildnix-backend/internal/app/usecase/lead"
 	"buildnix-backend/internal/domain/lead"
+	"buildnix-backend/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -26,10 +27,7 @@ func (h *LeadHandler) CapturarLead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = forwarded
-	}
+	ip := middleware.ClienteIP(r)
 	userAgent := r.Header.Get("User-Agent")
 
 	output, err := h.useCase.CapturarLead(r.Context(), input, ip, userAgent)

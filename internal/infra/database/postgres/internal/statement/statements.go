@@ -28,6 +28,7 @@ type Statements struct {
 	SalvarUsuarioRefreshToken        string
 	BuscarUsuarioRefreshTokenPorHash string
 	RevogarUsuarioRefreshToken       string
+	ExpurgarUsuarioRefreshTokens     string
 
 	// plano
 	BuscarPlanoAtivoPorCliente string
@@ -77,6 +78,7 @@ type Statements struct {
 	BloquearLandingPage          string
 	DesbloquearLandingPage       string
 	VerificarAcessoLandingPage   string
+	ContarLandingPagesPorCliente string
 
 	// lead
 	SalvarLead          string
