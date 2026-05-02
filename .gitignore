@@ -1,0 +1,46 @@
+# Binários
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Artefatos de teste
+*.test
+*.out
+coverage.html
+coverage.out
+
+# Uploads e arquivos de storage local
+uploads/
+
+# Variáveis de ambiente (nunca commitar segredos)
+.env
+.env.local
+.env.*.local
+
+# Dependências de vendor (usar go modules)
+vendor/
+
+# Cache do Go
+/tmp/
+.cache/
+
+# IDEs e editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Artefatos do Windows (WSL)
+*:Zone.Identifier
+
+# Arquivos temporários
+*.tmp
+*.temp

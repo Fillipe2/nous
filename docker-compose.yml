@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  buildnix-backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET obrigatorio com pelo menos 32 caracteres}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET obrigatorio com pelo menos 32 caracteres}
+      OBSERVER_URL: ${OBSERVER_URL:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-http://localhost:8080/auth/google/callback}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-./logs/buildnix-backend.log}
+      LOG_MAX_SIZE_MB: ${LOG_MAX_SIZE_MB:-50}
+      LOG_MAX_AGE_DAYS: ${LOG_MAX_AGE_DAYS:-30}
+      LOG_MAX_BACKUPS: ${LOG_MAX_BACKUPS:-10}
+      LOG_COMPRESS: ${LOG_COMPRESS:-true}
+      LOG_STDOUT: ${LOG_STDOUT:-true}
+      SERVER_PORT: 8080
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - buildnix_backend_logs:/app/logs
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: buildnix
+      POSTGRES_PASSWORD: buildnix
+      POSTGRES_DB: buildnix
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buildnix"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  buildnix_backend_logs:

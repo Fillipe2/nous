@@ -1,0 +1,2028 @@
+openapi: 3.0.3
+info:
+  title: Buildnix Backend API
+  version: 1.0.0
+  description: API REST do Buildnix para criação, gestão, autosave, leads, exportação e auditoria de landing pages. O papel admin representa usuários internos da Sognix com visão operacional global.
+servers:
+  - url: /
+tags:
+  - name: Auth
+  - name: Usuarios
+  - name: Clientes
+  - name: Dashboard
+  - name: Opcoes
+  - name: Negocios
+  - name: Categorias
+  - name: Templates
+  - name: LandingPages
+  - name: Leads
+  - name: Exportacoes
+  - name: Auditoria
+  - name: Swagger
+paths:
+  /swagger/openapi.yaml:
+    get:
+      tags: [Swagger]
+      summary: Retorna a especificação OpenAPI embarcada
+      responses:
+        '200':
+          description: Especificação YAML
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login tradicional
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renova token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenInput'
+      responses:
+        '200':
+          description: Token renovado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout local do cliente
+      responses:
+        '200':
+          description: Logout realizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
+  /auth/google/login:
+    get:
+      tags: [Auth]
+      summary: Inicia login Google OAuth2
+      description: Cria cookie HttpOnly `oauth_state` e redireciona para o Google. Requer GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REDIRECT_URL configurados.
+      responses:
+        '307':
+          description: Redirecionamento temporário para Google OAuth2
+          headers:
+            Location:
+              description: URL de autorização do Google
+              schema:
+                type: string
+            Set-Cookie:
+              description: Cookie HttpOnly `oauth_state` usado para validação CSRF
+              schema:
+                type: string
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/google/callback:
+    get:
+      tags: [Auth]
+      summary: Callback do Google OAuth2
+      description: Valida `state` contra o cookie `oauth_state`, troca `code` por token Google e retorna os tokens JWT do Buildnix.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Autenticado via Google
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /usuarios:
+    post:
+      tags: [Usuarios]
+      summary: Cria usuário comum
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarUsuarioInput'
+      responses:
+        '201':
+          description: Usuário criado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      tags: [Usuarios]
+      summary: Lista usuários, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [usuario, admin]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, email, role, status, criado_em, atualizado_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de usuários
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /usuarios/me:
+    get:
+      tags: [Usuarios]
+      summary: Obtém o usuário autenticado
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Usuário autenticado
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /usuarios/{id}:
+    put:
+      tags: [Usuarios]
+      summary: Atualiza usuário
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarUsuarioInput'
+      responses:
+        '200':
+          description: Usuário atualizado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Usuarios]
+      summary: Exclui usuário com soft delete
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Usuário excluído
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /clientes:
+    get:
+      tags: [Clientes]
+      summary: Lista clientes, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: usuario_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, email, status, criado_em, atualizado_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de clientes
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Clientes]
+      summary: Cria cliente, admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarClienteInput'
+      responses:
+        '201':
+          description: Cliente criado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /clientes/me:
+    get:
+      tags: [Clientes]
+      summary: Lista clientes vinculados ao usuário autenticado
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, email, status, criado_em, atualizado_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista básica de clientes vinculados
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /clientes/{id}:
+    put:
+      tags: [Clientes]
+      summary: Atualiza cliente, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarClienteInput'
+      responses:
+        '200':
+          description: Cliente atualizado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Clientes]
+      summary: Exclui cliente com soft delete, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Cliente excluído
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /usuarios-clientes:
+    post:
+      tags: [Clientes]
+      summary: Vincula usuário a cliente, admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VincularUsuarioClienteInput'
+      responses:
+        '201':
+          description: Usuário vinculado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard operacional do cliente
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cliente_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Contadores do cliente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /dashboard/admin:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard global da Sognix, admin
+      description: Retorna métricas agregadas de clientes, usuários, templates, landing pages, leads e exportações.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Contadores globais da operação Sognix
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /opcoes/clientes:
+    get:
+      tags: [Opcoes]
+      summary: Lista opções de clientes para combos/filtros
+      description: Admin/Sognix vê todos os clientes. Usuário comum vê apenas clientes vinculados ao seu usuário.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Busca por nome.
+          schema:
+            type: string
+        - name: usuario_id
+          in: query
+          required: false
+          description: Disponível para admin/Sognix filtrar clientes vinculados a um usuário.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Opções de clientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaOpcoesOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /opcoes/usuarios:
+    get:
+      tags: [Opcoes]
+      summary: Lista opções de usuários para combos/filtros, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Busca por nome.
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [usuario, admin]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Opções de usuários
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaOpcoesOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /opcoes/negocios:
+    get:
+      tags: [Opcoes]
+      summary: Lista opções de negócios para combos/filtros
+      description: Admin/Sognix vê todos; usuário comum vê apenas negócios de clientes vinculados.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Opções de negócios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaOpcoesOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /opcoes/categorias:
+    get:
+      tags: [Opcoes]
+      summary: Lista opções de categorias para combos/filtros
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Opções de categorias
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaOpcoesOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /opcoes/templates:
+    get:
+      tags: [Opcoes]
+      summary: Lista opções de templates para combos/filtros
+      description: Usuário comum deve informar cliente_id e recebe templates oficiais Sognix mais templates daquele cliente, respeitando o plano.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: categoria_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: tipo
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [white_label, base_customizavel]
+        - name: origem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [sognix, cliente]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Opções de templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaOpcoesOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /opcoes/landingpages:
+    get:
+      tags: [Opcoes]
+      summary: Lista opções de landing pages para combos/filtros
+      description: Admin/Sognix vê todas; usuário comum vê apenas landing pages de clientes vinculados.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: negocio_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: categoria_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: template_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: tipo
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [white_label, customizavel]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [rascunho, publicada, arquivada, excluida]
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Opções de landing pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaOpcoesOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /opcoes/enums:
+    get:
+      tags: [Opcoes]
+      summary: Lista opções estáticas de tipos e status para combos/filtros
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Grupos de opções estáticas
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /negocios:
+    get:
+      tags: [Negocios]
+      summary: Lista negócios visíveis ao usuário
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, status, criado_em, atualizado_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de negócios
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Negocios]
+      summary: Cria negócio para cliente vinculado
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarNegocioInput'
+      responses:
+        '201':
+          description: Negócio criado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /negocios/{id}:
+    put:
+      tags: [Negocios]
+      summary: Atualiza negócio do cliente vinculado
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarNegocioInput'
+      responses:
+        '200':
+          description: Negócio atualizado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Negocios]
+      summary: Exclui negócio com soft delete
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Negócio excluído
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /categorias:
+    get:
+      tags: [Categorias]
+      summary: Lista categorias
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, status, criado_em, atualizado_em]
+            default: nome
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de categorias
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Categorias]
+      summary: Cria categoria, admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarCategoriaInput'
+      responses:
+        '201':
+          description: Categoria criada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /categorias/{id}:
+    put:
+      tags: [Categorias]
+      summary: Atualiza categoria, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarCategoriaInput'
+      responses:
+        '200':
+          description: Categoria atualizada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Categorias]
+      summary: Exclui categoria com soft delete, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Categoria excluída
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /templates:
+    get:
+      tags: [Templates]
+      summary: Lista templates
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cliente_id
+          in: query
+          required: false
+          description: Admin/Sognix pode filtrar templates de um cliente; usuário comum deve informar o cliente vinculado.
+          schema:
+            type: string
+        - name: categoria_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: tipo
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [white_label, base_customizavel]
+        - name: origem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [sognix, cliente]
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, tipo, origem, status, criado_em, atualizado_em]
+            default: nome
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de templates
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Templates]
+      summary: Cadastra template pronto no banco
+      description: Admin pode criar templates oficiais Sognix ou templates de cliente. Usuário comum só pode criar template do cliente ao qual tem acesso.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                cliente_id:
+                  type: string
+                  description: Obrigatório quando origem=cliente.
+                categoria_id:
+                  type: string
+                origem:
+                  type: string
+                  enum: [sognix, cliente]
+                  default: sognix
+                tipo:
+                  type: string
+                  enum: [white_label, base_customizavel]
+                  default: white_label
+                nome:
+                  type: string
+                conteudo:
+                  type: string
+                  description: Conteúdo do template salvo no banco. Pode substituir ou complementar o arquivo enviado.
+                arquivo:
+                  type: string
+                  format: binary
+                  description: Arquivo opcional; quando enviado e conteudo estiver vazio, seu conteúdo será salvo no banco.
+      responses:
+        '201':
+          description: Template criado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /templates/{id}:
+    delete:
+      tags: [Templates]
+      summary: Exclui template com soft delete, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Template excluído
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /landingpages:
+    get:
+      tags: [LandingPages]
+      summary: Lista landing pages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: negocio_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: categoria_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: template_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: tipo
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [white_label, customizavel]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: is_draft
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, tipo, status, criado_em, atualizado_em, last_autosave_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de landing pages
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [LandingPages]
+      summary: Cria landing page
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarLandingPageInput'
+      responses:
+        '201':
+          description: Landing page criada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /landingpages/{id}:
+    get:
+      tags: [LandingPages]
+      summary: Obtém landing page
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Landing page
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [LandingPages]
+      summary: Atualiza landing page
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarLandingPageInput'
+      responses:
+        '200':
+          description: Landing page atualizada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [LandingPages]
+      summary: Exclui landing page com soft delete
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Landing page excluída
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /landingpages/{id}/autosave:
+    patch:
+      tags: [LandingPages]
+      summary: Salva rascunho automático da landing page
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutosaveInput'
+      responses:
+        '200':
+          description: Autosave atualizado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /landingpages/{id}/lock:
+    patch:
+      tags: [LandingPages]
+      summary: Bloqueia landing page para edição concorrente
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Lock criado
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /landingpages/{id}/unlock:
+    patch:
+      tags: [LandingPages]
+      summary: Remove lock de edição da landing page
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Lock removido
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /landingpages/{id}/exportar:
+    post:
+      tags: [Exportacoes]
+      summary: Envia ZIP exportado da landing page
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [arquivo]
+              properties:
+                arquivo:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Exportação salva
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /leads:
+    post:
+      tags: [Leads]
+      summary: Captura lead público da landing page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CapturarLeadInput'
+      responses:
+        '201':
+          description: Lead capturado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      tags: [Leads]
+      summary: Lista leads capturados, admin/Sognix
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: landingpage_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [novo, contatado, convertido, perdido]
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, email, status, criado_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de leads
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /leads/{id}:
+    get:
+      tags: [Leads]
+      summary: Obtém lead, admin/Sognix
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Lead
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /leads/{id}/status:
+    patch:
+      tags: [Leads]
+      summary: Atualiza status do lead, admin/Sognix
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarStatusLeadInput'
+      responses:
+        '200':
+          description: Status atualizado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /exportacoes:
+    get:
+      tags: [Exportacoes]
+      summary: Lista exportações, admin/Sognix global ou por landing page
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cliente_id
+          in: query
+          required: false
+          description: Filtro global disponível para admin/Sognix.
+          schema:
+            type: string
+        - name: landingpage_id
+          in: query
+          required: false
+          description: Obrigatório para usuário comum; opcional para admin/Sognix.
+          schema:
+            type: string
+        - name: usuario_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: nome_arquivo
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome_arquivo, tamanho_bytes, criado_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de exportações
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /exportacoes/{id}/download:
+    get:
+      tags: [Exportacoes]
+      summary: Baixa ZIP gerado
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Arquivo ZIP
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /auditoria:
+    get:
+      tags: [Auditoria]
+      summary: Lista auditoria, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: usuario_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: acao
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: entidade
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: entidade_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status_code
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: request_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [acao, entidade, status_code, tempo_resposta_ms, criado_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de auditoria
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auditoria/{id}:
+    get:
+      tags: [Auditoria]
+      summary: Obtém evento de auditoria, admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Auditoria
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    Pagina:
+      name: pagina
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PorPagina:
+      name: por_pagina
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: Requisição inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    Unauthorized:
+      description: Não autenticado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    Forbidden:
+      description: Acesso negado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    NotFound:
+      description: Registro não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    Conflict:
+      description: Conflito de versão ou lock
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    ServiceUnavailable:
+      description: Serviço externo ou integração não configurada
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+  schemas:
+    Erro:
+      type: object
+      properties:
+        erro:
+          type: string
+        codigo:
+          type: string
+        mensagem:
+          type: string
+        request_id:
+          type: string
+    MensagemOutput:
+      type: object
+      properties:
+        mensagem:
+          type: string
+    OpcaoOutput:
+      type: object
+      properties:
+        id:
+          type: string
+        nome:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+        tipo:
+          type: string
+        origem:
+          type: string
+        cliente_id:
+          type: string
+        categoria_id:
+          type: string
+    ListaOpcoesOutput:
+      type: object
+      properties:
+        dados:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpcaoOutput'
+        total:
+          type: integer
+        pagina:
+          type: integer
+        por_pagina:
+          type: integer
+    LoginInput:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+    RefreshTokenInput:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+    LoginOutput:
+      type: object
+      properties:
+        token:
+          type: string
+        refresh_token:
+          type: string
+        usuario:
+          type: object
+        clientes:
+          type: array
+          items:
+            type: object
+    CriarUsuarioInput:
+      type: object
+      required: [nome, email, senha]
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+        role:
+          type: string
+          enum: [usuario, admin]
+    AtualizarUsuarioInput:
+      type: object
+      required: [version]
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+        version:
+          type: integer
+    CriarClienteInput:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+    AtualizarClienteInput:
+      type: object
+      required: [version]
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        version:
+          type: integer
+    VincularUsuarioClienteInput:
+      type: object
+      required: [usuario_id, cliente_id]
+      properties:
+        usuario_id:
+          type: string
+        cliente_id:
+          type: string
+    CriarNegocioInput:
+      type: object
+      required: [cliente_id, nome]
+      properties:
+        cliente_id:
+          type: string
+        nome:
+          type: string
+    AtualizarNegocioInput:
+      type: object
+      required: [version]
+      properties:
+        nome:
+          type: string
+        version:
+          type: integer
+    CriarCategoriaInput:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+    AtualizarCategoriaInput:
+      type: object
+      required: [version]
+      properties:
+        nome:
+          type: string
+        version:
+          type: integer
+    CriarLandingPageInput:
+      type: object
+      required: [cliente_id, nome]
+      properties:
+        cliente_id:
+          type: string
+        negocio_id:
+          type: string
+        categoria_id:
+          type: string
+        template_id:
+          type: string
+        tipo:
+          type: string
+          enum: [white_label, customizavel]
+          default: white_label
+        nome:
+          type: string
+        conteudo:
+          type: string
+          description: Permitido para landing pages customizáveis. White label parte do conteúdo do template.
+    AtualizarLandingPageInput:
+      type: object
+      required: [version]
+      properties:
+        negocio_id:
+          type: string
+        categoria_id:
+          type: string
+        template_id:
+          type: string
+        tipo:
+          type: string
+          enum: [white_label, customizavel]
+        nome:
+          type: string
+        conteudo:
+          type: string
+        status:
+          type: string
+        version:
+          type: integer
+    AutosaveInput:
+      type: object
+      required: [autosave_data, version]
+      properties:
+        autosave_data:
+          type: object
+          additionalProperties: true
+        version:
+          type: integer
+    CapturarLeadInput:
+      type: object
+      required: [landingpage_id, nome, email]
+      properties:
+        landingpage_id:
+          type: string
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+        whatsapp:
+          type: string
+        mensagem:
+          type: string
+        campos_personalizados:
+          type: object
+          additionalProperties: true
+    AtualizarStatusLeadInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
