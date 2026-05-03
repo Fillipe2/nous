@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -144,12 +145,14 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.googleConfig.Exchange(r.Context(), code)
 	if err != nil {
+		log.Printf("google oauth exchange falhou: %v", err)
 		responderErro(w, http.StatusUnauthorized, "falha na autenticacao google")
 		return
 	}
 
 	userInfo, err := obterInfoGoogleUsuario(r.Context(), h.googleConfig, token)
 	if err != nil {
+		log.Printf("google obter userinfo falhou: %v", err)
 		responderErro(w, http.StatusInternalServerError, "erro ao obter dados do google")
 		return
 	}
@@ -160,6 +163,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		Nome:          userInfo.Name,
 	})
 	if err != nil {
+		log.Printf("google login usecase falhou: provider_id=%s email=%s erro=%v", userInfo.Sub, userInfo.Email, err)
 		responderErro(w, http.StatusInternalServerError, "erro ao processar login google")
 		return
 	}
@@ -179,6 +183,37 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "logout realizado com sucesso"})
 }
 
+func (h *AuthHandler) EsqueciSenha(w http.ResponseWriter, r *http.Request) {
+	var input dto.EsqueciSenhaInput
+	if err := decodificarJSON(r, &input); err != nil {
+		responderErro(w, http.StatusBadRequest, "payload invalido")
+		return
+	}
+	output, err := h.useCase.EsqueciSenha(r.Context(), input)
+	if err != nil {
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+	responderJSON(w, http.StatusOK, output)
+}
+
+func (h *AuthHandler) RedefinirSenha(w http.ResponseWriter, r *http.Request) {
+	var input dto.RedefinirSenhaInput
+	if err := decodificarJSON(r, &input); err != nil {
+		responderErro(w, http.StatusBadRequest, "payload invalido")
+		return
+	}
+	if err := h.useCase.RedefinirSenha(r.Context(), input); err != nil {
+		if errors.Is(err, usuario.ErrNaoAutorizado) || errors.Is(err, usuario.ErrNaoEncontrado) {
+			responderErro(w, http.StatusUnauthorized, "token invalido ou expirado")
+			return
+		}
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "senha redefinida com sucesso"})
+}
+
 func (h *AuthHandler) googleConfigurado() bool {
 	return strings.TrimSpace(h.googleConfig.ClientID) != "" &&
 		strings.TrimSpace(h.googleConfig.ClientSecret) != "" &&
@@ -196,12 +231,12 @@ func sameSiteOAuthState(callbackSeguro bool) http.SameSite {
 		return http.SameSiteStrictMode
 	case "none":
 		if !callbackSeguro {
-			return http.SameSiteStrictMode
+			return http.SameSiteLaxMode
 		}
 		return http.SameSiteNoneMode
 	case "lax":
 		return http.SameSiteLaxMode
 	default:
-		return http.SameSiteStrictMode
+		return http.SameSiteLaxMode
 	}
 }

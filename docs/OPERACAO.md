@@ -126,6 +126,7 @@ Auditoria:
 - Nunca versionar `.env`, credenciais, tokens, certificados, dumps de banco, dados pessoais reais, logs sensíveis ou artefatos de produção.
 - Usar GitHub Secret Scanning, Dependabot e revisão de permissões quando disponíveis na organização.
 - Revogar imediatamente qualquer credencial que tenha sido exposta em commit, issue, log, artefato ou ambiente compartilhado.
+- Manter `RESET_PASSWORD_RETURN_TOKEN=false` fora de desenvolvimento/testes; quando habilitado, a API registra aviso na inicialização porque o token volta na resposta HTTP.
 - Manter o aviso de propriedade e confidencialidade em [../NOTICE.md](../NOTICE.md).
 
 ## Alto Fluxo
@@ -137,6 +138,7 @@ Checklist antes de produção:
 - Rodar `make test-integration` com `TEST_DATABASE_URL` apontando para um PostgreSQL descartável antes de promover migrations/repositórios.
 - Garantir que o workflow [`../../.github/workflows/ci.yml`](../../.github/workflows/ci.yml) esteja obrigatório na proteção da branch.
 - Configurar dashboards e alertas mínimos conforme [OBSERVABILIDADE.md](OBSERVABILIDADE.md).
+- Verificar que `RESET_PASSWORD_RETURN_TOKEN=false` no ambiente promovido.
 - Rodar teste de carga em login, `POST /leads`, autosave, exportação e listagens.
 - Monitorar erros 409 para conflito de edição.
 - Monitorar latência, saturação do pool, locks e queries lentas.

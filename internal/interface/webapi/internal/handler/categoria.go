@@ -37,11 +37,16 @@ func (h *CategoriaHandler) CriarCategoria(w http.ResponseWriter, r *http.Request
 
 func (h *CategoriaHandler) ListarCategorias(w http.ResponseWriter, r *http.Request) {
 	pagina, porPagina := paginacao(r)
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	output, err := h.useCase.ListarCategorias(r.Context(), categoria.FiltroListagem{
 		Nome:       r.URL.Query().Get("nome"),
 		Status:     r.URL.Query().Get("status"),
-		DataInicio: r.URL.Query().Get("data_inicio"),
-		DataFim:    r.URL.Query().Get("data_fim"),
+		DataInicio: dataInicio,
+		DataFim:    dataFim,
 		Pagina:     pagina,
 		PorPagina:  porPagina,
 		OrdenarPor: r.URL.Query().Get("ordenar_por"),

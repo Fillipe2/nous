@@ -1,8 +1,36 @@
 # Buildnix Backend
 
-Backend do sistema de criação e gestão de landing pages whitelabel da plataforma Sognix.
+Backend do **buildnix**, o produto *builder/admin* da plataforma Sognix. Gerencia identidade do Operador, Negócios, templates, definição de landing pages, planos/billing, captura de leads de aquisição B2B do Sognix e ponte para o Observer.
 
-O Buildnix funciona em modo standalone e mantém integração opcional com o Observer para publicação de eventos do ecossistema Sognix.
+O buildnix opera em modo standalone e publica eventos no Observer quando configurado. Ele **não** serve as landing pages publicamente nem hospeda a operação vertical (agendamento, paciente, processo, etc.) — esses domínios pertencem ao novo backend de orquestração de LPs (em planejamento), que tem identidade própria validada via JWT do buildnix.
+
+## Posicionamento no ecossistema Sognix
+
+```
+┌──────────────────┐       ┌─────────────────────┐      ┌──────────┐      ┌────────┐
+│  Frontend        │       │  BUILDNIX BACKEND   │      │ OBSERVER │      │ SBRAIN │
+│  Buildnix        │◄─────►│  (admin do builder) │─────►│   bus    │─────►│  CRM   │
+│  (admin builder) │       │  identidade, planos │      └──────────┘      └────────┘
+└──────────────────┘       └─────────▲───────────┘
+                                     │ API interna
+                                     ▼
+                           ┌─────────────────────┐
+                           │  NOVO BACKEND       │      ┌──────────────────┐
+                           │  multi-tenant       │◄────►│ Frontends das LPs│
+                           │  núcleo + módulos   │      │ (públicas + área │
+                           │  verticais (odonto, │      │ logada do dono)  │
+                           │  jurídico, ...)     │      └──────────────────┘
+                           └─────────────────────┘
+```
+
+**Quem fala com o Observer:** apenas o buildnix. O novo backend reportará para o buildnix por API interna e o buildnix consolida e publica eventos canônicos para o Observer.
+
+Detalhes de visão, fases e decisões pendentes em [docs/ROADMAP_ECOSSISTEMA.md](docs/ROADMAP_ECOSSISTEMA.md).
+
+## Dois tipos de lead
+
+- **Lead Tipo A — Aquisição Sognix (B2B).** Operador em potencial (Dr. João, Dra. Maria) que quer contratar produtos Sognix. Captura, gestão e funil comercial vivem no buildnix.
+- **Lead Tipo B — Captura do Operador (B2C).** Visitante da LP do Operador (Maria querendo agendar consulta na Clínica Sorriso). Vive no novo backend; o buildnix só vê agregados via Observer/Sbrain. O recurso `lead` atual é Tipo B e migra para o novo backend quando ele nascer.
 
 ## Confidencialidade e propriedade
 
@@ -27,6 +55,7 @@ Consulte [NOTICE.md](NOTICE.md) para o aviso de propriedade e confidencialidade.
 
 ## Documentação
 
+- [docs/ROADMAP_ECOSSISTEMA.md](docs/ROADMAP_ECOSSISTEMA.md): posicionamento do buildnix no ecossistema Sognix, fases e decisões pendentes.
 - [docs/ARQUITETURA.md](docs/ARQUITETURA.md): arquitetura, banco, concorrência, alto fluxo e integração.
 - [docs/API.md](docs/API.md): endpoints, contratos importantes e respostas de erro.
 - [docs/OPERACAO.md](docs/OPERACAO.md): ambiente, migrations, testes, build, deploy, logs e LGPD.
@@ -94,6 +123,7 @@ Variáveis principais:
 | `OBSERVER_URL` | URL do Observer. Vazio mantém operação standalone. |
 | `CORS_ALLOWED_ORIGINS` | Origens autorizadas para CORS, separadas por vírgula. |
 | `REDIS_URL` | Redis opcional para rate limit distribuído em produção multi-instância. |
+| `RESET_PASSWORD_RETURN_TOKEN` | Se `true`, retorna token de redefinição na resposta HTTP. Use apenas em desenvolvimento/testes; a inicialização registra aviso quando habilitado. |
 | `SERVER_PORT` | Porta HTTP da API. |
 
 Planos customizáveis devem definir `landingpages_customizaveis=true` em `plano.limites`. Planos white label simples devem omitir essa chave ou usar `false`.
@@ -163,7 +193,7 @@ Depois que o PostgreSQL estiver pronto, rode as migrations com `make migrate-up`
 - `GET /clientes`
 - `POST /clientes`
 - `PUT /clientes/{id}`
-- `GET /dashboard?cliente_id={id}`
+- `GET /dashboard`
 - `GET /negocios?cliente_id={id}`
 - `GET /landingpages`
 - `POST /landingpages`
@@ -175,11 +205,13 @@ Depois que o PostgreSQL estiver pronto, rode as migrations com `make migrate-up`
 - `GET /exportacoes/{id}/download`
 - `POST /leads`
 - `GET /swagger`
-- `GET /leads` admin/Sognix
+- `GET /leads` somente admin/Sognix
 - `GET /auditoria` admin
 - `GET /swagger/openapi.yaml`
 
 Detalhes completos em [docs/API.md](docs/API.md).
+
+No dashboard, admin pode usar filtros como `cliente_id`, `usuario_id`, `landingpage_id`, `negocio_id`, `categoria_id`, `template_id`, `tipo`, `data_inicio` e `data_fim`. Usuário comum usa a mesma rota, mas recebe apenas métricas dos clientes vinculados, sem dados pessoais de leads. A criação de cliente é self-onboarding para usuário autenticado e vincula automaticamente o cliente ao usuário criador.
 
 ## Concorrência
 

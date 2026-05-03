@@ -5,13 +5,29 @@ import "errors"
 var ErrClienteObrigatorio = errors.New("cliente_id e obrigatorio")
 
 type FiltroPeriodo struct {
-	DataInicio string
-	DataFim    string
+	DataInicio    string
+	DataFim       string
+	ClienteId     string
+	UsuarioId     string
+	LandingPageId string
+	NegocioId     string
+	CategoriaId   string
+	TemplateId    string
+	Tipo          string
 }
 
 type ResumoCliente struct {
 	ClienteId            string
 	UsuariosVinculados   int
+	LandingPagesCriadas  int
+	LandingPagesOnline   int
+	ExportacoesGeradas   int
+	LandingPageMaisUsada *LandingPageUtilizada
+}
+
+type ResumoUsuario struct {
+	UsuarioId            string
+	ClientesVinculados   int
 	LandingPagesCriadas  int
 	LandingPagesOnline   int
 	ExportacoesGeradas   int

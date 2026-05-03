@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"buildnix-backend/internal/infra/config"
 	"buildnix-backend/internal/infra/database/postgres"
@@ -29,6 +30,9 @@ func (c *Container) initInfra(ctx context.Context) error {
 		return fmt.Errorf("configurar logs: %w", err)
 	}
 	c.LogCloser = logCloser
+	if cfg.ResetPasswordReturnToken {
+		log.Printf("AVISO: RESET_PASSWORD_RETURN_TOKEN=true retorna token de redefinicao na resposta HTTP; use apenas em desenvolvimento/testes")
+	}
 
 	database, err := postgres.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {

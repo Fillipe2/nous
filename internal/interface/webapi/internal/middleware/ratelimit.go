@@ -258,7 +258,7 @@ func limparBucketsExpirados(agora time.Time) {
 
 func classeRota(r *http.Request) string {
 	path := r.URL.Path
-	if r.Method == http.MethodPost && (path == "/auth/login" || path == "/auth/refresh" || path == "/usuarios" || path == "/leads") {
+	if r.Method == http.MethodPost && (path == "/auth/login" || path == "/auth/refresh" || path == "/auth/esqueci-senha" || path == "/auth/redefinir-senha" || path == "/usuarios" || path == "/leads") {
 		return path
 	}
 	if strings.HasPrefix(path, "/auth/google") {

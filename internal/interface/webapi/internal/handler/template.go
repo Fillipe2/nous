@@ -84,6 +84,11 @@ func (h *TemplateHandler) ListarTemplates(w http.ResponseWriter, r *http.Request
 	origem := r.URL.Query().Get("origem")
 	pagina, porPagina := paginacao(r)
 	claims := middleware.ObterClaims(r.Context())
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	output, err := h.useCase.ListarTemplates(r.Context(), template.FiltroListagem{
 		ClienteId:   clienteId,
@@ -92,8 +97,8 @@ func (h *TemplateHandler) ListarTemplates(w http.ResponseWriter, r *http.Request
 		Origem:      origem,
 		Nome:        r.URL.Query().Get("nome"),
 		Status:      r.URL.Query().Get("status"),
-		DataInicio:  r.URL.Query().Get("data_inicio"),
-		DataFim:     r.URL.Query().Get("data_fim"),
+		DataInicio:  dataInicio,
+		DataFim:     dataFim,
 		Pagina:      pagina,
 		PorPagina:   porPagina,
 		OrdenarPor:  r.URL.Query().Get("ordenar_por"),

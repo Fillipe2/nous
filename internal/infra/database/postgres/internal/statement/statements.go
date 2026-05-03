@@ -16,19 +16,23 @@ var source embed.FS
 // Cada campo corresponde a um statement nomeado nos arquivos SQL (-- name: NomeQuery).
 type Statements struct {
 	// usuario
-	SalvarUsuario                    string
-	BuscarUsuarioPorID               string
-	BuscarUsuarioPorEmail            string
-	AtualizarUsuario                 string
-	SoftDeleteUsuario                string
-	ContarUsuarios                   string
-	ListarUsuarios                   string
-	SalvarUsuarioAuth                string
-	BuscarUsuarioAuthPorProvider     string
-	SalvarUsuarioRefreshToken        string
-	BuscarUsuarioRefreshTokenPorHash string
-	RevogarUsuarioRefreshToken       string
-	ExpurgarUsuarioRefreshTokens     string
+	SalvarUsuario                        string
+	BuscarUsuarioPorID                   string
+	BuscarUsuarioPorEmail                string
+	AtualizarUsuario                     string
+	SoftDeleteUsuario                    string
+	ContarUsuarios                       string
+	ListarUsuarios                       string
+	SalvarUsuarioAuth                    string
+	BuscarUsuarioAuthPorProvider         string
+	SalvarUsuarioRefreshToken            string
+	BuscarUsuarioRefreshTokenPorHash     string
+	RevogarUsuarioRefreshToken           string
+	RevogarUsuarioRefreshTokensDoUsuario string
+	ExpurgarUsuarioRefreshTokens         string
+	SalvarUsuarioResetSenhaToken         string
+	BuscarUsuarioResetSenhaTokenPorHash  string
+	MarcarUsuarioResetSenhaTokenUsado    string
 
 	// plano
 	BuscarPlanoAtivoPorCliente string
@@ -81,9 +85,12 @@ type Statements struct {
 	ContarLandingPagesPorCliente string
 
 	// lead
-	SalvarLead          string
-	BuscarLeadPorID     string
-	AtualizarStatusLead string
+	SalvarLead               string
+	BuscarLeadPorID          string
+	BuscarLeadDuplicado      string
+	AtualizarStatusLead      string
+	AnonimizarLead           string
+	AnonimizarLeadsExpirados string
 
 	// exportacao
 	SalvarExportacao                string

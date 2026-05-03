@@ -14,15 +14,17 @@ func Cliente(row pgx.Row) (*cliente.Cliente, error) {
 		id           string
 		nome         string
 		email        string
+		telefone     *string
+		whatsapp     *string
 		status       string
 		criadoEm     time.Time
 		atualizadoEm time.Time
 		version      int
 	)
-	if err := row.Scan(&id, &nome, &email, &status, &criadoEm, &atualizadoEm, &version); err != nil {
+	if err := row.Scan(&id, &nome, &email, &telefone, &whatsapp, &status, &criadoEm, &atualizadoEm, &version); err != nil {
 		return nil, err
 	}
-	return &cliente.Cliente{
+	c := &cliente.Cliente{
 		Id:           id,
 		Nome:         nome,
 		Email:        email,
@@ -30,5 +32,12 @@ func Cliente(row pgx.Row) (*cliente.Cliente, error) {
 		CriadoEm:     criadoEm,
 		AtualizadoEm: atualizadoEm,
 		Version:      version,
-	}, nil
+	}
+	if telefone != nil {
+		c.Telefone = *telefone
+	}
+	if whatsapp != nil {
+		c.Whatsapp = *whatsapp
+	}
+	return c, nil
 }

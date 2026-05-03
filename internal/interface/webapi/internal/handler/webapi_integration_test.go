@@ -17,6 +17,7 @@ import (
 	"buildnix-backend/internal/domain/cliente"
 	"buildnix-backend/internal/domain/dashboard"
 	"buildnix-backend/internal/domain/evento"
+	"buildnix-backend/internal/domain/landingpage"
 	"buildnix-backend/internal/domain/lead"
 	"buildnix-backend/internal/domain/usuario"
 	infrajwt "buildnix-backend/internal/infra/jwt"
@@ -68,7 +69,19 @@ func (r *usuarioHandlerRepositoryFake) BuscarRefreshTokenPorHash(context.Context
 func (r *usuarioHandlerRepositoryFake) RevogarRefreshToken(context.Context, string, time.Time) error {
 	return nil
 }
+func (r *usuarioHandlerRepositoryFake) RevogarRefreshTokensDoUsuario(context.Context, string, time.Time) error {
+	return nil
+}
 func (r *usuarioHandlerRepositoryFake) ExpurgarRefreshTokens(context.Context, time.Time) error {
+	return nil
+}
+func (r *usuarioHandlerRepositoryFake) SalvarResetSenhaToken(context.Context, *usuario.ResetSenhaToken) error {
+	return nil
+}
+func (r *usuarioHandlerRepositoryFake) BuscarResetSenhaTokenPorHash(context.Context, string) (*usuario.ResetSenhaToken, error) {
+	return nil, usuario.ErrNaoEncontrado
+}
+func (r *usuarioHandlerRepositoryFake) MarcarResetSenhaTokenUsado(context.Context, string, time.Time) error {
 	return nil
 }
 
@@ -114,23 +127,71 @@ func (r *leadHandlerRepositoryFake) Salvar(_ context.Context, l *lead.Lead) erro
 func (r *leadHandlerRepositoryFake) BuscarPorID(context.Context, string) (*lead.Lead, error) {
 	return nil, lead.ErrNaoEncontrado
 }
-func (r *leadHandlerRepositoryFake) AtualizarStatus(context.Context, string, lead.Status) error {
+func (r *leadHandlerRepositoryFake) BuscarDuplicado(context.Context, string, string, time.Time) (*lead.Lead, error) {
+	return nil, lead.ErrNaoEncontrado
+}
+func (r *leadHandlerRepositoryFake) AtualizarStatus(context.Context, string, lead.AtualizacaoStatus, time.Time) error {
 	return nil
 }
 func (r *leadHandlerRepositoryFake) Listar(context.Context, lead.FiltroListagem) ([]*lead.Lead, int, error) {
 	return nil, 0, nil
+}
+func (r *leadHandlerRepositoryFake) Anonimizar(context.Context, string, time.Time) error { return nil }
+func (r *leadHandlerRepositoryFake) AnonimizarExpirados(context.Context, time.Time) (int, error) {
+	return 0, nil
+}
+
+type leadHandlerLandingPageFake struct {
+	lp *landingpage.LandingPage
+}
+
+func (f *leadHandlerLandingPageFake) Salvar(context.Context, *landingpage.LandingPage) error {
+	return nil
+}
+func (f *leadHandlerLandingPageFake) BuscarPorID(context.Context, string) (*landingpage.LandingPage, error) {
+	if f.lp == nil {
+		return nil, landingpage.ErrNaoEncontrada
+	}
+	return f.lp, nil
+}
+func (f *leadHandlerLandingPageFake) Atualizar(context.Context, *landingpage.LandingPage) error {
+	return nil
+}
+func (f *leadHandlerLandingPageFake) SoftDelete(context.Context, string) error { return nil }
+func (f *leadHandlerLandingPageFake) Listar(context.Context, landingpage.FiltroListagem) ([]*landingpage.LandingPage, int, error) {
+	return nil, 0, nil
+}
+func (f *leadHandlerLandingPageFake) ContarPorCliente(context.Context, string) (int, error) {
+	return 0, nil
+}
+func (f *leadHandlerLandingPageFake) AtualizarAutosave(context.Context, string, []byte, int) (int, error) {
+	return 0, nil
+}
+func (f *leadHandlerLandingPageFake) AtualizarLock(context.Context, string, *string) error {
+	return nil
+}
+func (f *leadHandlerLandingPageFake) VerificarAcessoUsuario(context.Context, string, string) error {
+	return nil
 }
 
 type publisherHandlerFake struct{}
 
 func (publisherHandlerFake) Publicar(context.Context, evento.Evento) error { return nil }
 
-type dashboardHandlerRepositoryFake struct{}
+type dashboardHandlerRepositoryFake struct {
+	filtro dashboard.FiltroPeriodo
+}
 
-func (dashboardHandlerRepositoryFake) ObterResumoCliente(context.Context, string, dashboard.FiltroPeriodo) (*dashboard.ResumoCliente, error) {
+func (r *dashboardHandlerRepositoryFake) ObterResumoCliente(_ context.Context, _ string, filtro dashboard.FiltroPeriodo) (*dashboard.ResumoCliente, error) {
+	r.filtro = filtro
 	return &dashboard.ResumoCliente{ClienteId: "cliente-1", LandingPagesCriadas: 2, LandingPageMaisUsada: &dashboard.LandingPageUtilizada{Id: "lp-1", Nome: "LP", TotalExportacoes: 4}}, nil
 }
-func (dashboardHandlerRepositoryFake) ObterResumoAdmin(context.Context, dashboard.FiltroPeriodo) (*dashboard.ResumoAdmin, error) {
+func (r *dashboardHandlerRepositoryFake) ObterResumoUsuario(_ context.Context, _ string, filtro dashboard.FiltroPeriodo) (*dashboard.ResumoUsuario, error) {
+	r.filtro = filtro
+	return &dashboard.ResumoUsuario{UsuarioId: "usuario-1", ClientesVinculados: 1, LandingPagesCriadas: 2, LandingPageMaisUsada: &dashboard.LandingPageUtilizada{Id: "lp-1", Nome: "LP", TotalExportacoes: 4}}, nil
+}
+func (r *dashboardHandlerRepositoryFake) ObterResumoAdmin(_ context.Context, filtro dashboard.FiltroPeriodo) (*dashboard.ResumoAdmin, error) {
+	r.filtro = filtro
 	return &dashboard.ResumoAdmin{ClientesAtivos: 1}, nil
 }
 
@@ -199,8 +260,9 @@ func TestClienteHandlerIntegrationAtualizarConflitoRetorna409(t *testing.T) {
 
 func TestLeadHandlerIntegrationCapturaLeadComIPValidado(t *testing.T) {
 	repository := &leadHandlerRepositoryFake{}
-	handler := NewLeadHandler(uclead.NewUseCase(repository, publisherHandlerFake{}))
-	request := httptest.NewRequest(http.MethodPost, "/leads", strings.NewReader(`{"landingpage_id":"lp-1","nome":"Lead HTTP","email":"lead@sognix.test","whatsapp":"11999999999"}`))
+	lpFake := &leadHandlerLandingPageFake{lp: &landingpage.LandingPage{Id: "lp-1", ClienteId: "cliente-1", Status: landingpage.StatusPublicada}}
+	handler := NewLeadHandler(uclead.NewUseCase(repository, lpFake, publisherHandlerFake{}))
+	request := httptest.NewRequest(http.MethodPost, "/leads", strings.NewReader(`{"landingpage_id":"lp-1","nome":"Lead HTTP","email":"lead@sognix.test","whatsapp":"11999999999","consentimento":true}`))
 	request.Header.Set("X-Forwarded-For", "invalido, 203.0.113.10")
 	request.Header.Set("User-Agent", "handler-test")
 	response := httptest.NewRecorder()
@@ -221,11 +283,12 @@ func TestDashboardHandlerIntegrationAutenticado(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gerar token: %v", err)
 	}
-	handler := NewDashboardHandler(ucdashboard.NewUseCase(dashboardHandlerRepositoryFake{}, &clienteAcessoHandlerRepositoryFake{}))
+	repository := &dashboardHandlerRepositoryFake{}
+	handler := NewDashboardHandler(ucdashboard.NewUseCase(repository, &clienteAcessoHandlerRepositoryFake{}))
 	router := chi.NewRouter()
-	router.With(middleware.Autenticar(jwtServico)).Get("/dashboard", handler.ObterDashboardCliente)
+	router.With(middleware.Autenticar(jwtServico)).Get("/dashboard", handler.ObterDashboard)
 
-	request := httptest.NewRequest(http.MethodGet, "/dashboard?cliente_id=cliente-1", nil)
+	request := httptest.NewRequest(http.MethodGet, "/dashboard?cliente_id=cliente-1&landingpage_id=lp-1&data_inicio=2026-05-01&data_fim=2026-05-02", nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
@@ -236,24 +299,27 @@ func TestDashboardHandlerIntegrationAutenticado(t *testing.T) {
 	if !strings.Contains(response.Body.String(), `"landingpages_criadas":2`) {
 		t.Fatalf("dashboard nao retornou resumo esperado: %s", response.Body.String())
 	}
+	if repository.filtro.ClienteId != "cliente-1" || repository.filtro.LandingPageId != "lp-1" || repository.filtro.DataFim != "2026-05-02" {
+		t.Fatalf("filtros de dashboard nao propagados: %+v", repository.filtro)
+	}
 }
 
-func TestDashboardHandlerIntegrationAcessoNegado(t *testing.T) {
+func TestDashboardHandlerIntegrationDataInvalidaRetorna400(t *testing.T) {
 	jwtServico := infrajwt.NewServico("access-secret-handler", "refresh-secret-handler")
 	token, _, err := jwtServico.GerarTokens("usuario-1", "usuario@sognix.test", "usuario")
 	if err != nil {
 		t.Fatalf("gerar token: %v", err)
 	}
-	handler := NewDashboardHandler(ucdashboard.NewUseCase(dashboardHandlerRepositoryFake{}, &clienteAcessoHandlerRepositoryFake{err: cliente.ErrNaoAutorizado}))
+	handler := NewDashboardHandler(ucdashboard.NewUseCase(&dashboardHandlerRepositoryFake{}, &clienteAcessoHandlerRepositoryFake{}))
 	router := chi.NewRouter()
-	router.With(middleware.Autenticar(jwtServico)).Get("/dashboard", handler.ObterDashboardCliente)
+	router.With(middleware.Autenticar(jwtServico)).Get("/dashboard", handler.ObterDashboard)
 
-	request := httptest.NewRequest(http.MethodGet, "/dashboard?cliente_id=cliente-1", nil)
+	request := httptest.NewRequest(http.MethodGet, "/dashboard?data_fim=02-05-2026", nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("status esperado %d, recebido %d: %s", http.StatusForbidden, response.Code, response.Body.String())
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status esperado %d, recebido %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
 	}
 }

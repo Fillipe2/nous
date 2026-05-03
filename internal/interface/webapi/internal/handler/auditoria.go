@@ -18,6 +18,11 @@ func NewAuditoriaHandler(repository auditoria.Repository) *AuditoriaHandler {
 
 func (h *AuditoriaHandler) ListarAuditoria(w http.ResponseWriter, r *http.Request) {
 	pagina, porPagina := paginacao(r)
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	filtro := auditoria.FiltroListagem{
 		UsuarioId:  r.URL.Query().Get("usuario_id"),
 		Acao:       r.URL.Query().Get("acao"),
@@ -25,8 +30,8 @@ func (h *AuditoriaHandler) ListarAuditoria(w http.ResponseWriter, r *http.Reques
 		EntidadeId: r.URL.Query().Get("entidade_id"),
 		StatusCode: r.URL.Query().Get("status_code"),
 		RequestId:  r.URL.Query().Get("request_id"),
-		DataInicio: r.URL.Query().Get("data_inicio"),
-		DataFim:    r.URL.Query().Get("data_fim"),
+		DataInicio: dataInicio,
+		DataFim:    dataFim,
 		Pagina:     pagina,
 		PorPagina:  porPagina,
 		OrdenarPor: r.URL.Query().Get("ordenar_por"),

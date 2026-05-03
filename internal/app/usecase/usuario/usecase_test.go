@@ -57,7 +57,19 @@ func (r *usuarioRepositoryFake) BuscarRefreshTokenPorHash(context.Context, strin
 func (r *usuarioRepositoryFake) RevogarRefreshToken(context.Context, string, time.Time) error {
 	return nil
 }
+func (r *usuarioRepositoryFake) RevogarRefreshTokensDoUsuario(context.Context, string, time.Time) error {
+	return nil
+}
 func (r *usuarioRepositoryFake) ExpurgarRefreshTokens(context.Context, time.Time) error { return nil }
+func (r *usuarioRepositoryFake) SalvarResetSenhaToken(context.Context, *domain.ResetSenhaToken) error {
+	return nil
+}
+func (r *usuarioRepositoryFake) BuscarResetSenhaTokenPorHash(context.Context, string) (*domain.ResetSenhaToken, error) {
+	return nil, domain.ErrNaoEncontrado
+}
+func (r *usuarioRepositoryFake) MarcarResetSenhaTokenUsado(context.Context, string, time.Time) error {
+	return nil
+}
 
 func TestCriarUsuarioValidaObrigatorios(t *testing.T) {
 	useCase := NewUseCase(&usuarioRepositoryFake{})
@@ -89,21 +101,7 @@ func TestCriarUsuarioSalvaSenhaComHash(t *testing.T) {
 	}
 }
 
-func TestAtualizarUsuarioDetectaConflitoDeVersao(t *testing.T) {
-	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "usuario-1", Version: 2}}
-	useCase := NewUseCase(repository)
-
-	_, err := useCase.AtualizarUsuario(context.Background(), "usuario-1", dto.AtualizarUsuarioInput{Nome: "Novo", Version: 1})
-
-	if !errors.Is(err, domain.ErrVersaoConflito) {
-		t.Fatalf("erro esperado de versao, recebido %v", err)
-	}
-	if repository.atualizado != nil {
-		t.Fatal("usuario com conflito de versao nao deveria ser atualizado")
-	}
-}
-
-func TestAtualizarUsuarioIncrementaVersaoERehashSenha(t *testing.T) {
+func TestAtualizarUsuarioIncrementaVersaoSemAlterarSenha(t *testing.T) {
 	senhaAntiga, err := bcrypt.GenerateFromPassword([]byte("antiga"), bcrypt.DefaultCost)
 	if err != nil {
 		t.Fatalf("gerar hash: %v", err)
@@ -111,7 +109,7 @@ func TestAtualizarUsuarioIncrementaVersaoERehashSenha(t *testing.T) {
 	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "usuario-1", Nome: "Antigo", Email: "old@sognix.com.br", SenhaHash: string(senhaAntiga), Role: domain.RoleUsuario, Status: domain.StatusAtivo, Version: 3}}
 	useCase := NewUseCase(repository)
 
-	output, err := useCase.AtualizarUsuario(context.Background(), "usuario-1", dto.AtualizarUsuarioInput{Nome: "Novo", Email: "new@sognix.com.br", Senha: "nova", Version: 3})
+	output, err := useCase.AtualizarUsuario(context.Background(), "usuario-1", dto.AtualizarUsuarioInput{Nome: "Novo", Email: "new@sognix.com.br"})
 
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
@@ -119,10 +117,44 @@ func TestAtualizarUsuarioIncrementaVersaoERehashSenha(t *testing.T) {
 	if output.Version != 4 || output.Nome != "Novo" || output.Email != "new@sognix.com.br" {
 		t.Fatalf("saida inesperada: %+v", output)
 	}
-	if repository.atualizado == nil || repository.atualizado.SenhaHash == string(senhaAntiga) {
-		t.Fatal("senha deveria ser reprocessada no update")
+	if repository.atualizado == nil || repository.atualizado.SenhaHash != string(senhaAntiga) {
+		t.Fatal("senha nao deveria ser alterada no update de perfil")
+	}
+}
+
+func TestAlterarSenhaValidaAtualERehashNova(t *testing.T) {
+	senhaAntiga, err := bcrypt.GenerateFromPassword([]byte("antiga"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("gerar hash: %v", err)
+	}
+	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "usuario-1", SenhaHash: string(senhaAntiga), Role: domain.RoleUsuario, Status: domain.StatusAtivo, Version: 3}}
+	useCase := NewUseCase(repository)
+
+	if err := useCase.AlterarSenha(context.Background(), "usuario-1", dto.AlterarSenhaInput{SenhaAtual: "antiga", NovaSenha: "nova"}); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if repository.atualizado == nil || repository.atualizado.Version != 4 {
+		t.Fatalf("usuario atualizado inesperado: %+v", repository.atualizado)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(repository.atualizado.SenhaHash), []byte("nova")); err != nil {
 		t.Fatalf("hash atualizado nao corresponde a senha nova: %v", err)
+	}
+}
+
+func TestAlterarSenhaRecusaSenhaAtualInvalida(t *testing.T) {
+	senhaAntiga, err := bcrypt.GenerateFromPassword([]byte("antiga"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("gerar hash: %v", err)
+	}
+	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "usuario-1", SenhaHash: string(senhaAntiga), Version: 3}}
+	useCase := NewUseCase(repository)
+
+	err = useCase.AlterarSenha(context.Background(), "usuario-1", dto.AlterarSenhaInput{SenhaAtual: "errada", NovaSenha: "nova"})
+
+	if !errors.Is(err, domain.ErrNaoAutorizado) {
+		t.Fatalf("erro esperado ErrNaoAutorizado, recebido %v", err)
+	}
+	if repository.atualizado != nil {
+		t.Fatal("senha nao deveria ser atualizada com senha atual invalida")
 	}
 }

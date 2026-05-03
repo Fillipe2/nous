@@ -57,3 +57,12 @@ type RefreshToken struct {
 	RevogadoEm *time.Time
 	CriadoEm   time.Time
 }
+
+type ResetSenhaToken struct {
+	Id        string
+	UsuarioId string
+	TokenHash string
+	ExpiresAt time.Time
+	UsadoEm   *time.Time
+	CriadoEm  time.Time
+}

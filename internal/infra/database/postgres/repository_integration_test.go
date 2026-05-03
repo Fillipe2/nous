@@ -16,6 +16,7 @@ import (
 
 	"buildnix-backend/internal/domain/categoria"
 	"buildnix-backend/internal/domain/cliente"
+	"buildnix-backend/internal/domain/dashboard"
 	"buildnix-backend/internal/domain/exportacao"
 	"buildnix-backend/internal/domain/landingpage"
 	"buildnix-backend/internal/domain/lead"
@@ -59,6 +60,10 @@ func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {
 	exportacaoRepo, err := NewExportacaoRepository(db)
 	if err != nil {
 		t.Fatalf("criar exportacao repo: %v", err)
+	}
+	dashboardRepo, err := NewDashboardRepository(db)
+	if err != nil {
+		t.Fatalf("criar dashboard repo: %v", err)
 	}
 
 	agora := time.Now().UTC()
@@ -126,7 +131,7 @@ func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {
 	if err := leadRepo.Salvar(ctx, le); err != nil {
 		t.Fatalf("salvar lead: %v", err)
 	}
-	if err := leadRepo.AtualizarStatus(ctx, le.Id, lead.StatusConvertido); err != nil {
+	if err := leadRepo.AtualizarStatus(ctx, le.Id, lead.AtualizacaoStatus{Status: lead.StatusConvertido}, agora); err != nil {
 		t.Fatalf("atualizar status lead: %v", err)
 	}
 
@@ -140,6 +145,22 @@ func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {
 	}
 	if string(exportacaoPersistida.Arquivo) != "zip" || exportacaoPersistida.Hash != "hash-exportacao" {
 		t.Fatalf("exportacao persistida inesperada: %+v", exportacaoPersistida)
+	}
+
+	resumoAdmin, err := dashboardRepo.ObterResumoAdmin(ctx, dashboard.FiltroPeriodo{ClienteId: cl.Id, UsuarioId: us.Id, LandingPageId: lp.Id, DataInicio: agora.Format("2006-01-02"), DataFim: agora.Format("2006-01-02")})
+	if err != nil {
+		t.Fatalf("obter dashboard admin filtrado: %v", err)
+	}
+	if resumoAdmin.ClientesAtivos != 1 || resumoAdmin.UsuariosAtivos != 1 || resumoAdmin.LandingPagesCriadas != 1 || resumoAdmin.LeadsCapturados != 1 || resumoAdmin.ExportacoesGeradas != 1 {
+		t.Fatalf("dashboard admin filtrado inesperado: %+v", resumoAdmin)
+	}
+
+	resumoUsuario, err := dashboardRepo.ObterResumoUsuario(ctx, us.Id, dashboard.FiltroPeriodo{ClienteId: cl.Id, LandingPageId: lp.Id})
+	if err != nil {
+		t.Fatalf("obter dashboard usuario filtrado: %v", err)
+	}
+	if resumoUsuario.LandingPagesCriadas != 1 || resumoUsuario.ExportacoesGeradas != 1 {
+		t.Fatalf("dashboard usuario filtrado inesperado: %+v", resumoUsuario)
 	}
 }
 
@@ -176,6 +197,21 @@ func TestUsuarioRefreshTokenRepositoryIntegration(t *testing.T) {
 	}
 	if revogado.RevogadoEm == nil {
 		t.Fatal("refresh token deveria estar revogado")
+	}
+
+	tokenNovo := &usuario.RefreshToken{UsuarioId: us.Id, TokenHash: strings.Repeat("b", 64), ExpiresAt: agora.Add(time.Hour), CriadoEm: agora}
+	if err := repo.SalvarRefreshToken(ctx, tokenNovo); err != nil {
+		t.Fatalf("salvar refresh token novo: %v", err)
+	}
+	if err := repo.RevogarRefreshTokensDoUsuario(ctx, us.Id, agora); err != nil {
+		t.Fatalf("revogar refresh tokens do usuario: %v", err)
+	}
+	revogadoPorUsuario, err := repo.BuscarRefreshTokenPorHash(ctx, tokenNovo.TokenHash)
+	if err != nil {
+		t.Fatalf("buscar refresh revogado por usuario: %v", err)
+	}
+	if revogadoPorUsuario.RevogadoEm == nil {
+		t.Fatal("refresh token deveria ser revogado pelo usuario")
 	}
 }
 

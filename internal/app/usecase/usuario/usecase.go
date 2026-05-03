@@ -64,22 +64,12 @@ func (u *UseCase) AtualizarUsuario(ctx context.Context, id string, input dto.Atu
 	if err != nil {
 		return nil, fmt.Errorf("atualizar usuario: %w", err)
 	}
-	if input.Version != us.Version {
-		return nil, domain.ErrVersaoConflito
-	}
 
 	if input.Nome != "" {
 		us.Nome = input.Nome
 	}
 	if input.Email != "" {
 		us.Email = input.Email
-	}
-	if input.Senha != "" {
-		hash, hashErr := bcrypt.GenerateFromPassword([]byte(input.Senha), bcrypt.DefaultCost)
-		if hashErr != nil {
-			return nil, fmt.Errorf("atualizar usuario gerar senha: %w", hashErr)
-		}
-		us.SenhaHash = string(hash)
 	}
 	us.AtualizadoEm = time.Now()
 	us.Version++
@@ -89,6 +79,33 @@ func (u *UseCase) AtualizarUsuario(ctx context.Context, id string, input dto.Atu
 	}
 
 	return mapearUsuarioOutput(us), nil
+}
+
+func (u *UseCase) AlterarSenha(ctx context.Context, id string, input dto.AlterarSenhaInput) error {
+	if input.SenhaAtual == "" || input.NovaSenha == "" {
+		return fmt.Errorf("senha atual e nova senha sao obrigatorias")
+	}
+
+	us, err := u.repository.BuscarPorID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("alterar senha: %w", err)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(us.SenhaHash), []byte(input.SenhaAtual)); err != nil {
+		return domain.ErrNaoAutorizado
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.NovaSenha), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("alterar senha gerar hash: %w", err)
+	}
+	us.SenhaHash = string(hash)
+	us.AtualizadoEm = time.Now()
+	us.Version++
+
+	if err := u.repository.Atualizar(ctx, us); err != nil {
+		return fmt.Errorf("alterar senha salvar: %w", err)
+	}
+	return nil
 }
 
 func (u *UseCase) ExcluirUsuario(ctx context.Context, id string) error {

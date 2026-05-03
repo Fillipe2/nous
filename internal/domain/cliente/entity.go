@@ -23,6 +23,8 @@ type Cliente struct {
 	Id           string
 	Nome         string
 	Email        string
+	Telefone     string
+	Whatsapp     string
 	Status       Status
 	CriadoEm     time.Time
 	AtualizadoEm time.Time

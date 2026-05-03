@@ -2,7 +2,9 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"buildnix-backend/internal/app/dto"
 	ucusuario "buildnix-backend/internal/app/usecase/usuario"
@@ -57,15 +59,28 @@ func (h *UsuarioHandler) ObterUsuarioAutenticado(w http.ResponseWriter, r *http.
 
 func (h *UsuarioHandler) ListarUsuarios(w http.ResponseWriter, r *http.Request) {
 	pagina, porPagina := paginacao(r)
+	dataInicio, inicio, err := dataQuery(r, "data_inicio")
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, "data_inicio deve estar no formato YYYY-MM-DD")
+		return
+	}
+	dataFim, fim, err := dataQuery(r, "data_fim")
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, "data_fim deve estar no formato YYYY-MM-DD")
+		return
+	}
+	if !inicio.IsZero() && !fim.IsZero() && fim.Before(inicio) {
+		responderErro(w, http.StatusBadRequest, "data_fim deve ser maior ou igual a data_inicio")
+		return
+	}
+
 	output, err := h.useCase.ListarUsuarios(r.Context(), usuario.FiltroListagem{
-		Id:         r.URL.Query().Get("id"),
-		ClienteId:  r.URL.Query().Get("cliente_id"),
 		Nome:       r.URL.Query().Get("nome"),
 		Email:      r.URL.Query().Get("email"),
 		Role:       r.URL.Query().Get("role"),
 		Status:     r.URL.Query().Get("status"),
-		DataInicio: r.URL.Query().Get("data_inicio"),
-		DataFim:    r.URL.Query().Get("data_fim"),
+		DataInicio: dataInicio,
+		DataFim:    dataFim,
 		Pagina:     pagina,
 		PorPagina:  porPagina,
 		OrdenarPor: r.URL.Query().Get("ordenar_por"),
@@ -76,6 +91,29 @@ func (h *UsuarioHandler) ListarUsuarios(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	responderJSON(w, http.StatusOK, output)
+}
+
+func (h *UsuarioHandler) AlterarSenha(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ObterClaims(r.Context())
+	if claims == nil {
+		responderErro(w, http.StatusUnauthorized, "nao autenticado")
+		return
+	}
+
+	var input dto.AlterarSenhaInput
+	if err := decodificarJSON(r, &input); err != nil {
+		responderErro(w, http.StatusBadRequest, "payload invalido")
+		return
+	}
+	if err := h.useCase.AlterarSenha(r.Context(), claims.UsuarioId, input); err != nil {
+		if errors.Is(err, usuario.ErrNaoAutorizado) {
+			responderErro(w, http.StatusUnauthorized, "senha atual invalida")
+			return
+		}
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "senha alterada com sucesso"})
 }
 
 func (h *UsuarioHandler) AtualizarUsuario(w http.ResponseWriter, r *http.Request) {
@@ -116,4 +154,31 @@ func (h *UsuarioHandler) ExcluirUsuario(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func dataQuery(r *http.Request, nome string) (string, time.Time, error) {
+	valor := r.URL.Query().Get(nome)
+	if valor == "" {
+		return "", time.Time{}, nil
+	}
+	data, err := time.Parse("2006-01-02", valor)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return valor, data, nil
+}
+
+func periodoQuery(r *http.Request) (string, string, error) {
+	dataInicio, inicio, err := dataQuery(r, "data_inicio")
+	if err != nil {
+		return "", "", fmt.Errorf("data_inicio deve estar no formato YYYY-MM-DD")
+	}
+	dataFim, fim, err := dataQuery(r, "data_fim")
+	if err != nil {
+		return "", "", fmt.Errorf("data_fim deve estar no formato YYYY-MM-DD")
+	}
+	if !inicio.IsZero() && !fim.IsZero() && fim.Before(inicio) {
+		return "", "", fmt.Errorf("data_fim deve ser maior ou igual a data_inicio")
+	}
+	return dataInicio, dataFim, nil
 }

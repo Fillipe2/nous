@@ -18,6 +18,22 @@ func NewUseCase(repository domain.Repository, clienteRepository cliente.Reposito
 	return &UseCase{repository: repository, clienteRepository: clienteRepository}
 }
 
+func (u *UseCase) ObterDashboard(ctx context.Context, filtro domain.FiltroPeriodo, usuarioId, role string) (any, error) {
+	if role == "admin" {
+		return u.ObterDashboardAdmin(ctx, filtro, role)
+	}
+	filtro.UsuarioId = ""
+	return u.ObterDashboardUsuario(ctx, usuarioId, filtro)
+}
+
+func (u *UseCase) ObterDashboardUsuario(ctx context.Context, usuarioId string, filtro domain.FiltroPeriodo) (*dto.DashboardUsuarioOutput, error) {
+	resumo, err := u.repository.ObterResumoUsuario(ctx, usuarioId, filtro)
+	if err != nil {
+		return nil, fmt.Errorf("obter dashboard usuario: %w", err)
+	}
+	return mapearDashboardUsuarioOutput(resumo), nil
+}
+
 func (u *UseCase) ObterDashboardCliente(ctx context.Context, clienteId string, filtro domain.FiltroPeriodo, usuarioId, role string) (*dto.DashboardClienteOutput, error) {
 	if clienteId == "" {
 		return nil, domain.ErrClienteObrigatorio
@@ -61,6 +77,24 @@ func mapearDashboardClienteOutput(resumo *domain.ResumoCliente) *dto.DashboardCl
 	output := &dto.DashboardClienteOutput{
 		ClienteId:           resumo.ClienteId,
 		UsuariosVinculados:  resumo.UsuariosVinculados,
+		LandingPagesCriadas: resumo.LandingPagesCriadas,
+		LandingPagesOnline:  resumo.LandingPagesOnline,
+		ExportacoesGeradas:  resumo.ExportacoesGeradas,
+	}
+	if resumo.LandingPageMaisUsada != nil {
+		output.LandingPageMaisUsada = &dto.LandingPageUtilizadaOutput{
+			Id:               resumo.LandingPageMaisUsada.Id,
+			Nome:             resumo.LandingPageMaisUsada.Nome,
+			TotalExportacoes: resumo.LandingPageMaisUsada.TotalExportacoes,
+		}
+	}
+	return output
+}
+
+func mapearDashboardUsuarioOutput(resumo *domain.ResumoUsuario) *dto.DashboardUsuarioOutput {
+	output := &dto.DashboardUsuarioOutput{
+		UsuarioId:           resumo.UsuarioId,
+		ClientesVinculados:  resumo.ClientesVinculados,
 		LandingPagesCriadas: resumo.LandingPagesCriadas,
 		LandingPagesOnline:  resumo.LandingPagesOnline,
 		ExportacoesGeradas:  resumo.ExportacoesGeradas,

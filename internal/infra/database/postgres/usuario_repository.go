@@ -148,12 +148,13 @@ func (r *UsuarioRepository) Listar(ctx context.Context, filtro usuario.FiltroLis
 	}
 	if filtro.DataInicio != "" {
 		query += fmt.Sprintf(" AND u.criado_em >= $%d", argIdx)
-		args = append(args, filtro.DataInicio)
+		args = append(args, dataInicioFiltro(filtro.DataInicio))
 		argIdx++
 	}
 	if filtro.DataFim != "" {
-		query += fmt.Sprintf(" AND u.criado_em <= $%d", argIdx)
-		args = append(args, filtro.DataFim)
+		operador, valor := dataFimFiltro(filtro.DataFim)
+		query += fmt.Sprintf(" AND u.criado_em %s $%d", operador, argIdx)
+		args = append(args, valor)
 		argIdx++
 	}
 
@@ -183,6 +184,50 @@ func (r *UsuarioRepository) Listar(ctx context.Context, filtro usuario.FiltroLis
 		usuarios = append(usuarios, u)
 	}
 	return usuarios, total, nil
+}
+
+func (r *UsuarioRepository) SalvarResetSenhaToken(ctx context.Context, token *usuario.ResetSenhaToken) error {
+	token.Id = uuid.New().String()
+	st := statement.Get()
+	err := r.connection.Exec(ctx, st.SalvarUsuarioResetSenhaToken, pgx.NamedArgs{
+		"id":         token.Id,
+		"usuario_id": token.UsuarioId,
+		"token_hash": token.TokenHash,
+		"expires_at": token.ExpiresAt,
+		"criado_em":  token.CriadoEm,
+	})
+	if err != nil {
+		return fmt.Errorf("salvar reset senha token: %w", err)
+	}
+	return nil
+}
+
+func (r *UsuarioRepository) BuscarResetSenhaTokenPorHash(ctx context.Context, tokenHash string) (*usuario.ResetSenhaToken, error) {
+	st := statement.Get()
+	row := r.connection.QueryRow(ctx, st.BuscarUsuarioResetSenhaTokenPorHash, pgx.NamedArgs{"token_hash": tokenHash})
+	token, err := scanner.ResetSenhaToken(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, usuario.ErrNaoEncontrado
+	}
+	if err != nil {
+		return nil, fmt.Errorf("buscar reset senha token: %w", err)
+	}
+	return token, nil
+}
+
+func (r *UsuarioRepository) MarcarResetSenhaTokenUsado(ctx context.Context, tokenHash string, usadoEm time.Time) error {
+	st := statement.Get()
+	commandTag, err := r.connection.ExecResult(ctx, st.MarcarUsuarioResetSenhaTokenUsado, pgx.NamedArgs{
+		"token_hash": tokenHash,
+		"usado_em":   usadoEm,
+	})
+	if err != nil {
+		return fmt.Errorf("marcar reset senha token usado: %w", err)
+	}
+	if commandTag.RowsAffected() == 0 {
+		return usuario.ErrNaoEncontrado
+	}
+	return nil
 }
 
 func (r *UsuarioRepository) SalvarAuth(ctx context.Context, auth *usuario.UsuarioAuth) error {
@@ -257,6 +302,20 @@ func (r *UsuarioRepository) RevogarRefreshToken(ctx context.Context, tokenHash s
 		"revogado_em": revogadoEm,
 	}); err != nil {
 		return fmt.Errorf("revogar refresh token usuario: %w", err)
+	}
+	return nil
+}
+
+func (r *UsuarioRepository) RevogarRefreshTokensDoUsuario(ctx context.Context, usuarioId string, revogadoEm time.Time) error {
+	if usuarioId == "" {
+		return nil
+	}
+	stmts := statement.Get()
+	if err := r.connection.Exec(ctx, stmts.RevogarUsuarioRefreshTokensDoUsuario, pgx.NamedArgs{
+		"usuario_id":  usuarioId,
+		"revogado_em": revogadoEm,
+	}); err != nil {
+		return fmt.Errorf("revogar refresh tokens do usuario: %w", err)
 	}
 	return nil
 }

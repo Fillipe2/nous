@@ -34,6 +34,8 @@ func (r *ClienteRepository) Salvar(ctx context.Context, c *cliente.Cliente) erro
 		"id":            c.Id,
 		"nome":          c.Nome,
 		"email":         c.Email,
+		"telefone":      c.Telefone,
+		"whatsapp":      c.Whatsapp,
 		"status":        string(c.Status),
 		"criado_em":     c.CriadoEm,
 		"atualizado_em": c.AtualizadoEm,
@@ -63,6 +65,8 @@ func (r *ClienteRepository) Atualizar(ctx context.Context, c *cliente.Cliente) e
 	commandTag, err := r.connection.ExecResult(ctx, stmts.AtualizarCliente, pgx.NamedArgs{
 		"nome":             c.Nome,
 		"email":            c.Email,
+		"telefone":         c.Telefone,
+		"whatsapp":         c.Whatsapp,
 		"status":           string(c.Status),
 		"atualizado_em":    c.AtualizadoEm,
 		"version":          c.Version,
@@ -92,7 +96,7 @@ func (r *ClienteRepository) SoftDelete(ctx context.Context, id string) error {
 
 func (r *ClienteRepository) Listar(ctx context.Context, filtro cliente.FiltroListagem) ([]*cliente.Cliente, int, error) {
 	offset := (filtro.Pagina - 1) * filtro.PorPagina
-	query := `SELECT c.id, c.nome, c.email, c.status, c.criado_em, c.atualizado_em, c.version FROM cliente c`
+	query := `SELECT c.id, c.nome, c.email, c.telefone, c.whatsapp, c.status, c.criado_em, c.atualizado_em, c.version FROM cliente c`
 	args := []any{}
 	argIdx := 1
 	if filtro.UsuarioId != "" {
@@ -122,12 +126,13 @@ func (r *ClienteRepository) Listar(ctx context.Context, filtro cliente.FiltroLis
 	}
 	if filtro.DataInicio != "" {
 		query += fmt.Sprintf(" AND c.criado_em >= $%d", argIdx)
-		args = append(args, filtro.DataInicio)
+		args = append(args, dataInicioFiltro(filtro.DataInicio))
 		argIdx++
 	}
 	if filtro.DataFim != "" {
-		query += fmt.Sprintf(" AND c.criado_em <= $%d", argIdx)
-		args = append(args, filtro.DataFim)
+		operador, valor := dataFimFiltro(filtro.DataFim)
+		query += fmt.Sprintf(" AND c.criado_em %s $%d", operador, argIdx)
+		args = append(args, valor)
 		argIdx++
 	}
 

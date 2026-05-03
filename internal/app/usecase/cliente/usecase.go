@@ -17,14 +17,19 @@ func NewUseCase(repository domain.Repository) *UseCase {
 	return &UseCase{repository: repository}
 }
 
-func (u *UseCase) CriarCliente(ctx context.Context, input dto.CriarClienteInput) (*dto.ClienteOutput, error) {
+func (u *UseCase) CriarCliente(ctx context.Context, input dto.CriarClienteInput, usuarioId string) (*dto.ClienteOutput, error) {
 	if input.Nome == "" {
 		return nil, fmt.Errorf("nome e obrigatorio")
+	}
+	if usuarioId == "" {
+		return nil, domain.ErrNaoAutorizado
 	}
 
 	c := &domain.Cliente{
 		Nome:         input.Nome,
 		Email:        input.Email,
+		Telefone:     input.Telefone,
+		Whatsapp:     input.Whatsapp,
 		Status:       domain.StatusAtivo,
 		CriadoEm:     time.Now(),
 		AtualizadoEm: time.Now(),
@@ -33,6 +38,13 @@ func (u *UseCase) CriarCliente(ctx context.Context, input dto.CriarClienteInput)
 
 	if err := u.repository.Salvar(ctx, c); err != nil {
 		return nil, fmt.Errorf("criar cliente: %w", err)
+	}
+	if err := u.repository.VincularUsuario(ctx, &domain.UsuarioCliente{
+		UsuarioId: usuarioId,
+		ClienteId: c.Id,
+		CriadoEm:  time.Now(),
+	}); err != nil {
+		return nil, fmt.Errorf("vincular usuario ao cliente: %w", err)
 	}
 
 	return mapearClienteOutput(c), nil
@@ -60,6 +72,12 @@ func (u *UseCase) AtualizarCliente(ctx context.Context, id string, input dto.Atu
 	}
 	if input.Email != "" {
 		c.Email = input.Email
+	}
+	if input.Telefone != "" {
+		c.Telefone = input.Telefone
+	}
+	if input.Whatsapp != "" {
+		c.Whatsapp = input.Whatsapp
 	}
 	c.AtualizadoEm = time.Now()
 	c.Version++
@@ -133,6 +151,8 @@ func mapearClienteOutput(c *domain.Cliente) *dto.ClienteOutput {
 		Id:           c.Id,
 		Nome:         c.Nome,
 		Email:        c.Email,
+		Telefone:     c.Telefone,
+		Whatsapp:     c.Whatsapp,
 		Status:       string(c.Status),
 		CriadoEm:     c.CriadoEm,
 		AtualizadoEm: c.AtualizadoEm,
@@ -142,8 +162,11 @@ func mapearClienteOutput(c *domain.Cliente) *dto.ClienteOutput {
 
 func mapearClienteBasicoOutput(c *domain.Cliente) *dto.ClienteBasicoOutput {
 	return &dto.ClienteBasicoOutput{
-		Id:     c.Id,
-		Nome:   c.Nome,
-		Status: string(c.Status),
+		Id:       c.Id,
+		Nome:     c.Nome,
+		Email:    c.Email,
+		Telefone: c.Telefone,
+		Whatsapp: c.Whatsapp,
+		Status:   string(c.Status),
 	}
 }

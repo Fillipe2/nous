@@ -52,7 +52,7 @@ func (r *clienteRepositoryFake) VerificarAcessoUsuario(context.Context, string, 
 func TestCriarClienteValidaNomeObrigatorio(t *testing.T) {
 	useCase := NewUseCase(&clienteRepositoryFake{})
 
-	_, err := useCase.CriarCliente(context.Background(), dto.CriarClienteInput{})
+	_, err := useCase.CriarCliente(context.Background(), dto.CriarClienteInput{}, "usuario-1")
 
 	if err == nil {
 		t.Fatal("erro esperado para nome vazio")
@@ -63,16 +63,19 @@ func TestCriarClienteDefineStatusAtivoEVersaoInicial(t *testing.T) {
 	repository := &clienteRepositoryFake{}
 	useCase := NewUseCase(repository)
 
-	output, err := useCase.CriarCliente(context.Background(), dto.CriarClienteInput{Nome: "Cliente", Email: "cliente@sognix.com.br"})
+	output, err := useCase.CriarCliente(context.Background(), dto.CriarClienteInput{Nome: "Cliente", Email: "cliente@sognix.com.br", Telefone: "1130000000", Whatsapp: "11999999999"}, "usuario-1")
 
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
-	if output.Id != "cliente-novo" || output.Status != string(domain.StatusAtivo) || output.Version != 1 {
+	if output.Id != "cliente-novo" || output.Status != string(domain.StatusAtivo) || output.Version != 1 || output.Telefone != "1130000000" || output.Whatsapp != "11999999999" {
 		t.Fatalf("saida inesperada: %+v", output)
 	}
 	if repository.salvo == nil || repository.salvo.Status != domain.StatusAtivo || repository.salvo.Version != 1 {
 		t.Fatalf("cliente salvo inesperado: %+v", repository.salvo)
+	}
+	if repository.vinculo == nil || repository.vinculo.UsuarioId != "usuario-1" || repository.vinculo.ClienteId != "cliente-novo" {
+		t.Fatalf("vinculo automatico inesperado: %+v", repository.vinculo)
 	}
 }
 

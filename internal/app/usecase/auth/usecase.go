@@ -2,8 +2,12 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"buildnix-backend/internal/app/dto"
@@ -14,6 +18,8 @@ import (
 )
 
 const duracaoRefreshToken = 7 * 24 * time.Hour
+const duracaoResetSenhaToken = 30 * time.Minute
+const duracaoMinimaEsqueciSenha = 150 * time.Millisecond
 
 type TokenService interface {
 	GerarTokens(usuarioId, email, role string) (accessToken, refreshToken string, err error)
@@ -142,6 +148,72 @@ func (u *UseCase) Logout(ctx context.Context, input dto.LogoutInput) error {
 	return nil
 }
 
+func (u *UseCase) EsqueciSenha(ctx context.Context, input dto.EsqueciSenhaInput) (*dto.EsqueciSenhaOutput, error) {
+	inicio := time.Now()
+	defer aguardarDuracaoMinima(inicio, duracaoMinimaEsqueciSenha)
+
+	mensagem := "se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha"
+	output := &dto.EsqueciSenhaOutput{Mensagem: mensagem}
+
+	us, err := u.repository.BuscarPorEmail(ctx, strings.TrimSpace(input.Email))
+	if err != nil || us.Status != usuario.StatusAtivo {
+		return output, nil
+	}
+
+	token, err := gerarTokenSeguro()
+	if err != nil {
+		return nil, fmt.Errorf("gerar token reset senha: %w", err)
+	}
+	agora := time.Now()
+	if err := u.repository.SalvarResetSenhaToken(ctx, &usuario.ResetSenhaToken{
+		UsuarioId: us.Id,
+		TokenHash: hashToken(token),
+		ExpiresAt: agora.Add(duracaoResetSenhaToken),
+		CriadoEm:  agora,
+	}); err != nil {
+		return nil, fmt.Errorf("salvar token reset senha: %w", err)
+	}
+
+	if resetPasswordReturnTokenHabilitado() {
+		output.ResetToken = token
+	}
+	return output, nil
+}
+
+func (u *UseCase) RedefinirSenha(ctx context.Context, input dto.RedefinirSenhaInput) error {
+	if strings.TrimSpace(input.Token) == "" || input.NovaSenha == "" {
+		return usuario.ErrNaoAutorizado
+	}
+
+	resetToken, err := u.repository.BuscarResetSenhaTokenPorHash(ctx, hashToken(input.Token))
+	if err != nil || resetToken.UsadoEm != nil || time.Now().After(resetToken.ExpiresAt) {
+		return usuario.ErrNaoAutorizado
+	}
+
+	us, err := u.repository.BuscarPorID(ctx, resetToken.UsuarioId)
+	if err != nil || us.Status != usuario.StatusAtivo {
+		return usuario.ErrNaoAutorizado
+	}
+	if err := u.repository.MarcarResetSenhaTokenUsado(ctx, resetToken.TokenHash, time.Now()); err != nil {
+		return fmt.Errorf("marcar token reset senha usado: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.NovaSenha), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("redefinir senha gerar hash: %w", err)
+	}
+	us.SenhaHash = string(hash)
+	us.AtualizadoEm = time.Now()
+	us.Version++
+	if err := u.repository.Atualizar(ctx, us); err != nil {
+		return fmt.Errorf("redefinir senha salvar usuario: %w", err)
+	}
+	if err := u.repository.RevogarRefreshTokensDoUsuario(ctx, us.Id, time.Now()); err != nil {
+		return fmt.Errorf("redefinir senha revogar sessoes: %w", err)
+	}
+	return nil
+}
+
 func (u *UseCase) montarLoginOutput(ctx context.Context, us *usuario.Usuario, accessToken, refreshToken string) (*dto.LoginOutput, error) {
 	clientes, err := u.clienteRepository.ListarPorUsuario(ctx, us.Id)
 	if err != nil {
@@ -164,9 +236,12 @@ func (u *UseCase) montarLoginOutput(ctx context.Context, us *usuario.Usuario, ac
 
 	for _, c := range clientes {
 		output.Clientes = append(output.Clientes, &dto.ClienteBasicoOutput{
-			Id:     c.Id,
-			Nome:   c.Nome,
-			Status: string(c.Status),
+			Id:       c.Id,
+			Nome:     c.Nome,
+			Email:    c.Email,
+			Telefone: c.Telefone,
+			Whatsapp: c.Whatsapp,
+			Status:   string(c.Status),
 		})
 	}
 
@@ -195,4 +270,22 @@ func (u *UseCase) gerarTokens(ctx context.Context, us *usuario.Usuario) (accessT
 func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return fmt.Sprintf("%x", sum)
+}
+
+func gerarTokenSeguro() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+func resetPasswordReturnTokenHabilitado() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("RESET_PASSWORD_RETURN_TOKEN")), "true")
+}
+
+func aguardarDuracaoMinima(inicio time.Time, duracao time.Duration) {
+	if restante := duracao - time.Since(inicio); restante > 0 {
+		time.Sleep(restante)
+	}
 }

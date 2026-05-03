@@ -49,6 +49,11 @@ func (h *LandingPageHandler) CriarLandingPage(w http.ResponseWriter, r *http.Req
 func (h *LandingPageHandler) ListarLandingPages(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ObterClaims(r.Context())
 	pagina, porPagina := paginacao(r)
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	filtro := landingpage.FiltroListagem{
 		ClienteId:   r.URL.Query().Get("cliente_id"),
 		NegocioId:   r.URL.Query().Get("negocio_id"),
@@ -58,8 +63,8 @@ func (h *LandingPageHandler) ListarLandingPages(w http.ResponseWriter, r *http.R
 		Status:      r.URL.Query().Get("status"),
 		Nome:        r.URL.Query().Get("nome"),
 		IsDraft:     r.URL.Query().Get("is_draft"),
-		DataInicio:  r.URL.Query().Get("data_inicio"),
-		DataFim:     r.URL.Query().Get("data_fim"),
+		DataInicio:  dataInicio,
+		DataFim:     dataFim,
 		Pagina:      pagina,
 		PorPagina:   porPagina,
 		OrdenarPor:  r.URL.Query().Get("ordenar_por"),

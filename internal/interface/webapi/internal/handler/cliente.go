@@ -21,13 +21,19 @@ func NewClienteHandler(useCase *uccliente.UseCase) *ClienteHandler {
 }
 
 func (h *ClienteHandler) CriarCliente(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ObterClaims(r.Context())
+	if claims == nil {
+		responderErro(w, http.StatusUnauthorized, "usuario nao autenticado")
+		return
+	}
+
 	var input dto.CriarClienteInput
 	if err := decodificarJSON(r, &input); err != nil {
 		responderErro(w, http.StatusBadRequest, "payload invalido")
 		return
 	}
 
-	output, err := h.useCase.CriarCliente(r.Context(), input)
+	output, err := h.useCase.CriarCliente(r.Context(), input, claims.UsuarioId)
 	if err != nil {
 		responderErro(w, http.StatusBadRequest, err.Error())
 		return
@@ -38,13 +44,18 @@ func (h *ClienteHandler) CriarCliente(w http.ResponseWriter, r *http.Request) {
 
 func (h *ClienteHandler) ListarClientes(w http.ResponseWriter, r *http.Request) {
 	pagina, porPagina := paginacao(r)
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	output, err := h.useCase.ListarClientes(r.Context(), cliente.FiltroListagem{
 		UsuarioId:  r.URL.Query().Get("usuario_id"),
 		Nome:       r.URL.Query().Get("nome"),
 		Email:      r.URL.Query().Get("email"),
 		Status:     r.URL.Query().Get("status"),
-		DataInicio: r.URL.Query().Get("data_inicio"),
-		DataFim:    r.URL.Query().Get("data_fim"),
+		DataInicio: dataInicio,
+		DataFim:    dataFim,
 		Pagina:     pagina,
 		PorPagina:  porPagina,
 		OrdenarPor: r.URL.Query().Get("ordenar_por"),
@@ -65,13 +76,18 @@ func (h *ClienteHandler) ListarClientesDoUsuario(w http.ResponseWriter, r *http.
 	}
 
 	pagina, porPagina := paginacao(r)
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	output, err := h.useCase.ListarClientesDoUsuario(r.Context(), cliente.FiltroListagem{
 		UsuarioId:  claims.UsuarioId,
 		Nome:       r.URL.Query().Get("nome"),
 		Email:      r.URL.Query().Get("email"),
 		Status:     r.URL.Query().Get("status"),
-		DataInicio: r.URL.Query().Get("data_inicio"),
-		DataFim:    r.URL.Query().Get("data_fim"),
+		DataInicio: dataInicio,
+		DataFim:    dataFim,
 		Pagina:     pagina,
 		PorPagina:  porPagina,
 		OrdenarPor: r.URL.Query().Get("ordenar_por"),

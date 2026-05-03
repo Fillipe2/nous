@@ -50,6 +50,25 @@ UPDATE usuario_refresh_token
 SET revogado_em=@revogado_em
 WHERE token_hash=@token_hash AND revogado_em IS NULL;
 
+-- name: RevogarUsuarioRefreshTokensDoUsuario
+UPDATE usuario_refresh_token
+SET revogado_em=@revogado_em
+WHERE usuario_id=@usuario_id AND revogado_em IS NULL;
+
 -- name: ExpurgarUsuarioRefreshTokens
 DELETE FROM usuario_refresh_token
 WHERE expires_at < @antes_de OR (revogado_em IS NOT NULL AND revogado_em < @antes_de);
+
+-- name: SalvarUsuarioResetSenhaToken
+INSERT INTO usuario_reset_senha_token (id, usuario_id, token_hash, expires_at, criado_em)
+VALUES (@id, @usuario_id, @token_hash, @expires_at, @criado_em);
+
+-- name: BuscarUsuarioResetSenhaTokenPorHash
+SELECT id, usuario_id, token_hash, expires_at, usado_em, criado_em
+FROM usuario_reset_senha_token
+WHERE token_hash=@token_hash;
+
+-- name: MarcarUsuarioResetSenhaTokenUsado
+UPDATE usuario_reset_senha_token
+SET usado_em=@usado_em
+WHERE token_hash=@token_hash AND usado_em IS NULL;

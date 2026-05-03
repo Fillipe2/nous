@@ -51,8 +51,8 @@ func TestGoogleLoginRedirecionaParaGoogle(t *testing.T) {
 	if len(cookies) == 0 || cookies[0].Name != cookieOAuthState || cookies[0].Value == "" {
 		t.Fatalf("cookie oauth_state nao configurado")
 	}
-	if cookies[0].SameSite != http.SameSiteStrictMode {
-		t.Fatalf("SameSite esperado Strict, recebido %v", cookies[0].SameSite)
+	if cookies[0].SameSite != http.SameSiteLaxMode {
+		t.Fatalf("SameSite esperado Lax, recebido %v", cookies[0].SameSite)
 	}
 }
 
@@ -68,8 +68,8 @@ func TestGoogleLoginNaoUsaSameSiteNoneSemHTTPS(t *testing.T) {
 	if len(cookies) == 0 {
 		t.Fatal("cookie oauth_state nao configurado")
 	}
-	if cookies[0].SameSite != http.SameSiteStrictMode {
-		t.Fatalf("SameSite none sem HTTPS deveria cair para Strict, recebido %v", cookies[0].SameSite)
+	if cookies[0].SameSite != http.SameSiteLaxMode {
+		t.Fatalf("SameSite none sem HTTPS deveria cair para Lax, recebido %v", cookies[0].SameSite)
 	}
 	if cookies[0].Secure {
 		t.Fatal("cookie nao deveria ser Secure com callback HTTP")
@@ -91,12 +91,12 @@ func TestSameSiteOAuthStateConfiguravel(t *testing.T) {
 	if sameSiteOAuthState(true) != http.SameSiteNoneMode {
 		t.Fatal("SameSite none nao aplicado")
 	}
-	if sameSiteOAuthState(false) != http.SameSiteStrictMode {
-		t.Fatal("SameSite none sem HTTPS deveria cair para strict")
+	if sameSiteOAuthState(false) != http.SameSiteLaxMode {
+		t.Fatal("SameSite none sem HTTPS deveria cair para lax")
 	}
 
 	t.Setenv("OAUTH_STATE_SAMESITE", "valor-invalido")
-	if sameSiteOAuthState(false) != http.SameSiteStrictMode {
-		t.Fatal("SameSite invalido deveria cair para strict")
+	if sameSiteOAuthState(false) != http.SameSiteLaxMode {
+		t.Fatal("SameSite invalido deveria cair para lax")
 	}
 }

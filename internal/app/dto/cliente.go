@@ -3,20 +3,26 @@ package dto
 import "time"
 
 type CriarClienteInput struct {
-	Nome  string `json:"nome"`
-	Email string `json:"email,omitempty"`
+	Nome     string `json:"nome"`
+	Email    string `json:"email,omitempty"`
+	Telefone string `json:"telefone,omitempty"`
+	Whatsapp string `json:"whatsapp,omitempty"`
 }
 
 type AtualizarClienteInput struct {
-	Nome    string `json:"nome,omitempty"`
-	Email   string `json:"email,omitempty"`
-	Version int    `json:"version"`
+	Nome     string `json:"nome,omitempty"`
+	Email    string `json:"email,omitempty"`
+	Telefone string `json:"telefone,omitempty"`
+	Whatsapp string `json:"whatsapp,omitempty"`
+	Version  int    `json:"version"`
 }
 
 type ClienteOutput struct {
 	Id           string    `json:"id"`
 	Nome         string    `json:"nome"`
 	Email        string    `json:"email"`
+	Telefone     string    `json:"telefone,omitempty"`
+	Whatsapp     string    `json:"whatsapp,omitempty"`
 	Status       string    `json:"status"`
 	CriadoEm     time.Time `json:"criado_em"`
 	AtualizadoEm time.Time `json:"atualizado_em"`
@@ -31,9 +37,12 @@ type ListaClientesOutput struct {
 }
 
 type ClienteBasicoOutput struct {
-	Id     string `json:"id"`
-	Nome   string `json:"nome"`
-	Status string `json:"status"`
+	Id       string `json:"id"`
+	Nome     string `json:"nome"`
+	Email    string `json:"email,omitempty"`
+	Telefone string `json:"telefone,omitempty"`
+	Whatsapp string `json:"whatsapp,omitempty"`
+	Status   string `json:"status"`
 }
 
 type ListaClientesBasicosOutput struct {

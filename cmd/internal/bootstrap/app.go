@@ -25,7 +25,7 @@ func (c *Container) initApp() error {
 	c.CategoriaUseCase = uccategoria.NewUseCase(c.CategoriaRepository)
 	c.TemplateUseCase = uctemplate.NewUseCase(c.TemplateRepository, c.ClienteRepository, c.PlanoRepository)
 	c.LandingPageUseCase = uclandingpage.NewUseCase(c.LandingPageRepository, c.ClienteRepository, c.Publisher, c.PlanoRepository, c.TemplateRepository)
-	c.LeadUseCase = uclead.NewUseCase(c.LeadRepository, c.Publisher)
+	c.LeadUseCase = uclead.NewUseCase(c.LeadRepository, c.LandingPageRepository, c.Publisher)
 	c.ExportacaoUseCase = ucexportacao.NewUseCase(c.ExportacaoRepository, c.LandingPageRepository)
 
 	return nil

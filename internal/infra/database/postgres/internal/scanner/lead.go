@@ -14,6 +14,7 @@ func Lead(row pgx.Row) (*lead.Lead, error) {
 	var (
 		id                   string
 		landingPageID        string
+		clienteID            *string
 		nome                 string
 		email                string
 		telefone             *string
@@ -23,12 +24,27 @@ func Lead(row pgx.Row) (*lead.Lead, error) {
 		origem               string
 		ip                   *string
 		userAgent            *string
+		referrer             *string
+		utmSource            *string
+		utmMedium            *string
+		utmCampaign          *string
+		utmContent           *string
+		utmTerm              *string
+		consentimento        bool
+		consentimentoEm      *time.Time
+		politicaVersao       *string
 		status               string
+		perdidoMotivo        *string
+		anonimizadoEm        *time.Time
 		criadoEm             time.Time
+		atualizadoEm         time.Time
 	)
 	if err := row.Scan(
-		&id, &landingPageID, &nome, &email, &telefone, &whatsapp, &mensagem,
-		&camposPersonalizados, &origem, &ip, &userAgent, &status, &criadoEm,
+		&id, &landingPageID, &clienteID, &nome, &email, &telefone, &whatsapp, &mensagem,
+		&camposPersonalizados, &origem, &ip, &userAgent, &referrer,
+		&utmSource, &utmMedium, &utmCampaign, &utmContent, &utmTerm,
+		&consentimento, &consentimentoEm, &politicaVersao,
+		&status, &perdidoMotivo, &anonimizadoEm, &criadoEm, &atualizadoEm,
 	); err != nil {
 		return nil, err
 	}
@@ -39,8 +55,15 @@ func Lead(row pgx.Row) (*lead.Lead, error) {
 		Email:                email,
 		CamposPersonalizados: json.RawMessage(camposPersonalizados),
 		Origem:               origem,
+		Consentimento:        consentimento,
+		ConsentimentoEm:      consentimentoEm,
 		Status:               lead.Status(status),
+		AnonimizadoEm:        anonimizadoEm,
 		CriadoEm:             criadoEm,
+		AtualizadoEm:         atualizadoEm,
+	}
+	if clienteID != nil {
+		l.ClienteId = *clienteID
 	}
 	if telefone != nil {
 		l.Telefone = *telefone
@@ -56,6 +79,30 @@ func Lead(row pgx.Row) (*lead.Lead, error) {
 	}
 	if userAgent != nil {
 		l.UserAgent = *userAgent
+	}
+	if referrer != nil {
+		l.Referrer = *referrer
+	}
+	if utmSource != nil {
+		l.UTM.Source = *utmSource
+	}
+	if utmMedium != nil {
+		l.UTM.Medium = *utmMedium
+	}
+	if utmCampaign != nil {
+		l.UTM.Campaign = *utmCampaign
+	}
+	if utmContent != nil {
+		l.UTM.Content = *utmContent
+	}
+	if utmTerm != nil {
+		l.UTM.Term = *utmTerm
+	}
+	if politicaVersao != nil {
+		l.PoliticaVersao = *politicaVersao
+	}
+	if perdidoMotivo != nil {
+		l.PerdidoMotivo = *perdidoMotivo
 	}
 	return l, nil
 }

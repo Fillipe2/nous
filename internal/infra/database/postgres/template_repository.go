@@ -113,12 +113,13 @@ func (r *TemplateRepository) Listar(ctx context.Context, filtro template.FiltroL
 	}
 	if filtro.DataInicio != "" {
 		query += fmt.Sprintf(" AND criado_em >= $%d", argIdx)
-		args = append(args, filtro.DataInicio)
+		args = append(args, dataInicioFiltro(filtro.DataInicio))
 		argIdx++
 	}
 	if filtro.DataFim != "" {
-		query += fmt.Sprintf(" AND criado_em <= $%d", argIdx)
-		args = append(args, filtro.DataFim)
+		operador, valor := dataFimFiltro(filtro.DataFim)
+		query += fmt.Sprintf(" AND criado_em %s $%d", operador, argIdx)
+		args = append(args, valor)
 		argIdx++
 	}
 	if !filtro.PermitirBaseCustomizavel {

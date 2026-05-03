@@ -5,17 +5,25 @@ import (
 	"errors"
 	"testing"
 
+	"buildnix-backend/internal/app/dto"
 	"buildnix-backend/internal/domain/cliente"
 	domain "buildnix-backend/internal/domain/dashboard"
 )
 
 type dashboardRepositoryFake struct {
 	resumoCliente *domain.ResumoCliente
+	resumoUsuario *domain.ResumoUsuario
 	resumoAdmin   *domain.ResumoAdmin
+	filtroUsuario domain.FiltroPeriodo
 }
 
 func (r *dashboardRepositoryFake) ObterResumoCliente(context.Context, string, domain.FiltroPeriodo) (*domain.ResumoCliente, error) {
 	return r.resumoCliente, nil
+}
+
+func (r *dashboardRepositoryFake) ObterResumoUsuario(_ context.Context, _ string, filtro domain.FiltroPeriodo) (*domain.ResumoUsuario, error) {
+	r.filtroUsuario = filtro
+	return r.resumoUsuario, nil
 }
 
 func (r *dashboardRepositoryFake) ObterResumoAdmin(context.Context, domain.FiltroPeriodo) (*domain.ResumoAdmin, error) {
@@ -70,6 +78,24 @@ func TestObterDashboardAdminExigeRoleAdmin(t *testing.T) {
 
 	if !errors.Is(err, cliente.ErrNaoAutorizado) {
 		t.Fatalf("erro esperado de admin, recebido %v", err)
+	}
+}
+
+func TestObterDashboardUsuarioNaoExigeClienteId(t *testing.T) {
+	repository := &dashboardRepositoryFake{resumoUsuario: &domain.ResumoUsuario{UsuarioId: "usuario-1", ClientesVinculados: 2, LandingPagesCriadas: 3}}
+	useCase := NewUseCase(repository, &clienteRepositoryFake{})
+
+	output, err := useCase.ObterDashboard(context.Background(), domain.FiltroPeriodo{UsuarioId: "outro-usuario", ClienteId: "cliente-1"}, "usuario-1", "usuario")
+
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	dashboardUsuario, ok := output.(*dto.DashboardUsuarioOutput)
+	if !ok || dashboardUsuario.ClientesVinculados != 2 || dashboardUsuario.LandingPagesCriadas != 3 {
+		t.Fatalf("dashboard de usuario inesperado: %+v", output)
+	}
+	if repository.filtroUsuario.UsuarioId != "" || repository.filtroUsuario.ClienteId != "cliente-1" {
+		t.Fatalf("filtro de usuario comum inesperado: %+v", repository.filtroUsuario)
 	}
 }
 

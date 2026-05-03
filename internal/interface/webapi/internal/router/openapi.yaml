@@ -1,28 +1,58 @@
 openapi: 3.0.3
 info:
   title: Buildnix Backend API
-  version: 1.0.0
-  description: API REST do Buildnix para criação, gestão, autosave, leads, exportação e auditoria de landing pages. O papel admin representa usuários internos da Sognix com visão operacional global.
+  version: 1.1.0
+  description: |
+    API REST do Buildnix: construção, gestão, autosave, exportação de landing pages,
+    captura/gestão de leads e auditoria. O papel `admin` representa usuários internos
+    da Sognix com visão operacional global.
+
+    **Eventos / mensageria**: a publicação para o Observer é opcional. Quando
+    `OBSERVER_URL` não está configurado, eventos como `lead.capturado` ficam apenas no
+    outbox local. O Buildnix é totalmente funcional em modo standalone.
+
+    **Convenções**:
+    - Identificadores são UUID em string.
+    - Datas em ISO-8601 (`format: date-time`); filtros `data_inicio`/`data_fim` em `YYYY-MM-DD`.
+    - Erros sempre retornam `application/json` no formato `Erro` (`erro`, `codigo`, `mensagem`, `request_id`).
+    - Endpoints autenticados usam `Authorization: Bearer <jwt>`.
 servers:
   - url: /
+    description: Servidor atual
 tags:
   - name: Auth
+    description: Login, refresh, logout, recuperação de senha e OAuth2 Google.
   - name: Usuarios
+    description: Cadastro próprio, perfil autenticado e gestão administrativa.
   - name: Clientes
+    description: Empresas/contas que detêm landing pages. Auto-vinculação na criação.
   - name: Dashboard
+    description: Resumos operacionais (visão usuário ou admin).
   - name: Opcoes
+    description: Listagens auxiliares para combos/filtros do frontend.
   - name: Negocios
+    description: Negócios vinculados a um cliente (segmentação interna).
   - name: Categorias
+    description: Categorias de templates e landing pages.
   - name: Templates
+    description: Templates de origem Sognix ou subidos pelo cliente.
   - name: LandingPages
+    description: CRUD, autosave com versionamento otimista, lock pessimista e exportação.
   - name: Leads
+    description: |
+      Captura pública (formulário da LP) e gestão restrita ao admin/Sognix.
+      Dados pessoais são tratados como ativo comercial e ficam fora do dashboard
+      do cliente comum. Inclui consentimento LGPD, UTMs e endpoints de anonimização.
   - name: Exportacoes
+    description: Pacotes ZIP gerados a partir de landing pages.
   - name: Auditoria
-  - name: Swagger
+    description: Trilha imutável de operações sensíveis.
+  - name: Sistema
+    description: Healthcheck e especificação OpenAPI.
 paths:
   /health:
     get:
-      tags: [Swagger]
+      tags: [Sistema]
       summary: Healthcheck da API
       responses:
         '200':
@@ -37,7 +67,7 @@ paths:
                     example: ok
   /swagger:
     get:
-      tags: [Swagger]
+      tags: [Sistema]
       summary: Exibe a interface Swagger UI para testar a API
       responses:
         '200':
@@ -48,7 +78,7 @@ paths:
                 type: string
   /swagger/openapi.yaml:
     get:
-      tags: [Swagger]
+      tags: [Sistema]
       summary: Retorna a especificação OpenAPI embarcada
       responses:
         '200':
@@ -106,11 +136,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MensagemOutput'
+  /auth/esqueci-senha:
+    post:
+      tags: [Auth]
+      summary: Solicita redefinição de senha
+      description: Sempre retorna mensagem genérica e aplica duração mínima para reduzir enumeração por resposta/timing. O token só é retornado quando RESET_PASSWORD_RETURN_TOKEN=true em ambiente local/teste.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EsqueciSenhaInput'
+      responses:
+        '200':
+          description: Solicitação registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EsqueciSenhaOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /auth/redefinir-senha:
+    post:
+      tags: [Auth]
+      summary: Redefine senha com token de uso único
+      description: Ao redefinir a senha, refresh tokens ativos do usuário são revogados.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedefinirSenhaInput'
+      responses:
+        '200':
+          description: Senha redefinida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /auth/google/login:
     get:
       tags: [Auth]
-      summary: Inicia login Google OAuth2
-      description: Cria cookie HttpOnly `oauth_state` e redireciona para o Google. Requer GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REDIRECT_URL configurados.
+      summary: Inicia login Google OAuth2 (abrir no navegador)
+      description: |
+        **Não use o "Try it out" do Swagger** para este endpoint. O fluxo OAuth depende
+        de navegação top-level no navegador: a tentativa via `fetch()` segue o redirect
+        para `accounts.google.com`, que não envia headers CORS para `localhost`, e o
+        Swagger mostra "Failed to fetch".
+
+        Como testar:
+        1. Abra `GET /auth/google/login` em uma **aba nova** do navegador.
+        2. Faça consentimento no Google.
+        3. O Google redireciona para `/auth/google/callback`, que retorna `LoginOutput`
+           (access/refresh tokens) em JSON.
+
+        Cria cookie HttpOnly `oauth_state` (CSRF) e redireciona para o Google. Requer
+        `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REDIRECT_URL` configurados.
       responses:
         '307':
           description: Redirecionamento temporário para Google OAuth2
@@ -128,8 +213,14 @@ paths:
   /auth/google/callback:
     get:
       tags: [Auth]
-      summary: Callback do Google OAuth2
-      description: Valida `state` contra o cookie `oauth_state`, troca `code` por token Google e retorna os tokens JWT do Buildnix.
+      summary: Callback do Google OAuth2 (chamado pelo navegador)
+      description: |
+        **Não invoque manualmente pelo Swagger.** Este endpoint é alvo do redirect do
+        Google após o consentimento e exige o cookie `oauth_state` setado por
+        `/auth/google/login` no mesmo navegador.
+
+        Valida `state` contra o cookie `oauth_state`, troca `code` por token Google
+        e retorna os tokens JWT do Buildnix.
       parameters:
         - name: code
           in: query
@@ -180,16 +271,6 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: id
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: cliente_id
-          in: query
-          required: false
-          schema:
-            type: string
         - name: nome
           in: query
           required: false
@@ -214,16 +295,18 @@ paths:
             enum: [ativo, inativo, excluido]
         - name: data_inicio
           in: query
+          description: Data inicial inclusiva no formato YYYY-MM-DD.
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
+          description: Data final inclusiva no formato YYYY-MM-DD.
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -256,6 +339,29 @@ paths:
       responses:
         '200':
           description: Usuário autenticado
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /usuarios/me/senha:
+    patch:
+      tags: [Usuarios]
+      summary: Altera a senha do usuário autenticado
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterarSenhaInput'
+      responses:
+        '200':
+          description: Senha alterada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /usuarios/{id}:
@@ -332,13 +438,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -364,7 +470,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
     post:
       tags: [Clientes]
-      summary: Cria cliente, admin
+      summary: Cria cliente vinculado ao usuário autenticado
       security:
         - bearerAuth: []
       requestBody:
@@ -380,8 +486,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
   /clientes/me:
     get:
       tags: [Clientes]
@@ -410,13 +514,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -479,83 +583,82 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /usuarios-clientes:
-    post:
-      tags: [Clientes]
-      summary: Vincula usuário a cliente, admin
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VincularUsuarioClienteInput'
-      responses:
-        '201':
-          description: Usuário vinculado
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
   /dashboard:
     get:
       tags: [Dashboard]
-      summary: Dashboard operacional do cliente
+      summary: Dashboard do usuário autenticado
+      description: Admin recebe métricas globais e pode recortar por cliente, usuário, landing page, negócio, categoria, template e tipo. Usuário comum recebe métricas agregadas dos clientes vinculados ao seu usuário; filtros não expõem dados pessoais de leads.
       security:
         - bearerAuth: []
       parameters:
         - name: cliente_id
           in: query
-          required: true
+          required: false
+          description: Recorta métricas por cliente. Útil para o admin alternar entre visão global e cliente específico.
           schema:
             type: string
+        - name: usuario_id
+          in: query
+          required: false
+          description: Recorta métricas por usuário vinculado. Aplicável à visão admin.
+          schema:
+            type: string
+        - name: landingpage_id
+          in: query
+          required: false
+          description: Recorta métricas por landing page.
+          schema:
+            type: string
+        - name: negocio_id
+          in: query
+          required: false
+          description: Recorta métricas por negócio.
+          schema:
+            type: string
+        - name: categoria_id
+          in: query
+          required: false
+          description: Recorta métricas por categoria.
+          schema:
+            type: string
+        - name: template_id
+          in: query
+          required: false
+          description: Recorta métricas por template.
+          schema:
+            type: string
+        - name: tipo
+          in: query
+          required: false
+          description: Recorta landing pages por tipo.
+          schema:
+            type: string
+            enum: [white_label, customizavel]
         - name: data_inicio
           in: query
+          description: Data inicial inclusiva no formato YYYY-MM-DD.
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
+          description: Data final inclusiva no formato YYYY-MM-DD.
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
       responses:
         '200':
-          description: Contadores do cliente
+          description: Dashboard conforme o papel do usuário autenticado
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/DashboardUsuarioOutput'
+                  - $ref: '#/components/schemas/DashboardAdminOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /dashboard/admin:
-    get:
-      tags: [Dashboard]
-      summary: Dashboard global da Sognix, admin
-      description: Retorna métricas agregadas de clientes, usuários, templates, landing pages, leads e exportações.
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: data_inicio
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date-time
-        - name: data_fim
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date-time
-      responses:
-        '200':
-          description: Contadores globais da operação Sognix
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -864,13 +967,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -978,13 +1081,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -1113,13 +1216,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -1256,13 +1359,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -1418,8 +1521,9 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /landingpages/{id}/exportar:
     post:
-      tags: [Exportacoes]
+      tags: [LandingPages, Exportacoes]
       summary: Envia ZIP exportado da landing page
+      description: Upload multipart do ZIP gerado pelo frontend para a landing page. O arquivo é validado como ZIP e fica disponível para download em /exportacoes/{id}/download.
       security:
         - bearerAuth: []
       parameters:
@@ -1447,7 +1551,23 @@ paths:
   /leads:
     post:
       tags: [Leads]
-      summary: Captura lead público da landing page
+      summary: Captura lead pelo formulário público da LP
+      description: |
+        Endpoint público (sem autenticação) chamado pelo formulário da landing page.
+
+        Validações aplicadas:
+        - `landingpage_id` deve existir e estar **publicada**.
+        - `consentimento` deve ser `true` (LGPD).
+        - `email` é normalizado (lowercase + trim) e validado.
+        - `telefone` ou `whatsapp` é obrigatório (apenas dígitos após normalização).
+        - `mensagem` ≤ 2000 caracteres; `campos_personalizados` ≤ 8KB.
+        - Honeypot: o campo `website` deve vir vazio; submissões com ele preenchido
+          são descartadas silenciosamente (resposta 201 neutra).
+        - Dedupe: mesmo `email` + `landingpage_id` em janela de 5 min retorna o
+          lead anterior sem republicar evento.
+
+        Quando `OBSERVER_URL` está configurado, um evento `lead.capturado` é
+        publicado no outbox para envio ao Observer/Sbrain.
       requestBody:
         required: true
         content:
@@ -1456,63 +1576,72 @@ paths:
               $ref: '#/components/schemas/CapturarLeadInput'
       responses:
         '201':
-          description: Lead capturado
+          description: Lead capturado (ou descartado silenciosamente em caso de honeypot)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapturarLeadOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Landing page inexistente ou não publicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
     get:
       tags: [Leads]
-      summary: Lista leads capturados, admin/Sognix
+      summary: Lista leads (admin/Sognix)
+      description: Usuário comum não acessa dados pessoais de leads. Admin pode filtrar por cliente, landing page, status, UTM e período.
       security:
         - bearerAuth: []
       parameters:
         - name: cliente_id
           in: query
-          required: false
           schema:
             type: string
         - name: landingpage_id
           in: query
-          required: false
           schema:
             type: string
         - name: nome
           in: query
-          required: false
           schema:
             type: string
         - name: email
           in: query
-          required: false
           schema:
             type: string
         - name: status
           in: query
-          required: false
+          schema:
+            $ref: '#/components/schemas/LeadStatus'
+        - name: utm_source
+          in: query
           schema:
             type: string
-            enum: [novo, contatado, convertido, perdido]
+        - name: utm_campaign
+          in: query
+          schema:
+            type: string
         - name: data_inicio
           in: query
-          required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
-          required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
-          required: false
           schema:
             type: string
             enum: [nome, email, status, criado_em]
             default: criado_em
         - name: ordem
           in: query
-          required: false
           schema:
             type: string
             enum: [asc, desc]
@@ -1521,7 +1650,11 @@ paths:
         - $ref: '#/components/parameters/PorPagina'
       responses:
         '200':
-          description: Lista de leads
+          description: Lista paginada de leads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaLeadsOutput'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1529,14 +1662,18 @@ paths:
   /leads/{id}:
     get:
       tags: [Leads]
-      summary: Obtém lead, admin/Sognix
+      summary: Obtém detalhes do lead (admin/Sognix)
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
         '200':
-          description: Lead
+          description: Lead encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadOutput'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1546,7 +1683,10 @@ paths:
   /leads/{id}/status:
     patch:
       tags: [Leads]
-      summary: Atualiza status do lead, admin/Sognix
+      summary: Atualiza status do lead (admin/Sognix)
+      description: |
+        Move o lead pelo funil de vendas. Quando `status = perdido`, o campo
+        `motivo` passa a ser obrigatório.
       security:
         - bearerAuth: []
       parameters:
@@ -1560,8 +1700,70 @@ paths:
       responses:
         '200':
           description: Status atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /leads/{id}/anonimizar:
+    post:
+      tags: [Leads]
+      summary: Anonimiza um lead (admin/Sognix)
+      description: |
+        Remove dados pessoais (PII) do lead, mantendo o registro para auditoria.
+        Operação idempotente do ponto de vista de PII; retorna 409 se o lead já
+        estava anonimizado.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Lead anonimizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /leads/anonimizar-expirados:
+    post:
+      tags: [Leads]
+      summary: Anonimiza leads expirados em lote (admin/Sognix)
+      description: |
+        Aplica a retenção LGPD: anonimiza leads cujo `criado_em` é anterior a
+        `agora - dias` e que não estão em status `convertido`.
+        Sem o parâmetro, usa o padrão de **365 dias**.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: dias
+          in: query
+          description: Janela de retenção em dias. Padrão 365.
+          schema:
+            type: integer
+            minimum: 1
+            default: 365
+      responses:
+        '200':
+          description: Total de leads anonimizados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anonimizados:
+                    type: integer
+                    example: 27
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1600,13 +1802,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -1696,13 +1898,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: data_fim
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+            format: date
         - name: ordenar_por
           in: query
           required: false
@@ -1827,6 +2029,51 @@ components:
       properties:
         mensagem:
           type: string
+    LandingPageUtilizadaOutput:
+      type: object
+      properties:
+        id:
+          type: string
+        nome:
+          type: string
+        total_exportacoes:
+          type: integer
+    DashboardUsuarioOutput:
+      type: object
+      properties:
+        usuario_id:
+          type: string
+        clientes_vinculados:
+          type: integer
+        landingpages_criadas:
+          type: integer
+        landingpages_online:
+          type: integer
+        exportacoes_geradas:
+          type: integer
+        landingpage_mais_usada:
+          $ref: '#/components/schemas/LandingPageUtilizadaOutput'
+    DashboardAdminOutput:
+      type: object
+      properties:
+        clientes_ativos:
+          type: integer
+        usuarios_ativos:
+          type: integer
+        templates_sognix:
+          type: integer
+        templates_clientes:
+          type: integer
+        landingpages_criadas:
+          type: integer
+        landingpages_online:
+          type: integer
+        leads_capturados:
+          type: integer
+        exportacoes_geradas:
+          type: integer
+        clientes_com_plano_customizavel:
+          type: integer
     OpcaoOutput:
       type: object
       properties:
@@ -1905,18 +2152,47 @@ components:
           enum: [usuario, admin]
     AtualizarUsuarioInput:
       type: object
-      required: [version]
       properties:
         nome:
           type: string
         email:
           type: string
           format: email
-        senha:
+    AlterarSenhaInput:
+      type: object
+      required: [senha_atual, nova_senha]
+      properties:
+        senha_atual:
           type: string
           format: password
-        version:
-          type: integer
+        nova_senha:
+          type: string
+          format: password
+    EsqueciSenhaInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    EsqueciSenhaOutput:
+      type: object
+      required: [mensagem]
+      properties:
+        mensagem:
+          type: string
+        reset_token:
+          type: string
+          description: Retornado apenas quando RESET_PASSWORD_RETURN_TOKEN=true.
+    RedefinirSenhaInput:
+      type: object
+      required: [token, nova_senha]
+      properties:
+        token:
+          type: string
+        nova_senha:
+          type: string
+          format: password
     CriarClienteInput:
       type: object
       required: [nome]
@@ -1926,6 +2202,10 @@ components:
         email:
           type: string
           format: email
+        telefone:
+          type: string
+        whatsapp:
+          type: string
     AtualizarClienteInput:
       type: object
       required: [version]
@@ -1935,16 +2215,12 @@ components:
         email:
           type: string
           format: email
+        telefone:
+          type: string
+        whatsapp:
+          type: string
         version:
           type: integer
-    VincularUsuarioClienteInput:
-      type: object
-      required: [usuario_id, cliente_id]
-      properties:
-        usuario_id:
-          type: string
-        cliente_id:
-          type: string
     CriarNegocioInput:
       type: object
       required: [cliente_id, nome]
@@ -2026,11 +2302,99 @@ components:
           additionalProperties: true
         version:
           type: integer
+    LeadStatus:
+      type: string
+      description: |
+        Funil padrao de leads:
+        novo -> contatado -> qualificado -> negociacao -> proposta_enviada -> convertido | perdido.
+      enum:
+        - novo
+        - contatado
+        - qualificado
+        - negociacao
+        - proposta_enviada
+        - convertido
+        - perdido
+    UTMInput:
+      type: object
+      description: Atribuicao de marketing capturada pela landing page.
+      properties:
+        source:
+          type: string
+          example: google
+        medium:
+          type: string
+          example: cpc
+        campaign:
+          type: string
+          example: lancamento_q2
+        content:
+          type: string
+        term:
+          type: string
     CapturarLeadInput:
       type: object
-      required: [landingpage_id, nome, email]
+      required: [landingpage_id, nome, email, consentimento]
+      description: |
+        Payload publico enviado pelo formulario da landing page. O campo `website`
+        e um honeypot anti-bot que deve permanecer vazio. O consentimento e
+        obrigatorio para conformidade com a LGPD.
       properties:
         landingpage_id:
+          type: string
+        nome:
+          type: string
+          maxLength: 200
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+          description: Aceita formato livre; sera normalizado para apenas digitos (com `+` opcional).
+        whatsapp:
+          type: string
+        mensagem:
+          type: string
+          maxLength: 2000
+        campos_personalizados:
+          type: object
+          description: Campos customizados configurados na landing page (limite ~8KB).
+          additionalProperties: true
+        consentimento:
+          type: boolean
+          description: Obrigatorio. Deve ser `true` para que o lead seja persistido (LGPD).
+        politica_versao:
+          type: string
+          description: Versao da politica de privacidade aceita pelo titular.
+          example: "2026-01-15"
+        utm:
+          $ref: '#/components/schemas/UTMInput'
+        referrer:
+          type: string
+          description: Preenchido automaticamente pelo header `Referer` quando ausente.
+        website:
+          type: string
+          description: Honeypot anti-spam. Deve ficar vazio; submissoes preenchidas sao descartadas silenciosamente.
+    CapturarLeadOutput:
+      type: object
+      required: [id, mensagem]
+      properties:
+        id:
+          type: string
+        mensagem:
+          type: string
+          example: "Obrigado! Entraremos em contato em breve."
+    LeadOutput:
+      type: object
+      required: [id, landingpage_id, nome, email, status, criado_em, consentimento]
+      properties:
+        id:
+          type: string
+        landingpage_id:
+          type: string
+        landingpage_nome:
+          type: string
+        cliente_id:
           type: string
         nome:
           type: string
@@ -2046,9 +2410,55 @@ components:
         campos_personalizados:
           type: object
           additionalProperties: true
+        origem:
+          type: string
+          example: formulario_lp
+        status:
+          $ref: '#/components/schemas/LeadStatus'
+        perdido_motivo:
+          type: string
+          description: Obrigatorio quando `status = perdido`.
+        utm:
+          $ref: '#/components/schemas/UTMInput'
+        referrer:
+          type: string
+        consentimento:
+          type: boolean
+        consentimento_em:
+          type: string
+          format: date-time
+        politica_versao:
+          type: string
+        anonimizado_em:
+          type: string
+          format: date-time
+          description: Preenchido apos anonimizacao (LGPD); demais campos PII viram nulos.
+        criado_em:
+          type: string
+          format: date-time
+    ListaLeadsOutput:
+      type: object
+      required: [dados, total, pagina, por_pagina]
+      properties:
+        dados:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeadOutput'
+        total:
+          type: integer
+        pagina:
+          type: integer
+        por_pagina:
+          type: integer
     AtualizarStatusLeadInput:
       type: object
       required: [status]
+      description: |
+        Atualiza o status no funil. Quando `status = perdido`, `motivo` torna-se obrigatorio.
       properties:
         status:
+          $ref: '#/components/schemas/LeadStatus'
+        motivo:
           type: string
+          maxLength: 500
+          description: Obrigatorio quando `status = perdido`. Texto livre para registrar a razao.

@@ -32,5 +32,9 @@ type Repository interface {
 	SalvarRefreshToken(ctx context.Context, token *RefreshToken) error
 	BuscarRefreshTokenPorHash(ctx context.Context, tokenHash string) (*RefreshToken, error)
 	RevogarRefreshToken(ctx context.Context, tokenHash string, revogadoEm time.Time) error
+	RevogarRefreshTokensDoUsuario(ctx context.Context, usuarioId string, revogadoEm time.Time) error
 	ExpurgarRefreshTokens(ctx context.Context, antesDe time.Time) error
+	SalvarResetSenhaToken(ctx context.Context, token *ResetSenhaToken) error
+	BuscarResetSenhaTokenPorHash(ctx context.Context, tokenHash string) (*ResetSenhaToken, error)
+	MarcarResetSenhaTokenUsado(ctx context.Context, tokenHash string, usadoEm time.Time) error
 }

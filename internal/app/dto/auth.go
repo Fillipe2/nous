@@ -19,3 +19,17 @@ type RefreshTokenInput struct {
 type LogoutInput struct {
 	RefreshToken string `json:"refresh_token,omitempty"`
 }
+
+type EsqueciSenhaInput struct {
+	Email string `json:"email"`
+}
+
+type EsqueciSenhaOutput struct {
+	Mensagem   string `json:"mensagem"`
+	ResetToken string `json:"reset_token,omitempty"`
+}
+
+type RedefinirSenhaInput struct {
+	Token     string `json:"token"`
+	NovaSenha string `json:"nova_senha"`
+}

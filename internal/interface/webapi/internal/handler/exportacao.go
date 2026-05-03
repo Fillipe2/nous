@@ -81,14 +81,19 @@ func (h *ExportacaoHandler) ExportarLandingPage(w http.ResponseWriter, r *http.R
 func (h *ExportacaoHandler) ListarExportacoes(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ObterClaims(r.Context())
 	pagina, porPagina := paginacao(r)
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	output, err := h.useCase.ListarExportacoes(r.Context(), exportacao.FiltroListagem{
 		ClienteId:     r.URL.Query().Get("cliente_id"),
 		LandingPageId: r.URL.Query().Get("landingpage_id"),
 		UsuarioId:     r.URL.Query().Get("usuario_id"),
 		NomeArquivo:   r.URL.Query().Get("nome_arquivo"),
-		DataInicio:    r.URL.Query().Get("data_inicio"),
-		DataFim:       r.URL.Query().Get("data_fim"),
+		DataInicio:    dataInicio,
+		DataFim:       dataFim,
 		Pagina:        pagina,
 		PorPagina:     porPagina,
 		OrdenarPor:    r.URL.Query().Get("ordenar_por"),

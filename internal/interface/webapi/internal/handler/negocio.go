@@ -49,13 +49,18 @@ func (h *NegocioHandler) CriarNegocio(w http.ResponseWriter, r *http.Request) {
 func (h *NegocioHandler) ListarNegocios(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ObterClaims(r.Context())
 	pagina, porPagina := paginacao(r)
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	output, err := h.useCase.ListarNegocios(r.Context(), negocio.FiltroListagem{
 		ClienteId:  r.URL.Query().Get("cliente_id"),
 		Nome:       r.URL.Query().Get("nome"),
 		Status:     r.URL.Query().Get("status"),
-		DataInicio: r.URL.Query().Get("data_inicio"),
-		DataFim:    r.URL.Query().Get("data_fim"),
+		DataInicio: dataInicio,
+		DataFim:    dataFim,
 		Pagina:     pagina,
 		PorPagina:  porPagina,
 		OrdenarPor: r.URL.Query().Get("ordenar_por"),

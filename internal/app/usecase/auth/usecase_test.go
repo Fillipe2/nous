@@ -19,10 +19,14 @@ type usuarioRepositoryFake struct {
 	refresh  map[string]*usuario.RefreshToken
 	auth     *usuario.UsuarioAuth
 
-	salvoRefresh *usuario.RefreshToken
-	revogadoHash string
-	salvoUsuario *usuario.Usuario
-	salvoAuth    *usuario.UsuarioAuth
+	salvoRefresh    *usuario.RefreshToken
+	revogadoHash    string
+	revogadoUsuario string
+	salvoUsuario    *usuario.Usuario
+	salvoAuth       *usuario.UsuarioAuth
+	salvoReset      *usuario.ResetSenhaToken
+	resetTokens     map[string]*usuario.ResetSenhaToken
+	resetUsado      string
 }
 
 func (r *usuarioRepositoryFake) Salvar(_ context.Context, u *usuario.Usuario) error {
@@ -83,7 +87,26 @@ func (r *usuarioRepositoryFake) RevogarRefreshToken(_ context.Context, tokenHash
 	return nil
 }
 
+func (r *usuarioRepositoryFake) RevogarRefreshTokensDoUsuario(_ context.Context, usuarioId string, _ time.Time) error {
+	r.revogadoUsuario = usuarioId
+	return nil
+}
+
 func (r *usuarioRepositoryFake) ExpurgarRefreshTokens(context.Context, time.Time) error { return nil }
+func (r *usuarioRepositoryFake) SalvarResetSenhaToken(_ context.Context, token *usuario.ResetSenhaToken) error {
+	r.salvoReset = token
+	return nil
+}
+func (r *usuarioRepositoryFake) BuscarResetSenhaTokenPorHash(_ context.Context, tokenHash string) (*usuario.ResetSenhaToken, error) {
+	if token, ok := r.resetTokens[tokenHash]; ok {
+		return token, nil
+	}
+	return nil, usuario.ErrNaoEncontrado
+}
+func (r *usuarioRepositoryFake) MarcarResetSenhaTokenUsado(_ context.Context, tokenHash string, _ time.Time) error {
+	r.resetUsado = tokenHash
+	return nil
+}
 
 type clienteRepositoryFake struct {
 	clientes []*cliente.Cliente
@@ -219,5 +242,63 @@ func TestLoginGoogleCriaUsuarioEAuthQuandoProviderNovo(t *testing.T) {
 	}
 	if repository.salvoAuth == nil || repository.salvoAuth.ProviderId != "google-1" || repository.salvoAuth.UsuarioId != repository.salvoUsuario.Id {
 		t.Fatalf("auth google nao foi vinculada corretamente: %+v", repository.salvoAuth)
+	}
+}
+
+func TestEsqueciSenhaSalvaTokenHasheadoSemEnumerarEmail(t *testing.T) {
+	t.Setenv("RESET_PASSWORD_RETURN_TOKEN", "true")
+	repository := &usuarioRepositoryFake{porEmail: map[string]*usuario.Usuario{
+		"user@sognix.com.br": {Id: "usuario-1", Email: "user@sognix.com.br", Status: usuario.StatusAtivo},
+	}}
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &tokenServiceFake{})
+
+	output, err := useCase.EsqueciSenha(context.Background(), dto.EsqueciSenhaInput{Email: "user@sognix.com.br"})
+
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if output.ResetToken == "" || repository.salvoReset == nil {
+		t.Fatalf("token de reset esperado em ambiente de teste: output=%+v salvo=%+v", output, repository.salvoReset)
+	}
+	if repository.salvoReset.TokenHash == output.ResetToken {
+		t.Fatal("token de reset nao deve ser persistido em texto puro")
+	}
+	if repository.salvoReset.TokenHash != hashToken(output.ResetToken) {
+		t.Fatal("hash persistido nao corresponde ao token retornado")
+	}
+
+	output, err = useCase.EsqueciSenha(context.Background(), dto.EsqueciSenhaInput{Email: "ausente@sognix.com.br"})
+	if err != nil || output.Mensagem == "" {
+		t.Fatalf("email ausente deveria retornar mensagem generica sem erro: output=%+v err=%v", output, err)
+	}
+}
+
+func TestRedefinirSenhaUsaTokenUnico(t *testing.T) {
+	token := "reset-token"
+	senhaAntiga, err := bcrypt.GenerateFromPassword([]byte("antiga"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("gerar hash: %v", err)
+	}
+	repository := &usuarioRepositoryFake{
+		porID: map[string]*usuario.Usuario{
+			"usuario-1": {Id: "usuario-1", SenhaHash: string(senhaAntiga), Status: usuario.StatusAtivo, Version: 2},
+		},
+		resetTokens: map[string]*usuario.ResetSenhaToken{
+			hashToken(token): {UsuarioId: "usuario-1", TokenHash: hashToken(token), ExpiresAt: time.Now().Add(time.Minute)},
+		},
+	}
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &tokenServiceFake{})
+
+	if err := useCase.RedefinirSenha(context.Background(), dto.RedefinirSenhaInput{Token: token, NovaSenha: "nova"}); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if repository.resetUsado != hashToken(token) {
+		t.Fatal("token deveria ser marcado como usado")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(repository.porID["usuario-1"].SenhaHash), []byte("nova")); err != nil {
+		t.Fatalf("senha nova nao foi persistida: %v", err)
+	}
+	if repository.revogadoUsuario != "usuario-1" {
+		t.Fatalf("refresh tokens do usuario deveriam ser revogados, recebido %q", repository.revogadoUsuario)
 	}
 }

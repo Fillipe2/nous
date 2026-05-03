@@ -3,9 +3,12 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
 	"buildnix-backend/internal/app/dto"
 	uclead "buildnix-backend/internal/app/usecase/lead"
+	"buildnix-backend/internal/domain/landingpage"
 	"buildnix-backend/internal/domain/lead"
 	"buildnix-backend/internal/interface/webapi/internal/middleware"
 
@@ -29,11 +32,29 @@ func (h *LeadHandler) CapturarLead(w http.ResponseWriter, r *http.Request) {
 
 	ip := middleware.ClienteIP(r)
 	userAgent := r.Header.Get("User-Agent")
+	if input.Referrer == "" {
+		input.Referrer = r.Header.Get("Referer")
+	}
 
 	output, err := h.useCase.CapturarLead(r.Context(), input, ip, userAgent)
 	if err != nil {
-		responderErro(w, http.StatusBadRequest, err.Error())
-		return
+		switch {
+		case errors.Is(err, lead.ErrSpamDetectado):
+			// Resposta neutra para nao ensinar bots.
+			responderJSON(w, http.StatusCreated, map[string]string{"mensagem": "Obrigado! Entraremos em contato em breve."})
+			return
+		case errors.Is(err, lead.ErrConsentimentoObrigatorio),
+			errors.Is(err, lead.ErrPayloadGrande):
+			responderErro(w, http.StatusBadRequest, err.Error())
+			return
+		case errors.Is(err, landingpage.ErrNaoEncontrada),
+			errors.Is(err, lead.ErrLandingPageNaoPublicada):
+			responderErro(w, http.StatusNotFound, "landingpage nao disponivel")
+			return
+		default:
+			responderErro(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	responderJSON(w, http.StatusCreated, map[string]interface{}{
@@ -44,14 +65,21 @@ func (h *LeadHandler) CapturarLead(w http.ResponseWriter, r *http.Request) {
 
 func (h *LeadHandler) ListarLeads(w http.ResponseWriter, r *http.Request) {
 	pagina, porPagina := paginacao(r)
+	dataInicio, dataFim, err := periodoQuery(r)
+	if err != nil {
+		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	filtro := lead.FiltroListagem{
 		ClienteId:     r.URL.Query().Get("cliente_id"),
 		LandingPageId: r.URL.Query().Get("landingpage_id"),
 		Nome:          r.URL.Query().Get("nome"),
 		Email:         r.URL.Query().Get("email"),
 		Status:        r.URL.Query().Get("status"),
-		DataInicio:    r.URL.Query().Get("data_inicio"),
-		DataFim:       r.URL.Query().Get("data_fim"),
+		UTMSource:     r.URL.Query().Get("utm_source"),
+		UTMCampaign:   r.URL.Query().Get("utm_campaign"),
+		DataInicio:    dataInicio,
+		DataFim:       dataFim,
 		Pagina:        pagina,
 		PorPagina:     porPagina,
 		OrdenarPor:    r.URL.Query().Get("ordenar_por"),
@@ -91,9 +119,49 @@ func (h *LeadHandler) AtualizarStatusLead(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := h.useCase.AtualizarStatusLead(r.Context(), id, input); err != nil {
-		responderErro(w, http.StatusBadRequest, err.Error())
-		return
+		switch {
+		case errors.Is(err, lead.ErrStatusInvalido), errors.Is(err, lead.ErrMotivoObrigatorio):
+			responderErro(w, http.StatusBadRequest, err.Error())
+			return
+		default:
+			responderErro(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "status atualizado"})
+}
+
+func (h *LeadHandler) AnonimizarLead(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.useCase.AnonimizarLead(r.Context(), id); err != nil {
+		if errors.Is(err, lead.ErrJaAnonimizado) {
+			responderErro(w, http.StatusConflict, "lead ja anonimizado")
+			return
+		}
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "lead anonimizado"})
+}
+
+func (h *LeadHandler) AnonimizarLeadsExpirados(w http.ResponseWriter, r *http.Request) {
+	retencao := retencaoDuracao(r.URL.Query().Get("dias"))
+	total, err := h.useCase.AnonimizarExpirados(r.Context(), retencao)
+	if err != nil {
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+	responderJSON(w, http.StatusOK, map[string]int{"anonimizados": total})
+}
+
+func retencaoDuracao(dias string) time.Duration {
+	if dias == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(dias)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return time.Duration(n) * 24 * time.Hour
 }

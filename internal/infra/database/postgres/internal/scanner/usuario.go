@@ -68,3 +68,18 @@ func UsuarioAuth(row pgx.Row) (*usuario.UsuarioAuth, error) {
 	}
 	return auth, nil
 }
+
+func ResetSenhaToken(row pgx.Row) (*usuario.ResetSenhaToken, error) {
+	var token usuario.ResetSenhaToken
+	if err := row.Scan(
+		&token.Id,
+		&token.UsuarioId,
+		&token.TokenHash,
+		&token.ExpiresAt,
+		&token.UsadoEm,
+		&token.CriadoEm,
+	); err != nil {
+		return nil, err
+	}
+	return &token, nil
+}

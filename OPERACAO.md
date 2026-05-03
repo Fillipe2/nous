@@ -126,6 +126,7 @@ Checklist antes de produção:
 - Rodar `make test-integration` com `TEST_DATABASE_URL` apontando para um PostgreSQL descartável antes de promover migrations/repositórios.
 - Garantir que o workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) esteja obrigatório na proteção da branch.
 - Configurar dashboards e alertas mínimos conforme [docs/OBSERVABILIDADE.md](docs/OBSERVABILIDADE.md).
+- Verificar que `RESET_PASSWORD_RETURN_TOKEN=false` no ambiente promovido.
 - Rodar teste de carga em login, `POST /leads`, autosave, exportação e listagens.
 - Monitorar erros 409 para conflito de edição.
 - Monitorar latência, saturação do pool, locks e queries lentas.

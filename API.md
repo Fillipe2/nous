@@ -9,6 +9,8 @@ OpenAPI embarcado: `GET /swagger/openapi.yaml`.
 - `POST /auth/login`: login tradicional.
 - `POST /auth/refresh`: renova token JWT.
 - `POST /auth/logout`: logout.
+- `POST /auth/esqueci-senha`: solicita redefinição de senha com resposta genérica.
+- `POST /auth/redefinir-senha`: redefine senha usando token de uso único e revoga refresh tokens ativos do usuário.
 - `GET /auth/google/login`: inicia OAuth2 Google.
 - `GET /auth/google/callback`: callback OAuth2 Google.
 
@@ -22,24 +24,26 @@ Authorization: Bearer <token>
 
 - `POST /usuarios`: cadastro público de usuário comum.
 - `GET /usuarios/me`: dados do usuário autenticado.
+- `PATCH /usuarios/me/senha`: troca a senha do usuário autenticado informando senha atual e nova senha.
 - `GET /usuarios`: lista usuários, admin.
-- `PUT /usuarios/{id}`: edita usuário, próprio usuário ou admin. Requer `version`.
+- `PUT /usuarios/{id}`: edita nome e email, próprio usuário ou admin.
 - `DELETE /usuarios/{id}`: soft delete, próprio usuário ou admin.
+
+Filtros de data em `GET /usuarios` usam apenas data no formato `YYYY-MM-DD`; `data_fim` é inclusiva para o dia inteiro.
 
 ## Clientes e Relacionamentos
 
 - `GET /clientes/me`: lista clientes vinculados ao usuário autenticado, retornando apenas dados básicos.
 - `GET /clientes`: lista clientes, admin.
-- `POST /clientes`: cria cliente, admin.
+- `POST /clientes`: cria cliente via self-onboarding autenticado com nome, email, telefone e whatsapp, vinculando automaticamente ao usuário criador.
 - `PUT /clientes/{id}`: edita cliente, admin. Requer `version`.
 - `DELETE /clientes/{id}`: soft delete cliente, admin.
-- `POST /usuarios-clientes`: vincula usuário a cliente, admin.
 
 ## Dashboard
 
-- `GET /dashboard?cliente_id={id}`: resumo do cliente.
+- `GET /dashboard`: dashboard do usuário autenticado. Admin recebe visão global da operação e pode recortar por `cliente_id`, `usuario_id`, `landingpage_id`, `negocio_id`, `categoria_id`, `template_id` e `tipo`. Usuário comum recebe métricas agregadas dos clientes vinculados ao próprio usuário, sem precisar enviar `cliente_id`.
 
-O dashboard do cliente mostra usuários vinculados, landing pages criadas, landing pages online, exportações e landing page mais utilizada por exportações. Não mostra lista nem métricas de leads.
+Filtros de data usam `YYYY-MM-DD`, com `data_fim` inclusiva para o dia inteiro. Dados pessoais de leads continuam restritos às rotas de leads admin-only; no dashboard comum não há listagem nem dados pessoais de leads.
 
 ## Negócios
 
@@ -57,6 +61,7 @@ O dashboard do cliente mostra usuários vinculados, landing pages criadas, landi
 - `PATCH /landingpages/{id}/autosave`: salva rascunho. Requer `version` e retorna nova `version`.
 - `PATCH /landingpages/{id}/lock`: bloqueia edição concorrente.
 - `PATCH /landingpages/{id}/unlock`: desbloqueia edição.
+- `POST /landingpages/{id}/exportar`: upload multipart do ZIP exportado pelo front.
 - `DELETE /landingpages/{id}`: soft delete.
 
 Exemplo de autosave:
@@ -90,9 +95,9 @@ Resposta:
 ## Leads
 
 - `POST /leads`: captura pública via formulário da landing page.
-- `GET /leads`: lista leads capturados, admin/Sognix.
-- `GET /leads/{id}`: detalhe do lead, admin/Sognix.
-- `PATCH /leads/{id}/status`: atualiza status, admin/Sognix.
+- `GET /leads`: lista leads capturados, somente admin/Sognix. Aceita `cliente_id` para ver leads dos clientes cadastrados.
+- `GET /leads/{id}`: detalhe do lead, somente admin/Sognix.
+- `PATCH /leads/{id}/status`: atualiza status, somente admin/Sognix.
 
 Leads são dados pessoais e ativo comercial da Sognix. Cliente comum não tem acesso nominal nem métricas de leads.
 

@@ -12,9 +12,13 @@ import (
 
 	"buildnix-backend/cmd/internal/bootstrap"
 	"buildnix-backend/internal/interface/webapi"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	carregarDotenv()
+
 	startupCtx, startupCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer startupCancel()
 
@@ -64,4 +68,19 @@ func main() {
 		log.Fatalf("encerramento forcado: %v", err)
 	}
 	log.Println("servidor encerrado")
+}
+
+func carregarDotenv() {
+	caminho := os.Getenv("DOTENV_PATH")
+	if caminho == "" {
+		caminho = ".env"
+	}
+	if _, err := os.Stat(caminho); err != nil {
+		return
+	}
+	if err := godotenv.Load(caminho); err != nil {
+		log.Printf("ignorando %s: %v", caminho, err)
+		return
+	}
+	log.Printf("variaveis carregadas de %s", caminho)
 }

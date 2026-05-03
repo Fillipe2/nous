@@ -10,10 +10,13 @@ type CriarUsuarioInput struct {
 }
 
 type AtualizarUsuarioInput struct {
-	Nome    string `json:"nome,omitempty"`
-	Email   string `json:"email,omitempty"`
-	Senha   string `json:"senha,omitempty"`
-	Version int    `json:"version"`
+	Nome  string `json:"nome,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+type AlterarSenhaInput struct {
+	SenhaAtual string `json:"senha_atual"`
+	NovaSenha  string `json:"nova_senha"`
 }
 
 type UsuarioOutput struct {
