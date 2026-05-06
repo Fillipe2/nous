@@ -66,10 +66,12 @@ type Lead struct {
 	UserAgent            string
 	Referrer             string
 	UTM                  UTM
-	Consentimento        bool
-	ConsentimentoEm      *time.Time
-	PoliticaVersao       string
-	Status               Status
+	Consentimento                    bool
+	ConsentimentoEm                  *time.Time
+	PoliticaVersao                   string
+	ConsentimentoMarketingParceiros  bool
+	ConsentimentoVersaoMarketing     string
+	Status                           Status
 	PerdidoMotivo        string
 	AnonimizadoEm        *time.Time
 	CriadoEm             time.Time

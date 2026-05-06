@@ -49,10 +49,12 @@ func (r *LeadRepository) Salvar(ctx context.Context, l *lead.Lead) error {
 		"utm_campaign":          nilableStr(l.UTM.Campaign),
 		"utm_content":           nilableStr(l.UTM.Content),
 		"utm_term":              nilableStr(l.UTM.Term),
-		"consentimento":         l.Consentimento,
-		"consentimento_em":      l.ConsentimentoEm,
-		"politica_versao":       nilableStr(l.PoliticaVersao),
-		"status":                string(l.Status),
+		"consentimento":                         l.Consentimento,
+		"consentimento_em":                      l.ConsentimentoEm,
+		"politica_versao":                       nilableStr(l.PoliticaVersao),
+		"consentimento_marketing_parceiros":      l.ConsentimentoMarketingParceiros,
+		"consentimento_versao_marketing":         nilableStr(l.ConsentimentoVersaoMarketing),
+		"status":                                string(l.Status),
 		"criado_em":             l.CriadoEm,
 		"atualizado_em":         l.AtualizadoEm,
 	})
@@ -140,6 +142,7 @@ func (r *LeadRepository) Listar(ctx context.Context, filtro lead.FiltroListagem)
 		l.campos_personalizados, l.origem, l.ip, l.user_agent, l.referrer,
 		l.utm_source, l.utm_medium, l.utm_campaign, l.utm_content, l.utm_term,
 		l.consentimento, l.consentimento_em, l.politica_versao,
+		l.consentimento_marketing_parceiros, l.consentimento_versao_marketing,
 		l.status, l.perdido_motivo, l.anonimizado_em, l.criado_em, l.atualizado_em
 		FROM lead l`
 	args := []any{}

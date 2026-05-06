@@ -92,6 +92,12 @@ type Statements struct {
 	AnonimizarLead           string
 	AnonimizarLeadsExpirados string
 
+	// prospecto
+	SalvarProspecto         string
+	BuscarProspectoPorID    string
+	BuscarProspectoPorEmail string
+	AtualizarFunilProspecto string
+
 	// exportacao
 	SalvarExportacao                string
 	BuscarExportacaoPorID           string

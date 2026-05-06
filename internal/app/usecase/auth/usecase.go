@@ -97,27 +97,44 @@ func (u *UseCase) LoginGoogle(ctx context.Context, input GoogleCallbackInput) (*
 	var us *usuario.Usuario
 
 	if err != nil {
-		us = &usuario.Usuario{
-			Nome:         input.Nome,
-			Email:        input.ProviderEmail,
-			Role:         usuario.RoleUsuario,
-			Status:       usuario.StatusAtivo,
-			CriadoEm:     time.Now(),
-			AtualizadoEm: time.Now(),
-			Version:      1,
-		}
-		if salvarErr := u.repository.Salvar(ctx, us); salvarErr != nil {
-			return nil, fmt.Errorf("login google criar usuario: %w", salvarErr)
-		}
-		usuarioAuth := &usuario.UsuarioAuth{
-			UsuarioId:     us.Id,
-			Tipo:          "google",
-			ProviderId:    input.ProviderId,
-			ProviderEmail: input.ProviderEmail,
-			CriadoEm:      time.Now(),
-		}
-		if salvarErr := u.repository.SalvarAuth(ctx, usuarioAuth); salvarErr != nil {
-			return nil, fmt.Errorf("login google salvar auth: %w", salvarErr)
+		// Verifica se já existe um usuário com o mesmo email para vincular a conta.
+		// O handler garante que email_verified=true antes de chegar aqui.
+		existente, emailErr := u.repository.BuscarPorEmail(ctx, input.ProviderEmail)
+		if emailErr == nil && existente != nil {
+			usuarioAuth := &usuario.UsuarioAuth{
+				UsuarioId:     existente.Id,
+				Tipo:          "google",
+				ProviderId:    input.ProviderId,
+				ProviderEmail: input.ProviderEmail,
+				CriadoEm:      time.Now(),
+			}
+			if salvarErr := u.repository.SalvarAuth(ctx, usuarioAuth); salvarErr != nil {
+				return nil, fmt.Errorf("login google vincular conta: %w", salvarErr)
+			}
+			us = existente
+		} else {
+			us = &usuario.Usuario{
+				Nome:         input.Nome,
+				Email:        input.ProviderEmail,
+				Role:         usuario.RoleUsuario,
+				Status:       usuario.StatusAtivo,
+				CriadoEm:     time.Now(),
+				AtualizadoEm: time.Now(),
+				Version:      1,
+			}
+			if salvarErr := u.repository.Salvar(ctx, us); salvarErr != nil {
+				return nil, fmt.Errorf("login google criar usuario: %w", salvarErr)
+			}
+			usuarioAuth := &usuario.UsuarioAuth{
+				UsuarioId:     us.Id,
+				Tipo:          "google",
+				ProviderId:    input.ProviderId,
+				ProviderEmail: input.ProviderEmail,
+				CriadoEm:      time.Now(),
+			}
+			if salvarErr := u.repository.SalvarAuth(ctx, usuarioAuth); salvarErr != nil {
+				return nil, fmt.Errorf("login google salvar auth: %w", salvarErr)
+			}
 		}
 	} else {
 		us, err = u.repository.BuscarPorID(ctx, auth.UsuarioId)

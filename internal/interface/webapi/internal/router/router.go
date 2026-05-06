@@ -2,6 +2,7 @@ package router
 
 import (
 	_ "embed"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -181,6 +182,7 @@ type Handlers struct {
 	Template    *handler.TemplateHandler
 	LandingPage *handler.LandingPageHandler
 	Lead        *handler.LeadHandler
+	Prospecto   *handler.ProspectoHandler
 	Exportacao  *handler.ExportacaoHandler
 	Auditoria   *handler.AuditoriaHandler
 	Opcao       *handler.OpcaoHandler
@@ -201,6 +203,7 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 	r.Get("/swagger", servirSwaggerUI)
 	r.Get("/swagger/", servirSwaggerUI)
 	r.Get("/swagger/openapi.yaml", servirOpenAPI)
+	r.Get("/.well-known/jwks.json", servirJWKS(jwtServico))
 
 	autenticar := middleware.Autenticar(jwtServico)
 
@@ -218,6 +221,9 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 
 		// Lead público (formulário da LP)
 		r.Post("/leads", handlers.Lead.CapturarLead)
+
+		// Prospecto público (formulário de aquisição Sognix B2B)
+		r.Post("/prospectos", handlers.Prospecto.RegistrarProspecto)
 	})
 
 	// Rotas autenticadas
@@ -290,12 +296,40 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 		r.Get("/exportacoes", handlers.Exportacao.ListarExportacoes)
 		r.Get("/exportacoes/{id}/download", handlers.Exportacao.BaixarExportacao)
 
+		// Prospectos: dados B2B restritos ao admin/Sognix
+		r.With(middleware.ApenasAdmin).Get("/prospectos", handlers.Prospecto.ListarProspectos)
+		r.With(middleware.ApenasAdmin).Get("/prospectos/{id}", handlers.Prospecto.ObterProspecto)
+		r.With(middleware.ApenasAdmin).Patch("/prospectos/{id}/funil", handlers.Prospecto.AtualizarFunilProspecto)
+
 		// Auditoria
 		r.With(middleware.ApenasAdmin).Get("/auditoria", handlers.Auditoria.ListarAuditoria)
 		r.With(middleware.ApenasAdmin).Get("/auditoria/{id}", handlers.Auditoria.ObterAuditoria)
 	})
 
 	return r
+}
+
+func jsonMarshal(v any) ([]byte, error) {
+	return json.Marshal(v)
+}
+
+func servirJWKS(jwtServico *infrajwt.Servico) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		jwks, ok := jwtServico.JWKS()
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if !ok {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"jwks nao configurado: JWT_RSA_PRIVATE_KEY ausente"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		data, err := jsonMarshal(jwks)
+		if err != nil {
+			log.Printf("servirJWKS encode: %v", err)
+			return
+		}
+		_, _ = w.Write(data)
+	}
 }
 
 func servirOpenAPI(w http.ResponseWriter, _ *http.Request) {

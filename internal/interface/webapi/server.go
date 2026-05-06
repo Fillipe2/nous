@@ -17,6 +17,7 @@ import (
 	uclp "buildnix-backend/internal/app/usecase/landingpage"
 	uclead "buildnix-backend/internal/app/usecase/lead"
 	ucnegocio "buildnix-backend/internal/app/usecase/negocio"
+	ucprospecto "buildnix-backend/internal/app/usecase/prospecto"
 	uctemplate "buildnix-backend/internal/app/usecase/template"
 	ucusuario "buildnix-backend/internal/app/usecase/usuario"
 	"buildnix-backend/internal/domain/auditoria"
@@ -37,6 +38,7 @@ type Server struct {
 	TemplateUseCase    *uctemplate.UseCase
 	LandingPageUseCase *uclp.UseCase
 	LeadUseCase        *uclead.UseCase
+	ProspectoUseCase   *ucprospecto.UseCase
 	ExportacaoUseCase  *ucexportacao.UseCase
 	AuditoriaRepo      auditoria.Repository
 	JWTServico         *infrajwt.Servico
@@ -85,6 +87,7 @@ func (s *Server) setupRouter() http.Handler {
 		Template:    handler.NewTemplateHandler(s.TemplateUseCase),
 		LandingPage: handler.NewLandingPageHandler(s.LandingPageUseCase),
 		Lead:        handler.NewLeadHandler(s.LeadUseCase),
+		Prospecto:   handler.NewProspectoHandler(s.ProspectoUseCase),
 		Exportacao:  handler.NewExportacaoHandler(s.ExportacaoUseCase),
 		Auditoria:   handler.NewAuditoriaHandler(s.AuditoriaRepo),
 		Opcao:       handler.NewOpcaoHandler(s.ClienteUseCase, s.UsuarioUseCase, s.NegocioUseCase, s.CategoriaUseCase, s.TemplateUseCase, s.LandingPageUseCase),

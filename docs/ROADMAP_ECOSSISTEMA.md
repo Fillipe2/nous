@@ -133,24 +133,27 @@ Trabalho mínimo para fechar buildnix sem trancar nenhum caminho de receita.
 
 ### Fase 2 — Próximos passos combinados
 
-1. **Account linking Google + email já existente.** Se o email do Google bate
+1. [x] **Account linking Google + email já existente.** Se o email do Google bate
    com `usuario` existente e `email_verified=true`, criar só o `usuario_auth`
    vinculado, sem duplicar conta.
-2. **Senha para usuário criado via Google.** Reaproveitar
-   `/auth/esqueci-senha` (já funciona; só validar UX).
-3. **Consentimento granular no `lead` (Tipo B atual).** Adicionar
+2. [x] **Senha para usuário criado via Google.** Reaproveitar
+   `/auth/esqueci-senha` (já funciona; fluxo confirmado funcional para
+   usuários sem senha local).
+3. [x] **Consentimento granular no `lead` (Tipo B atual).** Adicionados
    `consentimento_marketing_parceiros bool` + `consentimento_versao_marketing
-   string`. Habilita via 3 (cross-sell) sem migration extra depois.
-4. **Captura de leads Tipo A (`lead_aquisicao`).** Tabela nova com perfil
-   rico para alimentar vias 1 e 2.
+   string` (migration 000026). Habilita via 3 (cross-sell) sem migration
+   extra depois.
+4. [x] **Captura de leads Tipo A (`prospecto`).** Tabela `prospecto` (migration
+   000027) com perfil rico para alimentar vias 1 e 2.
    - Campos: `nome, email, telefone, categoria_pretendida_id (FK opcional),
      categoria_pretendida_livre, cidade, estado, porte (enum), interesses
      (jsonb), mensagem, origem, utm_*, status_funil,
      convertido_em_usuario_id`.
    - Endpoints: `POST /prospectos` (público), `GET /prospectos` (admin),
-     `PATCH /prospectos/{id}` (admin).
-5. **JWKS público em buildnix** — opcional na fase 1; vira obrigatório quando
-   o novo backend nascer. Endpoint `GET /.well-known/jwks.json`.
+     `GET /prospectos/{id}` (admin), `PATCH /prospectos/{id}/funil` (admin).
+5. [x] **JWKS público em buildnix.** Endpoint `GET /.well-known/jwks.json`.
+   Ativo quando `JWT_RSA_PRIVATE_KEY` está configurado (RS256). Sem a chave,
+   retorna 503. Aceita PKCS8 e PKCS1.
 
 ### Não fazer em buildnix (vai pro novo backend)
 
@@ -162,7 +165,34 @@ Trabalho mínimo para fechar buildnix sem trancar nenhum caminho de receita.
 - Pipeline de anonimização.
 - IA/CRM do Sbrain.
 
-## 8. Decisões pendentes
+## 8. Modelo de edição de LP (decisão tomada em 2026-05-05)
+
+### Onde se edita
+
+A LP pode ser editada em dois lugares — são duas interfaces para o mesmo dado,
+não duas fontes de verdade:
+
+- **Buildnix admin** — todas as operações: criar, editar, publicar, despublicar,
+  duplicar, exportar ZIP, trocar template, configurações de plano.
+- **Área logada da LP (no novo backend)** — subconjunto operacional: editar
+  conteúdo (textos, imagens, horários, contato), publicar/despublicar, ver
+  métricas e leads do próprio Negócio.
+
+Funcionalidades estruturais (trocar template, mudar tipo white-label↔customizável,
+limites de plano) ficam apenas no buildnix admin, onde há contexto de billing.
+
+### Como a edição da área logada chega ao buildnix
+
+O frontend da LP chama o **buildnix diretamente** com o JWT do Operador (emitido
+pelo buildnix, válido lá). Não passa pelo novo backend como intermediário para
+operações de escrita de LP — evita camada desnecessária e mantém buildnix como
+única fonte de verdade.
+
+### Como as alterações chegam ao novo backend — DECISÃO PENDENTE
+
+**Ver seção 9 para a discussão completa e as opções em aberto.**
+
+## 9. Decisões pendentes
 
 - [ ] Nome do novo backend.
 - [ ] Nome final do recurso Tipo A: `lead_aquisicao` × `prospecto` ×
@@ -170,6 +200,112 @@ Trabalho mínimo para fechar buildnix sem trancar nenhum caminho de receita.
 - [ ] Quando criar o repositório do novo backend.
 - [ ] Modelo de SSO unificado Sognix (futuro, fase 3+).
 - [ ] Política de versionamento do schema de eventos publicados no Observer.
+- [ ] **Mecanismo de publicação e propagação de LP ao novo backend** — ver §9.1.
+
+### 9.1 Mecanismo de publicação de LP (decisão pendente)
+
+#### Contexto
+
+O buildnix já possui:
+- `POST /landingpages/{id}/exportar` — gera um ZIP completo (HTML, CSS, JS,
+  imagens e tudo mais) e armazena no PostgreSQL com hash SHA-256.
+- `GET /exportacoes/{id}/download` — baixa o ZIP gerado.
+
+O ZIP resolve o problema de assets (imagens, fontes, etc.) de forma natural:
+tudo vai empacotado junto, sem necessidade de CDN separado ou storage externo.
+
+A questão em aberto é: **como esse ZIP chega ao novo backend para ser servido
+publicamente**, e como edições subsequentes atualizam a LP ao vivo.
+
+#### Opção A — ZIP como mecanismo de publicação (deploy via arquivo)
+
+O Operador edita no buildnix, clica "Publicar", o buildnix gera o ZIP e o
+implanta automaticamente no hosting do novo backend.
+
+```
+Operador clica "Publicar" no buildnix
+    → buildnix gera ZIP (reutiliza lógica do exportar)
+    → buildnix envia ZIP ao novo backend (ou CDN/storage)
+    → novo backend extrai e serve os arquivos estáticos
+    → Observer recebe evento leve: { lp_id, exportacao_id, sha256, url_publica }
+```
+
+Qualquer re-edição gera um novo ZIP e repete o deploy. Edições via área logada
+da LP seguem o mesmo fluxo: salva no buildnix → re-publica → novo ZIP.
+
+**Prós:**
+- Assets (imagens, fontes) vão dentro do ZIP — sem CDN ou storage extra.
+- O ZIP já existe no buildnix; falta apenas o passo de deploy automático.
+- SHA-256 garante integridade e permite cache agressivo.
+- Simples de entender: publicar = gerar + implantar.
+
+**Contras:**
+- Re-deploy a cada edição publicada (tempo de propagação depende do tamanho
+  do ZIP e da velocidade do hosting).
+- O novo backend precisa de um endpoint para receber e extrair ZIPs.
+- Edições frequentes via área logada geram muitos deploys.
+
+**O que faltaria no buildnix:**
+- Separar `exportar` (baixar para si) de `publicar` (deploy automático Sognix).
+- `POST /landingpages/{id}/publicar` — gera ZIP e dispara o deploy.
+- `POST /landingpages/{id}/despublicar` — tira do ar sem gerar ZIP.
+
+---
+
+#### Opção B — Evento com payload JSON (sem arquivo)
+
+O buildnix emite um evento com o conteúdo estrutural da LP em JSON. O novo
+backend mantém uma cópia ("config viva") em banco e renderiza a LP
+dinamicamente.
+
+```
+Operador clica "Publicar" no buildnix
+    → buildnix emite evento: { lp_id, version, conteudo (JSON), status }
+    → novo backend atualiza lp_publicada em banco
+    → novo backend renderiza LP a partir do JSON
+```
+
+**Prós:**
+- Propagação instantânea (sem geração de arquivo).
+- Re-edições são baratas — só atualiza o registro em banco.
+
+**Contras:**
+- Imagens e assets precisam de CDN ou storage externo — o JSON só referencia
+  URLs, não carrega os bytes.
+- Requer infraestrutura de upload de assets no buildnix (endpoint `POST
+  /assets`, armazenamento de BLOBs, serving público) — **não existe hoje**.
+- Novo backend vira um renderer dinâmico de LP, não um servidor de arquivos
+  estáticos — superfície de código maior.
+- O `conteudo` precisa ter schema versionado e estável como contrato entre
+  buildnix e novo backend.
+
+**O que faltaria no buildnix:**
+- Domínio `asset` com upload, armazenamento e serving público de imagens.
+- Schema formal e versionado do `conteudo` da LP.
+- Evento `landingpage.publicada` com payload estruturado.
+
+---
+
+#### Opção C — Híbrido
+
+ZIP para o primeiro deploy (ou deploys completos). Evento JSON apenas para
+atualizações de conteúdo simples (texto, cor, telefone) sem re-geração de ZIP.
+
+**Contras:** dois mecanismos de propagação para manter em sincronia — maior
+complexidade.
+
+---
+
+#### Perguntas para a decisão
+
+1. O novo backend vai servir LPs como **arquivos estáticos** ou como
+   **páginas renderizadas dinamicamente**?
+2. As edições via área logada da LP precisam propagar **imediatamente** ou
+   toleramos o tempo de um re-deploy de ZIP?
+3. Existe plano de infraestrutura para CDN/object storage (S3, R2, etc.) no
+   curto prazo?
+4. O volume esperado de edições por LP por dia é alto (justifica Opção B) ou
+   baixo (Opção A é suficiente)?
 
 ## 9. Glossário
 

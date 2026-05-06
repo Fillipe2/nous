@@ -3,11 +3,13 @@ INSERT INTO lead (id, landingpage_id, cliente_id, nome, email, telefone, whatsap
     campos_personalizados, origem, ip, user_agent, referrer,
     utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     consentimento, consentimento_em, politica_versao,
+    consentimento_marketing_parceiros, consentimento_versao_marketing,
     status, criado_em, atualizado_em)
 VALUES (@id, @landingpage_id, @cliente_id, @nome, @email, @telefone, @whatsapp, @mensagem,
     @campos_personalizados, @origem, @ip, @user_agent, @referrer,
     @utm_source, @utm_medium, @utm_campaign, @utm_content, @utm_term,
     @consentimento, @consentimento_em, @politica_versao,
+    @consentimento_marketing_parceiros, @consentimento_versao_marketing,
     @status, @criado_em, @atualizado_em);
 
 -- name: BuscarLeadPorID
@@ -15,6 +17,7 @@ SELECT id, landingpage_id, cliente_id, nome, email, telefone, whatsapp, mensagem
     campos_personalizados, origem, ip, user_agent, referrer,
     utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     consentimento, consentimento_em, politica_versao,
+    consentimento_marketing_parceiros, consentimento_versao_marketing,
     status, perdido_motivo, anonimizado_em, criado_em, atualizado_em
 FROM lead WHERE id=@id;
 
@@ -23,6 +26,7 @@ SELECT id, landingpage_id, cliente_id, nome, email, telefone, whatsapp, mensagem
     campos_personalizados, origem, ip, user_agent, referrer,
     utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     consentimento, consentimento_em, politica_versao,
+    consentimento_marketing_parceiros, consentimento_versao_marketing,
     status, perdido_motivo, anonimizado_em, criado_em, atualizado_em
 FROM lead
 WHERE email=@email AND landingpage_id=@landingpage_id AND criado_em >= @desde

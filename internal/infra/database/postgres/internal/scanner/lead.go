@@ -12,55 +12,59 @@ import (
 // Lead escaneia uma row do banco para a entidade de domínio Lead.
 func Lead(row pgx.Row) (*lead.Lead, error) {
 	var (
-		id                   string
-		landingPageID        string
-		clienteID            *string
-		nome                 string
-		email                string
-		telefone             *string
-		whatsapp             *string
-		mensagem             *string
-		camposPersonalizados []byte
-		origem               string
-		ip                   *string
-		userAgent            *string
-		referrer             *string
-		utmSource            *string
-		utmMedium            *string
-		utmCampaign          *string
-		utmContent           *string
-		utmTerm              *string
-		consentimento        bool
-		consentimentoEm      *time.Time
-		politicaVersao       *string
-		status               string
-		perdidoMotivo        *string
-		anonimizadoEm        *time.Time
-		criadoEm             time.Time
-		atualizadoEm         time.Time
+		id                              string
+		landingPageID                   string
+		clienteID                       *string
+		nome                            string
+		email                           string
+		telefone                        *string
+		whatsapp                        *string
+		mensagem                        *string
+		camposPersonalizados            []byte
+		origem                          string
+		ip                              *string
+		userAgent                       *string
+		referrer                        *string
+		utmSource                       *string
+		utmMedium                       *string
+		utmCampaign                     *string
+		utmContent                      *string
+		utmTerm                         *string
+		consentimento                   bool
+		consentimentoEm                 *time.Time
+		politicaVersao                  *string
+		consentimentoMarketingParceiros bool
+		consentimentoVersaoMarketing    *string
+		status                          string
+		perdidoMotivo                   *string
+		anonimizadoEm                   *time.Time
+		criadoEm                        time.Time
+		atualizadoEm                    time.Time
 	)
 	if err := row.Scan(
 		&id, &landingPageID, &clienteID, &nome, &email, &telefone, &whatsapp, &mensagem,
 		&camposPersonalizados, &origem, &ip, &userAgent, &referrer,
 		&utmSource, &utmMedium, &utmCampaign, &utmContent, &utmTerm,
 		&consentimento, &consentimentoEm, &politicaVersao,
+		&consentimentoMarketingParceiros, &consentimentoVersaoMarketing,
 		&status, &perdidoMotivo, &anonimizadoEm, &criadoEm, &atualizadoEm,
 	); err != nil {
 		return nil, err
 	}
 	l := &lead.Lead{
-		Id:                   id,
-		LandingPageId:        landingPageID,
-		Nome:                 nome,
-		Email:                email,
-		CamposPersonalizados: json.RawMessage(camposPersonalizados),
-		Origem:               origem,
-		Consentimento:        consentimento,
-		ConsentimentoEm:      consentimentoEm,
-		Status:               lead.Status(status),
-		AnonimizadoEm:        anonimizadoEm,
-		CriadoEm:             criadoEm,
-		AtualizadoEm:         atualizadoEm,
+		Id:                              id,
+		LandingPageId:                   landingPageID,
+		Nome:                            nome,
+		Email:                           email,
+		CamposPersonalizados:            json.RawMessage(camposPersonalizados),
+		Origem:                          origem,
+		Consentimento:                   consentimento,
+		ConsentimentoEm:                 consentimentoEm,
+		ConsentimentoMarketingParceiros: consentimentoMarketingParceiros,
+		Status:                          lead.Status(status),
+		AnonimizadoEm:                   anonimizadoEm,
+		CriadoEm:                        criadoEm,
+		AtualizadoEm:                    atualizadoEm,
 	}
 	if clienteID != nil {
 		l.ClienteId = *clienteID
@@ -100,6 +104,9 @@ func Lead(row pgx.Row) (*lead.Lead, error) {
 	}
 	if politicaVersao != nil {
 		l.PoliticaVersao = *politicaVersao
+	}
+	if consentimentoVersaoMarketing != nil {
+		l.ConsentimentoVersaoMarketing = *consentimentoVersaoMarketing
 	}
 	if perdidoMotivo != nil {
 		l.PerdidoMotivo = *perdidoMotivo

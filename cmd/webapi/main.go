@@ -42,6 +42,7 @@ func main() {
 		TemplateUseCase:    container.TemplateUseCase,
 		LandingPageUseCase: container.LandingPageUseCase,
 		LeadUseCase:        container.LeadUseCase,
+		ProspectoUseCase:   container.ProspectoUseCase,
 		ExportacaoUseCase:  container.ExportacaoUseCase,
 		AuditoriaRepo:      container.AuditoriaRepository,
 		JWTServico:         container.JWTServico,

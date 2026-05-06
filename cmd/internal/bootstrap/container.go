@@ -14,6 +14,7 @@ import (
 	uclandingpage "buildnix-backend/internal/app/usecase/landingpage"
 	uclead "buildnix-backend/internal/app/usecase/lead"
 	ucnegocio "buildnix-backend/internal/app/usecase/negocio"
+	ucprospecto "buildnix-backend/internal/app/usecase/prospecto"
 	uctemplate "buildnix-backend/internal/app/usecase/template"
 	ucusuario "buildnix-backend/internal/app/usecase/usuario"
 	"buildnix-backend/internal/domain/auditoria"
@@ -26,6 +27,7 @@ import (
 	"buildnix-backend/internal/domain/lead"
 	"buildnix-backend/internal/domain/negocio"
 	"buildnix-backend/internal/domain/plano"
+	"buildnix-backend/internal/domain/prospecto"
 	"buildnix-backend/internal/domain/template"
 	"buildnix-backend/internal/domain/usuario"
 	"buildnix-backend/internal/infra/config"
@@ -51,6 +53,7 @@ type Container struct {
 	TemplateRepository    template.Repository
 	LandingPageRepository landingpage.Repository
 	LeadRepository        lead.Repository
+	ProspectoRepository   prospecto.Repository
 	ExportacaoRepository  exportacao.Repository
 	AuditoriaRepository   auditoria.Repository
 	EventOutboxRepository evento.OutboxRepository
@@ -66,6 +69,7 @@ type Container struct {
 	TemplateUseCase    *uctemplate.UseCase
 	LandingPageUseCase *uclandingpage.UseCase
 	LeadUseCase        *uclead.UseCase
+	ProspectoUseCase   *ucprospecto.UseCase
 	ExportacaoUseCase  *ucexportacao.UseCase
 }
 

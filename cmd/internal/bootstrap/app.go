@@ -9,6 +9,7 @@ import (
 	uclandingpage "buildnix-backend/internal/app/usecase/landingpage"
 	uclead "buildnix-backend/internal/app/usecase/lead"
 	ucnegocio "buildnix-backend/internal/app/usecase/negocio"
+	ucprospecto "buildnix-backend/internal/app/usecase/prospecto"
 	uctemplate "buildnix-backend/internal/app/usecase/template"
 	ucusuario "buildnix-backend/internal/app/usecase/usuario"
 	"buildnix-backend/internal/infra/eventbus"
@@ -26,6 +27,7 @@ func (c *Container) initApp() error {
 	c.TemplateUseCase = uctemplate.NewUseCase(c.TemplateRepository, c.ClienteRepository, c.PlanoRepository)
 	c.LandingPageUseCase = uclandingpage.NewUseCase(c.LandingPageRepository, c.ClienteRepository, c.Publisher, c.PlanoRepository, c.TemplateRepository)
 	c.LeadUseCase = uclead.NewUseCase(c.LeadRepository, c.LandingPageRepository, c.Publisher)
+	c.ProspectoUseCase = ucprospecto.NewUseCase(c.ProspectoRepository)
 	c.ExportacaoUseCase = ucexportacao.NewUseCase(c.ExportacaoRepository, c.LandingPageRepository)
 
 	return nil

@@ -16,6 +16,7 @@ type Config struct {
 	DatabaseURL              string
 	JWTSecret                string
 	JWTRefreshSecret         string
+	JWTRSAPrivateKey         string
 	ObserverURL              string
 	GoogleClientID           string
 	GoogleClientSecret       string
@@ -39,6 +40,7 @@ func Carregar() *Config {
 		DatabaseURL:              obterEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/buildnix?sslmode=disable"),
 		JWTSecret:                obterEnv("JWT_SECRET", ""),
 		JWTRefreshSecret:         obterEnv("JWT_REFRESH_SECRET", ""),
+		JWTRSAPrivateKey:         obterEnv("JWT_RSA_PRIVATE_KEY", ""),
 		ObserverURL:              obterEnv("OBSERVER_URL", ""),
 		GoogleClientID:           obterEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret:       obterEnv("GOOGLE_CLIENT_SECRET", ""),

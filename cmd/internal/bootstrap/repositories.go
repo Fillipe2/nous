@@ -39,6 +39,10 @@ func (c *Container) initRepositories() error {
 	if err != nil {
 		return fmt.Errorf("lead repository: %w", err)
 	}
+	prospectoRepository, err := postgres.NewProspectoRepository(c.Database)
+	if err != nil {
+		return fmt.Errorf("prospecto repository: %w", err)
+	}
 	exportacaoRepository, err := postgres.NewExportacaoRepository(c.Database)
 	if err != nil {
 		return fmt.Errorf("exportacao repository: %w", err)
@@ -64,6 +68,7 @@ func (c *Container) initRepositories() error {
 	c.TemplateRepository = templateRepository
 	c.LandingPageRepository = landingPageRepository
 	c.LeadRepository = leadRepository
+	c.ProspectoRepository = prospectoRepository
 	c.ExportacaoRepository = exportacaoRepository
 	c.AuditoriaRepository = auditoriaRepository
 	c.EventOutboxRepository = eventOutboxRepository
