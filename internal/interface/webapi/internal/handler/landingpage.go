@@ -207,3 +207,53 @@ func (h *LandingPageHandler) DesbloquearEdicao(w http.ResponseWriter, r *http.Re
 
 	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "edicao desbloqueada"})
 }
+
+func (h *LandingPageHandler) PublicarLandingPage(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	claims := middleware.ObterClaims(r.Context())
+
+	output, err := h.useCase.PublicarLandingPage(r.Context(), id, claims.UsuarioId, claims.Role)
+	if errors.Is(err, landingpage.ErrNaoEncontrada) {
+		responderErro(w, http.StatusNotFound, "landingpage nao encontrada")
+		return
+	}
+	if errors.Is(err, landingpage.ErrNaoAutorizado) {
+		responderErro(w, http.StatusForbidden, "acesso negado")
+		return
+	}
+	if errors.Is(err, landingpage.ErrSlugNaoDefinido) || errors.Is(err, landingpage.ErrSemExportacao) {
+		responderErro(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	if err != nil {
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+
+	responderJSON(w, http.StatusOK, output)
+}
+
+func (h *LandingPageHandler) DespublicarLandingPage(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	claims := middleware.ObterClaims(r.Context())
+
+	err := h.useCase.DespublicarLandingPage(r.Context(), id, claims.UsuarioId, claims.Role)
+	if errors.Is(err, landingpage.ErrNaoEncontrada) {
+		responderErro(w, http.StatusNotFound, "landingpage nao encontrada")
+		return
+	}
+	if errors.Is(err, landingpage.ErrNaoAutorizado) {
+		responderErro(w, http.StatusForbidden, "acesso negado")
+		return
+	}
+	if errors.Is(err, landingpage.ErrNaoPublicada) {
+		responderErro(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	if err != nil {
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+
+	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "landingpage despublicada"})
+}

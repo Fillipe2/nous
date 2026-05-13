@@ -173,6 +173,12 @@ func (f *leadHandlerLandingPageFake) AtualizarLock(context.Context, string, *str
 func (f *leadHandlerLandingPageFake) VerificarAcessoUsuario(context.Context, string, string) error {
 	return nil
 }
+func (f *leadHandlerLandingPageFake) AtualizarPublicacao(context.Context, string, string, string, time.Time) error {
+	return nil
+}
+func (f *leadHandlerLandingPageFake) AtualizarDespublicacao(context.Context, string) error {
+	return nil
+}
 
 type publisherHandlerFake struct{}
 

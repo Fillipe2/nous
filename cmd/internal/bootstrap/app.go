@@ -13,10 +13,15 @@ import (
 	uctemplate "buildnix-backend/internal/app/usecase/template"
 	ucusuario "buildnix-backend/internal/app/usecase/usuario"
 	"buildnix-backend/internal/infra/eventbus"
+	"buildnix-backend/internal/infra/hosting/noop"
 )
 
 func (c *Container) initApp() error {
 	c.Publisher = eventbus.NewOutboxPublisher(c.EventOutboxRepository, c.Publisher)
+
+	if c.Deployer == nil {
+		c.Deployer = noop.New()
+	}
 
 	c.AuthUseCase = ucauth.NewUseCase(c.UsuarioRepository, c.ClienteRepository, c.JWTServico)
 	c.UsuarioUseCase = ucusuario.NewUseCase(c.UsuarioRepository)
@@ -25,7 +30,7 @@ func (c *Container) initApp() error {
 	c.NegocioUseCase = ucnegocio.NewUseCase(c.NegocioRepository, c.ClienteRepository)
 	c.CategoriaUseCase = uccategoria.NewUseCase(c.CategoriaRepository)
 	c.TemplateUseCase = uctemplate.NewUseCase(c.TemplateRepository, c.ClienteRepository, c.PlanoRepository)
-	c.LandingPageUseCase = uclandingpage.NewUseCase(c.LandingPageRepository, c.ClienteRepository, c.Publisher, c.PlanoRepository, c.TemplateRepository)
+	c.LandingPageUseCase = uclandingpage.NewUseCase(c.LandingPageRepository, c.ClienteRepository, c.Publisher, c.PlanoRepository, c.TemplateRepository, c.Deployer, c.ExportacaoRepository)
 	c.LeadUseCase = uclead.NewUseCase(c.LeadRepository, c.LandingPageRepository, c.Publisher)
 	c.ProspectoUseCase = ucprospecto.NewUseCase(c.ProspectoRepository)
 	c.ExportacaoUseCase = ucexportacao.NewUseCase(c.ExportacaoRepository, c.LandingPageRepository)

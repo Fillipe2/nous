@@ -96,6 +96,10 @@ func (f *landingPageFake) AtualizarLock(context.Context, string, *string) error 
 func (f *landingPageFake) VerificarAcessoUsuario(context.Context, string, string) error {
 	return nil
 }
+func (f *landingPageFake) AtualizarPublicacao(context.Context, string, string, string, time.Time) error {
+	return nil
+}
+func (f *landingPageFake) AtualizarDespublicacao(context.Context, string) error { return nil }
 
 func lpPublicada() *landingPageFake {
 	return &landingPageFake{lp: &landingpage.LandingPage{Id: "lp-test", ClienteId: "cliente-1", Status: landingpage.StatusPublicada}}

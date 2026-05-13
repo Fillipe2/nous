@@ -30,6 +30,7 @@ import (
 	"buildnix-backend/internal/domain/prospecto"
 	"buildnix-backend/internal/domain/template"
 	"buildnix-backend/internal/domain/usuario"
+	"buildnix-backend/internal/domain/hosting"
 	"buildnix-backend/internal/infra/config"
 	"buildnix-backend/internal/infra/database/postgres"
 	infrajwt "buildnix-backend/internal/infra/jwt"
@@ -43,6 +44,7 @@ type Container struct {
 	Publisher  evento.Publisher
 	JWTServico *infrajwt.Servico
 	LogCloser  io.Closer
+	Deployer   hosting.Deployer
 
 	// Repositories
 	UsuarioRepository     usuario.Repository

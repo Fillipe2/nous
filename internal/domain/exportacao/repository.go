@@ -19,4 +19,5 @@ type Repository interface {
 	Salvar(ctx context.Context, e *Exportacao) error
 	BuscarPorID(ctx context.Context, id string) (*Exportacao, error)
 	Listar(ctx context.Context, filtro FiltroListagem) ([]*Exportacao, int, error)
+	BuscarMaisRecentePorLandingPage(ctx context.Context, landingPageId string) (*Exportacao, error)
 }

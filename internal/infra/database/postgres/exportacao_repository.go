@@ -59,6 +59,19 @@ func (r *ExportacaoRepository) BuscarPorID(ctx context.Context, id string) (*exp
 	return e, nil
 }
 
+func (r *ExportacaoRepository) BuscarMaisRecentePorLandingPage(ctx context.Context, landingPageId string) (*exportacao.Exportacao, error) {
+	stmts := statement.Get()
+	row := r.connection.QueryRow(ctx, stmts.BuscarMaisRecenteExportacaoPorLandingPage, pgx.NamedArgs{"landingpage_id": landingPageId})
+	e, err := scanner.Exportacao(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, exportacao.ErrNaoEncontrada
+	}
+	if err != nil {
+		return nil, fmt.Errorf("buscar exportacao mais recente: %w", err)
+	}
+	return e, nil
+}
+
 func (r *ExportacaoRepository) Listar(ctx context.Context, filtro exportacao.FiltroListagem) ([]*exportacao.Exportacao, int, error) {
 	offset := (filtro.Pagina - 1) * filtro.PorPagina
 	query := `SELECT e.id, e.landingpage_id, e.usuario_id, e.nome_arquivo, e.content_type, e.tamanho_bytes, ''::bytea AS arquivo, e.hash, e.criado_em FROM exportacao e`

@@ -15,6 +15,10 @@ var (
 	ErrTemplateObrigatorio  = errors.New("template obrigatorio para landingpage white label")
 	ErrTemplateIncompativel = errors.New("template incompativel com o tipo de landingpage")
 	ErrTipoInvalido         = errors.New("tipo de landingpage invalido")
+	ErrSlugNaoDefinido      = errors.New("slug nao definido, defina um slug antes de publicar")
+	ErrSlugJaExiste         = errors.New("slug ja utilizado por outra landingpage")
+	ErrSemExportacao        = errors.New("nenhuma exportacao encontrada, exporte a landingpage antes de publicar")
+	ErrNaoPublicada         = errors.New("landingpage nao esta publicada")
 )
 
 type Status string
@@ -34,6 +38,7 @@ type LandingPage struct {
 	TemplateId     string
 	Tipo           Tipo
 	Nome           string
+	Slug           string
 	Conteudo       string
 	Status         Status
 	IsDraft        bool
@@ -41,6 +46,9 @@ type LandingPage struct {
 	LastAutosaveEm *time.Time
 	LockedBy       *string
 	LockedAt       *time.Time
+	UrlPublica     *string
+	DeployId       *string
+	PublicadaEm    *time.Time
 	CriadoEm       time.Time
 	AtualizadoEm   time.Time
 	Version        int

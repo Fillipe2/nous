@@ -56,6 +56,12 @@ func (r *landingPageRepositoryFake) AtualizarLock(_ context.Context, _ string, u
 func (r *landingPageRepositoryFake) VerificarAcessoUsuario(context.Context, string, string) error {
 	return nil
 }
+func (r *landingPageRepositoryFake) AtualizarPublicacao(context.Context, string, string, string, time.Time) error {
+	return nil
+}
+func (r *landingPageRepositoryFake) AtualizarDespublicacao(context.Context, string) error {
+	return nil
+}
 
 type clienteRepositoryFake struct{ err error }
 
@@ -107,7 +113,7 @@ func (publisherFake) Publicar(context.Context, evento.Evento) error { return nil
 
 func TestCriarLandingPageCustomizavelRespeitaLimiteDoPlano(t *testing.T) {
 	repository := &landingPageRepositoryFake{totalPorCliente: 1}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{Limites: plano.Limites{LandingPagesCustomizaveis: true, MaxLandingPages: 1}}}, &templateRepositoryFake{})
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{Limites: plano.Limites{LandingPagesCustomizaveis: true, MaxLandingPages: 1}}}, &templateRepositoryFake{}, nil, nil)
 
 	_, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{ClienteId: "cliente-1", Nome: "LP", Tipo: string(domain.TipoCustomizavel), Conteudo: "html"}, "usuario-1", "usuario")
 
@@ -124,7 +130,7 @@ func TestCriarLandingPageCustomizavelRespeitaLimiteDoPlano(t *testing.T) {
 
 func TestCriarLandingPageWhiteLabelExigeTemplate(t *testing.T) {
 	repository := &landingPageRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{}}, &templateRepositoryFake{})
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{}}, &templateRepositoryFake{}, nil, nil)
 
 	_, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{ClienteId: "cliente-1", Nome: "LP", Tipo: string(domain.TipoWhiteLabel)}, "usuario-1", "usuario")
 
@@ -138,7 +144,7 @@ func TestCriarLandingPageWhiteLabelExigeTemplate(t *testing.T) {
 
 func TestCriarLandingPageWhiteLabelUsaTemplateInicial(t *testing.T) {
 	repository := &landingPageRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{}}, &templateRepositoryFake{template: &template.Template{Id: "template-1", ClienteId: "cliente-1", CategoriaId: "categoria-1", Tipo: template.TipoWhiteLabel, Origem: template.OrigemCliente, Conteudo: "html-template"}})
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{}}, &templateRepositoryFake{template: &template.Template{Id: "template-1", ClienteId: "cliente-1", CategoriaId: "categoria-1", Tipo: template.TipoWhiteLabel, Origem: template.OrigemCliente, Conteudo: "html-template"}}, nil, nil)
 
 	output, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{ClienteId: "cliente-1", Nome: "LP", Tipo: string(domain.TipoWhiteLabel), TemplateId: "template-1"}, "usuario-1", "usuario")
 
@@ -155,7 +161,7 @@ func TestCriarLandingPageWhiteLabelUsaTemplateInicial(t *testing.T) {
 
 func TestAutosaveRecusaLandingPageWhiteLabel(t *testing.T) {
 	repository := &landingPageRepositoryFake{landingPage: &domain.LandingPage{Id: "lp-1", ClienteId: "cliente-1", Tipo: domain.TipoWhiteLabel, Version: 1}}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{}, &templateRepositoryFake{})
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{}, &templateRepositoryFake{}, nil, nil)
 
 	_, err := useCase.Autosave(context.Background(), "lp-1", "usuario-1", "usuario", dto.AutosaveInput{AutosaveData: []byte(`{"a":1}`), Version: 1})
 
@@ -171,7 +177,7 @@ func TestBloquearEdicaoRespeitaLockAtivoDeOutroUsuario(t *testing.T) {
 	outroUsuario := "usuario-2"
 	lockedAt := time.Now()
 	repository := &landingPageRepositoryFake{landingPage: &domain.LandingPage{Id: "lp-1", ClienteId: "cliente-1", Tipo: domain.TipoCustomizavel, LockedBy: &outroUsuario, LockedAt: &lockedAt}}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{}, &templateRepositoryFake{})
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{}, &templateRepositoryFake{}, nil, nil)
 
 	_, err := useCase.BloquearEdicao(context.Background(), "lp-1", "usuario-1", "usuario")
 

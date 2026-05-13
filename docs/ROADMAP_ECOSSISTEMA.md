@@ -165,32 +165,45 @@ Trabalho mínimo para fechar buildnix sem trancar nenhum caminho de receita.
 - Pipeline de anonimização.
 - IA/CRM do Sbrain.
 
-## 8. Modelo de edição de LP (decisão tomada em 2026-05-05)
+## 8. Modelo de edição e publicação de LP (atualizado 2026-05-09)
 
 ### Onde se edita
 
-A LP pode ser editada em dois lugares — são duas interfaces para o mesmo dado,
-não duas fontes de verdade:
+Buildnix é a **única fonte de verdade** para LP. Duas interfaces, mesmos dados:
 
 - **Buildnix admin** — todas as operações: criar, editar, publicar, despublicar,
   duplicar, exportar ZIP, trocar template, configurações de plano.
-- **Área logada da LP (no novo backend)** — subconjunto operacional: editar
-  conteúdo (textos, imagens, horários, contato), publicar/despublicar, ver
-  métricas e leads do próprio Negócio.
+- **Área logada da LP** — subconjunto básico: editar textos e cores.
+  Chama o buildnix diretamente com o JWT do Operador. Não passa pelo novo backend.
 
 Funcionalidades estruturais (trocar template, mudar tipo white-label↔customizável,
 limites de plano) ficam apenas no buildnix admin, onde há contexto de billing.
 
-### Como a edição da área logada chega ao buildnix
+O novo backend **não participa** do fluxo de edição ou publicação de LP.
 
-O frontend da LP chama o **buildnix diretamente** com o JWT do Operador (emitido
-pelo buildnix, válido lá). Não passa pelo novo backend como intermediário para
-operações de escrita de LP — evita camada desnecessária e mantém buildnix como
-única fonte de verdade.
+### Mecanismo de publicação (decisão tomada em 2026-05-09)
 
-### Como as alterações chegam ao novo backend — DECISÃO PENDENTE
+```
+Operador clica "Publicar"
+    → buildnix gera ZIP (reutiliza lógica do exportar)
+    → buildnix faz deploy do ZIP para hosting estático externo via API
+    → buildnix armazena url_publica + deploy_id + sha256 na LP
+    → Observer recebe evento: { lp_id, exportacao_id, sha256, url_publica }
+```
 
-**Ver seção 9 para a discussão completa e as opções em aberto.**
+Edições via área logada seguem o mesmo fluxo: salva no buildnix → re-publica → novo ZIP.
+
+**Plataforma de hosting:** ainda não definida (Netlify, Vercel, Render, VPS própria).
+A integração fica atrás de uma interface (`hosting.Deployer`) configurada por env var,
+exatamente como o Observer. Quando a plataforma for escolhida, implementa-se só o adaptador.
+
+### O que falta implementar no buildnix
+
+- Interface `hosting.Deployer` no domínio (ou infra) com métodos `Deploy` e `Despublicar`.
+- `POST /landingpages/{id}/publicar` — gera ZIP e chama `Deployer.Deploy`.
+- `POST /landingpages/{id}/despublicar` — chama `Deployer.Despublicar` e atualiza status.
+- Campos na LP/exportação: `url_publica`, `deploy_id`, `publicada_em`.
+- Adaptador noop para operar standalone sem hosting configurado.
 
 ## 9. Decisões pendentes
 
@@ -200,112 +213,7 @@ operações de escrita de LP — evita camada desnecessária e mantém buildnix 
 - [ ] Quando criar o repositório do novo backend.
 - [ ] Modelo de SSO unificado Sognix (futuro, fase 3+).
 - [ ] Política de versionamento do schema de eventos publicados no Observer.
-- [ ] **Mecanismo de publicação e propagação de LP ao novo backend** — ver §9.1.
-
-### 9.1 Mecanismo de publicação de LP (decisão pendente)
-
-#### Contexto
-
-O buildnix já possui:
-- `POST /landingpages/{id}/exportar` — gera um ZIP completo (HTML, CSS, JS,
-  imagens e tudo mais) e armazena no PostgreSQL com hash SHA-256.
-- `GET /exportacoes/{id}/download` — baixa o ZIP gerado.
-
-O ZIP resolve o problema de assets (imagens, fontes, etc.) de forma natural:
-tudo vai empacotado junto, sem necessidade de CDN separado ou storage externo.
-
-A questão em aberto é: **como esse ZIP chega ao novo backend para ser servido
-publicamente**, e como edições subsequentes atualizam a LP ao vivo.
-
-#### Opção A — ZIP como mecanismo de publicação (deploy via arquivo)
-
-O Operador edita no buildnix, clica "Publicar", o buildnix gera o ZIP e o
-implanta automaticamente no hosting do novo backend.
-
-```
-Operador clica "Publicar" no buildnix
-    → buildnix gera ZIP (reutiliza lógica do exportar)
-    → buildnix envia ZIP ao novo backend (ou CDN/storage)
-    → novo backend extrai e serve os arquivos estáticos
-    → Observer recebe evento leve: { lp_id, exportacao_id, sha256, url_publica }
-```
-
-Qualquer re-edição gera um novo ZIP e repete o deploy. Edições via área logada
-da LP seguem o mesmo fluxo: salva no buildnix → re-publica → novo ZIP.
-
-**Prós:**
-- Assets (imagens, fontes) vão dentro do ZIP — sem CDN ou storage extra.
-- O ZIP já existe no buildnix; falta apenas o passo de deploy automático.
-- SHA-256 garante integridade e permite cache agressivo.
-- Simples de entender: publicar = gerar + implantar.
-
-**Contras:**
-- Re-deploy a cada edição publicada (tempo de propagação depende do tamanho
-  do ZIP e da velocidade do hosting).
-- O novo backend precisa de um endpoint para receber e extrair ZIPs.
-- Edições frequentes via área logada geram muitos deploys.
-
-**O que faltaria no buildnix:**
-- Separar `exportar` (baixar para si) de `publicar` (deploy automático Sognix).
-- `POST /landingpages/{id}/publicar` — gera ZIP e dispara o deploy.
-- `POST /landingpages/{id}/despublicar` — tira do ar sem gerar ZIP.
-
----
-
-#### Opção B — Evento com payload JSON (sem arquivo)
-
-O buildnix emite um evento com o conteúdo estrutural da LP em JSON. O novo
-backend mantém uma cópia ("config viva") em banco e renderiza a LP
-dinamicamente.
-
-```
-Operador clica "Publicar" no buildnix
-    → buildnix emite evento: { lp_id, version, conteudo (JSON), status }
-    → novo backend atualiza lp_publicada em banco
-    → novo backend renderiza LP a partir do JSON
-```
-
-**Prós:**
-- Propagação instantânea (sem geração de arquivo).
-- Re-edições são baratas — só atualiza o registro em banco.
-
-**Contras:**
-- Imagens e assets precisam de CDN ou storage externo — o JSON só referencia
-  URLs, não carrega os bytes.
-- Requer infraestrutura de upload de assets no buildnix (endpoint `POST
-  /assets`, armazenamento de BLOBs, serving público) — **não existe hoje**.
-- Novo backend vira um renderer dinâmico de LP, não um servidor de arquivos
-  estáticos — superfície de código maior.
-- O `conteudo` precisa ter schema versionado e estável como contrato entre
-  buildnix e novo backend.
-
-**O que faltaria no buildnix:**
-- Domínio `asset` com upload, armazenamento e serving público de imagens.
-- Schema formal e versionado do `conteudo` da LP.
-- Evento `landingpage.publicada` com payload estruturado.
-
----
-
-#### Opção C — Híbrido
-
-ZIP para o primeiro deploy (ou deploys completos). Evento JSON apenas para
-atualizações de conteúdo simples (texto, cor, telefone) sem re-geração de ZIP.
-
-**Contras:** dois mecanismos de propagação para manter em sincronia — maior
-complexidade.
-
----
-
-#### Perguntas para a decisão
-
-1. O novo backend vai servir LPs como **arquivos estáticos** ou como
-   **páginas renderizadas dinamicamente**?
-2. As edições via área logada da LP precisam propagar **imediatamente** ou
-   toleramos o tempo de um re-deploy de ZIP?
-3. Existe plano de infraestrutura para CDN/object storage (S3, R2, etc.) no
-   curto prazo?
-4. O volume esperado de edições por LP por dia é alto (justifica Opção B) ou
-   baixo (Opção A é suficiente)?
+- [ ] **Plataforma de hosting estático para deploy de LP** (Netlify, Vercel, Render, VPS).
 
 ## 9. Glossário
 

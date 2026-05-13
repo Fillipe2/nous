@@ -284,6 +284,8 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 		r.Patch("/landingpages/{id}/lock", handlers.LandingPage.BloquearEdicao)
 		r.Patch("/landingpages/{id}/unlock", handlers.LandingPage.DesbloquearEdicao)
 		r.Post("/landingpages/{id}/exportar", handlers.Exportacao.ExportarLandingPage)
+		r.Post("/landingpages/{id}/publicar", handlers.LandingPage.PublicarLandingPage)
+		r.Post("/landingpages/{id}/despublicar", handlers.LandingPage.DespublicarLandingPage)
 
 		// Leads: dados pessoais ficam restritos ao admin/Sognix
 		r.With(middleware.ApenasAdmin).Get("/leads", handlers.Lead.ListarLeads)

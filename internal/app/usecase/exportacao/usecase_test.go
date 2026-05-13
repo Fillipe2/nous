@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	domain "buildnix-backend/internal/domain/exportacao"
 	"buildnix-backend/internal/domain/landingpage"
@@ -32,6 +33,9 @@ func (r *exportacaoRepositoryFake) Listar(_ context.Context, filtro domain.Filtr
 	r.filtro = filtro
 	return []*domain.Exportacao{{Id: "exportacao-1", LandingPageId: filtro.LandingPageId}}, 1, nil
 }
+func (r *exportacaoRepositoryFake) BuscarMaisRecentePorLandingPage(context.Context, string) (*domain.Exportacao, error) {
+	return nil, domain.ErrNaoEncontrada
+}
 
 type landingPageRepositoryFake struct{ err error }
 
@@ -57,6 +61,12 @@ func (r *landingPageRepositoryFake) AtualizarAutosave(context.Context, string, [
 func (r *landingPageRepositoryFake) AtualizarLock(context.Context, string, *string) error { return nil }
 func (r *landingPageRepositoryFake) VerificarAcessoUsuario(context.Context, string, string) error {
 	return r.err
+}
+func (r *landingPageRepositoryFake) AtualizarPublicacao(context.Context, string, string, string, time.Time) error {
+	return nil
+}
+func (r *landingPageRepositoryFake) AtualizarDespublicacao(context.Context, string) error {
+	return nil
 }
 
 func TestExportarLandingPageValidaAcessoAntesDeSalvar(t *testing.T) {

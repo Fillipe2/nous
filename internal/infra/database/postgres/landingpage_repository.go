@@ -38,6 +38,7 @@ func (r *LandingPageRepository) Salvar(ctx context.Context, lp *landingpage.Land
 		"template_id":   nilableStr(lp.TemplateId),
 		"tipo":          string(lp.Tipo),
 		"nome":          lp.Nome,
+		"slug":          nilableStr(lp.Slug),
 		"conteudo":      nilableStr(lp.Conteudo),
 		"status":        string(lp.Status),
 		"is_draft":      lp.IsDraft,
@@ -47,6 +48,9 @@ func (r *LandingPageRepository) Salvar(ctx context.Context, lp *landingpage.Land
 		"version":       lp.Version,
 	})
 	if err != nil {
+		if isUniqueViolation(err, "idx_landingpage_slug") {
+			return landingpage.ErrSlugJaExiste
+		}
 		return fmt.Errorf("salvar landingpage: %w", err)
 	}
 	return nil
@@ -174,7 +178,8 @@ func (r *LandingPageRepository) Listar(ctx context.Context, filtro landingpage.F
 
 	query := `SELECT lp.id, lp.cliente_id, lp.negocio_id, lp.categoria_id, lp.template_id, lp.tipo,
 		lp.nome, lp.conteudo, lp.status, lp.is_draft, lp.autosave_data,
-		lp.last_autosave_em, lp.locked_by, lp.locked_at, lp.criado_em, lp.atualizado_em, lp.version
+		lp.last_autosave_em, lp.locked_by, lp.locked_at, lp.criado_em, lp.atualizado_em, lp.version,
+		lp.slug, lp.url_publica, lp.deploy_id, lp.publicada_em
 		FROM landingpage lp`
 	args := []any{}
 	argIdx := 1
@@ -266,6 +271,33 @@ func (r *LandingPageRepository) Listar(ctx context.Context, filtro landingpage.F
 		landingPages = append(landingPages, lp)
 	}
 	return landingPages, total, nil
+}
+
+func (r *LandingPageRepository) AtualizarPublicacao(ctx context.Context, id, urlPublica, deployId string, publicadaEm time.Time) error {
+	stmts := statement.Get()
+	err := r.connection.Exec(ctx, stmts.AtualizarPublicacaoLandingPage, pgx.NamedArgs{
+		"id":            id,
+		"url_publica":   urlPublica,
+		"deploy_id":     deployId,
+		"publicada_em":  publicadaEm,
+		"atualizado_em": time.Now(),
+	})
+	if err != nil {
+		return fmt.Errorf("atualizar publicacao landingpage: %w", err)
+	}
+	return nil
+}
+
+func (r *LandingPageRepository) AtualizarDespublicacao(ctx context.Context, id string) error {
+	stmts := statement.Get()
+	err := r.connection.Exec(ctx, stmts.AtualizarDespublicacaoLandingPage, pgx.NamedArgs{
+		"id":            id,
+		"atualizado_em": time.Now(),
+	})
+	if err != nil {
+		return fmt.Errorf("atualizar despublicacao landingpage: %w", err)
+	}
+	return nil
 }
 
 func nilableJSON(dados []byte) *string {

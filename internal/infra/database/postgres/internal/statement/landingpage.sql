@@ -1,13 +1,14 @@
 -- name: SalvarLandingPage
-INSERT INTO landingpage (id, cliente_id, negocio_id, categoria_id, template_id, tipo, nome, conteudo,
+INSERT INTO landingpage (id, cliente_id, negocio_id, categoria_id, template_id, tipo, nome, slug, conteudo,
     status, is_draft, autosave_data, criado_em, atualizado_em, version)
-VALUES (@id, @cliente_id, @negocio_id, @categoria_id, @template_id, @tipo, @nome, @conteudo,
+VALUES (@id, @cliente_id, @negocio_id, @categoria_id, @template_id, @tipo, @nome, @slug, @conteudo,
     @status, @is_draft, @autosave_data::jsonb, @criado_em, @atualizado_em, @version);
 
 -- name: BuscarLandingPagePorID
 SELECT id, cliente_id, negocio_id, categoria_id, template_id, tipo,
     nome, conteudo, status, is_draft, autosave_data,
-    last_autosave_em, locked_by, locked_at, criado_em, atualizado_em, version
+    last_autosave_em, locked_by, locked_at, criado_em, atualizado_em, version,
+    slug, url_publica, deploy_id, publicada_em
 FROM landingpage WHERE id=@id AND status != 'excluida';
 
 -- name: AtualizarLandingPage
@@ -46,3 +47,15 @@ SELECT EXISTS (
 SELECT COUNT(*)
 FROM landingpage
 WHERE cliente_id = @cliente_id AND status != 'excluida';
+
+-- name: AtualizarPublicacaoLandingPage
+UPDATE landingpage
+SET status='publicada', is_draft=false, url_publica=@url_publica, deploy_id=@deploy_id,
+    publicada_em=@publicada_em, atualizado_em=@atualizado_em, version=version + 1
+WHERE id=@id;
+
+-- name: AtualizarDespublicacaoLandingPage
+UPDATE landingpage
+SET status='rascunho', url_publica=NULL, deploy_id=NULL,
+    atualizado_em=@atualizado_em, version=version + 1
+WHERE id=@id;

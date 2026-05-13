@@ -1,30 +1,66 @@
 package landingpage
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
+	"unicode"
+
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"buildnix-backend/internal/app/dto"
 	"buildnix-backend/internal/domain/cliente"
 	"buildnix-backend/internal/domain/evento"
+	domainexportacao "buildnix-backend/internal/domain/exportacao"
+	"buildnix-backend/internal/domain/hosting"
 	domain "buildnix-backend/internal/domain/landingpage"
 	"buildnix-backend/internal/domain/plano"
 	"buildnix-backend/internal/domain/template"
+
+	"github.com/google/uuid"
+)
+
+var (
+	regexpNaoAlfa   = regexp.MustCompile(`[^a-z0-9]+`)
+	regexpHifenMult = regexp.MustCompile(`-{2,}`)
 )
 
 type UseCase struct {
-	repository         domain.Repository
-	clienteRepository  cliente.Repository
-	publisher          evento.Publisher
-	planoRepository    plano.Repository
-	templateRepository template.Repository
+	repository           domain.Repository
+	clienteRepository    cliente.Repository
+	publisher            evento.Publisher
+	planoRepository      plano.Repository
+	templateRepository   template.Repository
+	deployer             hosting.Deployer
+	exportacaoRepository domainexportacao.Repository
 }
 
-func NewUseCase(repository domain.Repository, clienteRepository cliente.Repository, publisher evento.Publisher, planoRepository plano.Repository, templateRepository template.Repository) *UseCase {
-	return &UseCase{repository: repository, clienteRepository: clienteRepository, publisher: publisher, planoRepository: planoRepository, templateRepository: templateRepository}
+func NewUseCase(
+	repository domain.Repository,
+	clienteRepository cliente.Repository,
+	publisher evento.Publisher,
+	planoRepository plano.Repository,
+	templateRepository template.Repository,
+	deployer hosting.Deployer,
+	exportacaoRepository domainexportacao.Repository,
+) *UseCase {
+	return &UseCase{
+		repository:           repository,
+		clienteRepository:    clienteRepository,
+		publisher:            publisher,
+		planoRepository:      planoRepository,
+		templateRepository:   templateRepository,
+		deployer:             deployer,
+		exportacaoRepository: exportacaoRepository,
+	}
 }
 
 func (u *UseCase) CriarLandingPage(ctx context.Context, input dto.CriarLandingPageInput, usuarioId, role string) (*dto.LandingPageOutput, error) {
@@ -49,6 +85,14 @@ func (u *UseCase) CriarLandingPage(ctx context.Context, input dto.CriarLandingPa
 		return nil, err
 	}
 
+	slug := gerarSlug(input.Slug)
+	if slug == "" {
+		slug = gerarSlug(input.Nome)
+	}
+	if slug == "" {
+		slug = uuid.New().String()[:8]
+	}
+
 	lp := &domain.LandingPage{
 		ClienteId:    input.ClienteId,
 		NegocioId:    input.NegocioId,
@@ -56,6 +100,7 @@ func (u *UseCase) CriarLandingPage(ctx context.Context, input dto.CriarLandingPa
 		TemplateId:   templateId,
 		Tipo:         tipo,
 		Nome:         input.Nome,
+		Slug:         slug,
 		Conteudo:     conteudo,
 		Status:       domain.StatusRascunho,
 		IsDraft:      true,
@@ -110,6 +155,9 @@ func (u *UseCase) AtualizarLandingPage(ctx context.Context, id string, input dto
 
 	if input.Nome != "" {
 		lp.Nome = input.Nome
+	}
+	if input.Slug != "" {
+		lp.Slug = gerarSlug(input.Slug)
 	}
 	if input.Conteudo != "" {
 		lp.Conteudo = input.Conteudo
@@ -258,6 +306,83 @@ func (u *UseCase) DesbloquearEdicao(ctx context.Context, id, usuarioId, role str
 	return nil
 }
 
+func (u *UseCase) PublicarLandingPage(ctx context.Context, id, usuarioId, role string) (*dto.PublicarLandingPageOutput, error) {
+	if err := u.verificarAcessoLandingPage(ctx, id, usuarioId, role); err != nil {
+		return nil, err
+	}
+	lp, err := u.repository.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("publicar landingpage: %w", err)
+	}
+	if lp.Slug == "" {
+		return nil, domain.ErrSlugNaoDefinido
+	}
+
+	exp, err := u.exportacaoRepository.BuscarMaisRecentePorLandingPage(ctx, id)
+	if errors.Is(err, domainexportacao.ErrNaoEncontrada) {
+		return nil, domain.ErrSemExportacao
+	}
+	if err != nil {
+		return nil, fmt.Errorf("publicar landingpage buscar exportacao: %w", err)
+	}
+
+	arquivos, err := extrairArquivosZip(exp.Arquivo)
+	if err != nil {
+		return nil, fmt.Errorf("publicar landingpage extrair zip: %w", err)
+	}
+
+	resultado, err := u.deployer.Deploy(ctx, lp.Slug, arquivos)
+	if err != nil {
+		return nil, fmt.Errorf("publicar landingpage deploy: %w", err)
+	}
+
+	agora := time.Now()
+	if err := u.repository.AtualizarPublicacao(ctx, id, resultado.UrlPublica, resultado.DeployId, agora); err != nil {
+		return nil, fmt.Errorf("publicar landingpage salvar: %w", err)
+	}
+
+	_ = u.publisher.Publicar(ctx, evento.Evento{
+		EventType:      "landingpage.publicada",
+		Source:         "buildnix",
+		SchemaVersion:  1,
+		IdempotencyKey: "buildnix:landingpage:publicada:" + id,
+		Payload: map[string]any{
+			"lp_id":       id,
+			"url_publica": resultado.UrlPublica,
+			"deploy_id":   resultado.DeployId,
+		},
+	})
+
+	return &dto.PublicarLandingPageOutput{
+		Mensagem:   "landingpage publicada com sucesso",
+		UrlPublica: resultado.UrlPublica,
+		DeployId:   resultado.DeployId,
+	}, nil
+}
+
+func (u *UseCase) DespublicarLandingPage(ctx context.Context, id, usuarioId, role string) error {
+	if err := u.verificarAcessoLandingPage(ctx, id, usuarioId, role); err != nil {
+		return err
+	}
+	lp, err := u.repository.BuscarPorID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("despublicar landingpage: %w", err)
+	}
+	if lp.Status != domain.StatusPublicada {
+		return domain.ErrNaoPublicada
+	}
+
+	if err := u.deployer.Despublicar(ctx, lp.Slug); err != nil {
+		return fmt.Errorf("despublicar landingpage hosting: %w", err)
+	}
+
+	if err := u.repository.AtualizarDespublicacao(ctx, id); err != nil {
+		return fmt.Errorf("despublicar landingpage salvar: %w", err)
+	}
+
+	return nil
+}
+
 func (u *UseCase) verificarAcessoCliente(ctx context.Context, clienteId, usuarioId, role string) error {
 	if role == "admin" {
 		return nil
@@ -358,6 +483,48 @@ func (u *UseCase) prepararTemplateInicial(ctx context.Context, clienteId string,
 	return conteudo, templateId, categoriaId, nil
 }
 
+func gerarSlug(texto string) string {
+	texto = strings.TrimSpace(texto)
+	if texto == "" {
+		return ""
+	}
+	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
+		return unicode.Is(unicode.Mn, r)
+	}), norm.NFC)
+	normalizado, _, _ := transform.String(t, strings.ToLower(texto))
+	slug := regexpNaoAlfa.ReplaceAllString(normalizado, "-")
+	slug = regexpHifenMult.ReplaceAllString(slug, "-")
+	return strings.Trim(slug, "-")
+}
+
+func extrairArquivosZip(dados []byte) ([]hosting.Arquivo, error) {
+	r, err := zip.NewReader(bytes.NewReader(dados), int64(len(dados)))
+	if err != nil {
+		return nil, fmt.Errorf("abrir zip: %w", err)
+	}
+	var arquivos []hosting.Arquivo
+	for _, f := range r.File {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		caminho := filepath.ToSlash(f.Name)
+		if strings.Contains(caminho, "..") {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, fmt.Errorf("abrir arquivo %s: %w", caminho, err)
+		}
+		conteudo, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			return nil, fmt.Errorf("ler arquivo %s: %w", caminho, err)
+		}
+		arquivos = append(arquivos, hosting.Arquivo{Caminho: caminho, Conteudo: conteudo})
+	}
+	return arquivos, nil
+}
+
 func mapearLandingPageOutput(lp *domain.LandingPage) *dto.LandingPageOutput {
 	return &dto.LandingPageOutput{
 		Id:             lp.Id,
@@ -367,6 +534,7 @@ func mapearLandingPageOutput(lp *domain.LandingPage) *dto.LandingPageOutput {
 		TemplateId:     lp.TemplateId,
 		Tipo:           string(lp.Tipo),
 		Nome:           lp.Nome,
+		Slug:           lp.Slug,
 		Conteudo:       lp.Conteudo,
 		Status:         string(lp.Status),
 		IsDraft:        lp.IsDraft,
@@ -374,6 +542,9 @@ func mapearLandingPageOutput(lp *domain.LandingPage) *dto.LandingPageOutput {
 		LastAutosaveEm: lp.LastAutosaveEm,
 		LockedBy:       lp.LockedBy,
 		LockedAt:       lp.LockedAt,
+		UrlPublica:     lp.UrlPublica,
+		DeployId:       lp.DeployId,
+		PublicadaEm:    lp.PublicadaEm,
 		CriadoEm:       lp.CriadoEm,
 		AtualizadoEm:   lp.AtualizadoEm,
 		Version:        lp.Version,

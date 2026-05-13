@@ -1,6 +1,9 @@
 package landingpage
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type FiltroListagem struct {
 	ClienteId   string
@@ -30,4 +33,6 @@ type Repository interface {
 	AtualizarAutosave(ctx context.Context, id string, dados []byte, version int) (int, error)
 	AtualizarLock(ctx context.Context, id string, usuarioId *string) error
 	VerificarAcessoUsuario(ctx context.Context, landingPageId, usuarioId string) error
+	AtualizarPublicacao(ctx context.Context, id, urlPublica, deployId string, publicadaEm time.Time) error
+	AtualizarDespublicacao(ctx context.Context, id string) error
 }

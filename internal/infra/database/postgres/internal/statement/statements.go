@@ -74,15 +74,17 @@ type Statements struct {
 	ListarTemplatesPorCategoria string
 
 	// landingpage
-	SalvarLandingPage            string
-	BuscarLandingPagePorID       string
-	AtualizarLandingPage         string
-	SoftDeleteLandingPage        string
-	AtualizarAutosaveLandingPage string
-	BloquearLandingPage          string
-	DesbloquearLandingPage       string
-	VerificarAcessoLandingPage   string
-	ContarLandingPagesPorCliente string
+	SalvarLandingPage               string
+	BuscarLandingPagePorID          string
+	AtualizarLandingPage            string
+	SoftDeleteLandingPage           string
+	AtualizarAutosaveLandingPage    string
+	BloquearLandingPage             string
+	DesbloquearLandingPage          string
+	VerificarAcessoLandingPage      string
+	ContarLandingPagesPorCliente    string
+	AtualizarPublicacaoLandingPage  string
+	AtualizarDespublicacaoLandingPage string
 
 	// lead
 	SalvarLead               string
@@ -99,9 +101,10 @@ type Statements struct {
 	AtualizarFunilProspecto string
 
 	// exportacao
-	SalvarExportacao                string
-	BuscarExportacaoPorID           string
-	ListarExportacoesPorLandingPage string
+	SalvarExportacao                          string
+	BuscarExportacaoPorID                     string
+	ListarExportacoesPorLandingPage           string
+	BuscarMaisRecenteExportacaoPorLandingPage string
 
 	// dashboard
 	ObterResumoDashboardCliente            string
