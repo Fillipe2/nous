@@ -1,0 +1,27 @@
+services:
+  buildnix-backend:
+    build: .
+    container_name: buildnix-api
+    ports:
+      - "8081:8080"
+    env_file:
+      - .env.prod
+    volumes:
+      - buildnix_backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - steeth
+
+networks:
+  steeth:
+    external: true
+    name: steeth-backend_steeth
+
+volumes:
+  buildnix_backend_logs:
