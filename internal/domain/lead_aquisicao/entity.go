@@ -1,4 +1,4 @@
-package prospecto
+package lead_aquisicao
 
 import (
 	"encoding/json"
@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	ErrNaoEncontrado  = errors.New("prospecto nao encontrado")
-	ErrEmailDuplicado = errors.New("prospecto com este email ja existe")
+	ErrNaoEncontrado  = errors.New("lead de aquisicao nao encontrado")
+	ErrEmailDuplicado = errors.New("lead de aquisicao com este email ja existe")
 	ErrStatusInvalido = errors.New("status de funil invalido")
 	ErrSpamDetectado  = errors.New("submissao identificada como spam")
 )
@@ -50,7 +50,7 @@ func StatusFunilValido(s StatusFunil) bool {
 	return false
 }
 
-type Prospecto struct {
+type LeadAquisicao struct {
 	Id                       string
 	Nome                     string
 	Email                    string

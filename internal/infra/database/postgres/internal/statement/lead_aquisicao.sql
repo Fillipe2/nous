@@ -1,5 +1,5 @@
--- name: SalvarProspecto
-INSERT INTO prospecto (
+-- name: SalvarLeadAquisicao
+INSERT INTO lead_aquisicao (
     id, nome, email, telefone,
     categoria_pretendida_id, categoria_pretendida_livre,
     cidade, estado, porte, interesses, mensagem, origem,
@@ -15,27 +15,28 @@ INSERT INTO prospecto (
     @ip, @user_agent, @criado_em, @atualizado_em
 );
 
--- name: BuscarProspectoPorID
+-- name: BuscarLeadAquisicaoPorID
 SELECT id, nome, email, telefone,
     categoria_pretendida_id, categoria_pretendida_livre,
     cidade, estado, porte, interesses, mensagem, origem,
     utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     status_funil, convertido_em_usuario_id,
     ip, user_agent, criado_em, atualizado_em
-FROM prospecto WHERE id=@id;
+FROM lead_aquisicao WHERE id=@id;
 
--- name: BuscarProspectoPorEmail
+-- name: BuscarLeadAquisicaoPorEmail
 SELECT id, nome, email, telefone,
     categoria_pretendida_id, categoria_pretendida_livre,
     cidade, estado, porte, interesses, mensagem, origem,
     utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     status_funil, convertido_em_usuario_id,
     ip, user_agent, criado_em, atualizado_em
-FROM prospecto WHERE email=@email;
+FROM lead_aquisicao WHERE email=@email;
 
--- name: AtualizarFunilProspecto
-UPDATE prospecto
+-- name: AtualizarFunilLeadAquisicao
+UPDATE lead_aquisicao
 SET status_funil=@status_funil,
     convertido_em_usuario_id=@convertido_em_usuario_id,
     atualizado_em=@atualizado_em
 WHERE id=@id;
+

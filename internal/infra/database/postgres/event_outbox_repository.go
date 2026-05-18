@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -59,4 +60,43 @@ func (r *EventOutboxRepository) MarcarFalha(ctx context.Context, eventId string,
 		return fmt.Errorf("marcar evento outbox falha: %w", err)
 	}
 	return nil
+}
+
+func (r *EventOutboxRepository) BuscarPendentes(ctx context.Context, limite int) ([]evento.Evento, error) {
+	stms := statement.Get()
+	rows, err := r.connection.Query(ctx, stms.BuscarEventosOutboxPendentes, pgx.NamedArgs{"limite": limite})
+	if err != nil {
+		return nil, fmt.Errorf("buscar eventos outbox pendentes: %w", err)
+	}
+	defer rows.Close()
+
+	var eventos []evento.Evento
+	for rows.Next() {
+		var (
+			eventId        string
+			eventType      string
+			schemaVersion  int
+			source         string
+			occurredAt     time.Time
+			idempotencyKey string
+			payloadRaw     []byte
+		)
+		if err := rows.Scan(&eventId, &eventType, &schemaVersion, &source, &occurredAt, &idempotencyKey, &payloadRaw); err != nil {
+			return nil, fmt.Errorf("escanear evento outbox pendente: %w", err)
+		}
+		var payload map[string]interface{}
+		if err := json.Unmarshal(payloadRaw, &payload); err != nil {
+			return nil, fmt.Errorf("desserializar payload outbox: %w", err)
+		}
+		eventos = append(eventos, evento.Evento{
+			EventId:        eventId,
+			EventType:      eventType,
+			SchemaVersion:  schemaVersion,
+			Source:         source,
+			OccurredAt:     occurredAt,
+			IdempotencyKey: idempotencyKey,
+			Payload:        payload,
+		})
+	}
+	return eventos, nil
 }

@@ -39,9 +39,9 @@ func (c *Container) initRepositories() error {
 	if err != nil {
 		return fmt.Errorf("lead repository: %w", err)
 	}
-	prospectoRepository, err := postgres.NewProspectoRepository(c.Database)
+	leadAquisicaoRepository, err := postgres.NewLeadAquisicaoRepository(c.Database)
 	if err != nil {
-		return fmt.Errorf("prospecto repository: %w", err)
+		return fmt.Errorf("lead_aquisicao repository: %w", err)
 	}
 	exportacaoRepository, err := postgres.NewExportacaoRepository(c.Database)
 	if err != nil {
@@ -68,7 +68,23 @@ func (c *Container) initRepositories() error {
 	c.TemplateRepository = templateRepository
 	c.LandingPageRepository = landingPageRepository
 	c.LeadRepository = leadRepository
-	c.ProspectoRepository = prospectoRepository
+	usoRepository, err := postgres.NewUsoRepository(c.Database)
+	if err != nil {
+		return fmt.Errorf("uso repository: %w", err)
+	}
+	faturamentoRepository, err := postgres.NewFaturamentoRepository(c.Database)
+	if err != nil {
+		return fmt.Errorf("faturamento repository: %w", err)
+	}
+	biRepository, err := postgres.NewBiRepository(c.Database)
+	if err != nil {
+		return fmt.Errorf("bi repository: %w", err)
+	}
+
+	c.LeadAquisicaoRepository = leadAquisicaoRepository
+	c.UsoRepository = usoRepository
+	c.FaturamentoRepository = faturamentoRepository
+	c.BiRepository = biRepository
 	c.ExportacaoRepository = exportacaoRepository
 	c.AuditoriaRepository = auditoriaRepository
 	c.EventOutboxRepository = eventOutboxRepository

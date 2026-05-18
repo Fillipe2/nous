@@ -38,6 +38,10 @@ func (h *LandingPageHandler) CriarLandingPage(w http.ResponseWriter, r *http.Req
 		responderErro(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if errors.Is(err, landingpage.ErrSlugJaExiste) {
+		responderErro(w, http.StatusConflict, err.Error())
+		return
+	}
 	if err != nil {
 		responderErro(w, http.StatusBadRequest, err.Error())
 		return
@@ -128,6 +132,10 @@ func (h *LandingPageHandler) AtualizarLandingPage(w http.ResponseWriter, r *http
 	}
 	if errors.Is(err, landingpage.ErrVersaoConflito) {
 		responderErro(w, http.StatusConflict, "conflito de versao")
+		return
+	}
+	if errors.Is(err, landingpage.ErrSlugJaExiste) {
+		responderErro(w, http.StatusConflict, err.Error())
 		return
 	}
 	if err != nil {

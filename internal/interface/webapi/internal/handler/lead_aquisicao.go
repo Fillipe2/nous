@@ -5,23 +5,23 @@ import (
 	"net/http"
 
 	"buildnix-backend/internal/app/dto"
-	ucprospecto "buildnix-backend/internal/app/usecase/prospecto"
-	"buildnix-backend/internal/domain/prospecto"
+	ucleadaquisicao "buildnix-backend/internal/app/usecase/lead_aquisicao"
+	domain "buildnix-backend/internal/domain/lead_aquisicao"
 	"buildnix-backend/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )
 
-type ProspectoHandler struct {
-	useCase *ucprospecto.UseCase
+type LeadAquisicaoHandler struct {
+	useCase *ucleadaquisicao.UseCase
 }
 
-func NewProspectoHandler(useCase *ucprospecto.UseCase) *ProspectoHandler {
-	return &ProspectoHandler{useCase: useCase}
+func NewLeadAquisicaoHandler(useCase *ucleadaquisicao.UseCase) *LeadAquisicaoHandler {
+	return &LeadAquisicaoHandler{useCase: useCase}
 }
 
-func (h *ProspectoHandler) RegistrarProspecto(w http.ResponseWriter, r *http.Request) {
-	var input dto.RegistrarProspectoInput
+func (h *LeadAquisicaoHandler) RegistrarLeadAquisicao(w http.ResponseWriter, r *http.Request) {
+	var input dto.RegistrarLeadAquisicaoInput
 	if err := decodificarJSON(r, &input); err != nil {
 		responderErro(w, http.StatusBadRequest, "payload invalido")
 		return
@@ -30,13 +30,13 @@ func (h *ProspectoHandler) RegistrarProspecto(w http.ResponseWriter, r *http.Req
 	ip := middleware.ClienteIP(r)
 	userAgent := r.Header.Get("User-Agent")
 
-	output, err := h.useCase.RegistrarProspecto(r.Context(), input, ip, userAgent)
+	output, err := h.useCase.RegistrarLeadAquisicao(r.Context(), input, ip, userAgent)
 	if err != nil {
 		switch {
-		case errors.Is(err, prospecto.ErrSpamDetectado):
+		case errors.Is(err, domain.ErrSpamDetectado):
 			responderJSON(w, http.StatusCreated, map[string]string{"mensagem": "Obrigado! Entraremos em contato em breve."})
 			return
-		case errors.Is(err, prospecto.ErrEmailDuplicado):
+		case errors.Is(err, domain.ErrEmailDuplicado):
 			responderErro(w, http.StatusConflict, "email ja cadastrado")
 			return
 		default:
@@ -51,14 +51,14 @@ func (h *ProspectoHandler) RegistrarProspecto(w http.ResponseWriter, r *http.Req
 	})
 }
 
-func (h *ProspectoHandler) ListarProspectos(w http.ResponseWriter, r *http.Request) {
+func (h *LeadAquisicaoHandler) ListarLeadsAquisicao(w http.ResponseWriter, r *http.Request) {
 	pagina, porPagina := paginacao(r)
 	dataInicio, dataFim, err := periodoQuery(r)
 	if err != nil {
 		responderErro(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	filtro := prospecto.FiltroListagem{
+	filtro := domain.FiltroListagem{
 		Nome:        r.URL.Query().Get("nome"),
 		Email:       r.URL.Query().Get("email"),
 		StatusFunil: r.URL.Query().Get("status_funil"),
@@ -74,7 +74,7 @@ func (h *ProspectoHandler) ListarProspectos(w http.ResponseWriter, r *http.Reque
 		Ordem:       r.URL.Query().Get("ordem"),
 	}
 
-	output, err := h.useCase.ListarProspectos(r.Context(), filtro)
+	output, err := h.useCase.ListarLeadsAquisicao(r.Context(), filtro)
 	if err != nil {
 		responderErro(w, http.StatusInternalServerError, "erro interno")
 		return
@@ -83,11 +83,11 @@ func (h *ProspectoHandler) ListarProspectos(w http.ResponseWriter, r *http.Reque
 	responderJSON(w, http.StatusOK, output)
 }
 
-func (h *ProspectoHandler) ObterProspecto(w http.ResponseWriter, r *http.Request) {
+func (h *LeadAquisicaoHandler) ObterLeadAquisicao(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	output, err := h.useCase.ObterProspecto(r.Context(), id)
-	if errors.Is(err, prospecto.ErrNaoEncontrado) {
-		responderErro(w, http.StatusNotFound, "prospecto nao encontrado")
+	output, err := h.useCase.ObterLeadAquisicao(r.Context(), id)
+	if errors.Is(err, domain.ErrNaoEncontrado) {
+		responderErro(w, http.StatusNotFound, "lead de aquisicao nao encontrado")
 		return
 	}
 	if err != nil {
@@ -98,20 +98,20 @@ func (h *ProspectoHandler) ObterProspecto(w http.ResponseWriter, r *http.Request
 	responderJSON(w, http.StatusOK, output)
 }
 
-func (h *ProspectoHandler) AtualizarFunilProspecto(w http.ResponseWriter, r *http.Request) {
+func (h *LeadAquisicaoHandler) AtualizarFunilLeadAquisicao(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var input dto.AtualizarFunilProspectoInput
+	var input dto.AtualizarFunilLeadAquisicaoInput
 	if err := decodificarJSON(r, &input); err != nil {
 		responderErro(w, http.StatusBadRequest, "payload invalido")
 		return
 	}
 
-	if err := h.useCase.AtualizarFunilProspecto(r.Context(), id, input); err != nil {
+	if err := h.useCase.AtualizarFunilLeadAquisicao(r.Context(), id, input); err != nil {
 		switch {
-		case errors.Is(err, prospecto.ErrNaoEncontrado):
-			responderErro(w, http.StatusNotFound, "prospecto nao encontrado")
+		case errors.Is(err, domain.ErrNaoEncontrado):
+			responderErro(w, http.StatusNotFound, "lead de aquisicao nao encontrado")
 			return
-		case errors.Is(err, prospecto.ErrStatusInvalido):
+		case errors.Is(err, domain.ErrStatusInvalido):
 			responderErro(w, http.StatusBadRequest, err.Error())
 			return
 		default:

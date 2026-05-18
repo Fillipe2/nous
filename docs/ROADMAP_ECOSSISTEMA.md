@@ -143,14 +143,14 @@ Trabalho mínimo para fechar buildnix sem trancar nenhum caminho de receita.
    `consentimento_marketing_parceiros bool` + `consentimento_versao_marketing
    string` (migration 000026). Habilita via 3 (cross-sell) sem migration
    extra depois.
-4. [x] **Captura de leads Tipo A (`prospecto`).** Tabela `prospecto` (migration
-   000027) com perfil rico para alimentar vias 1 e 2.
+4. [x] **Captura de leads Tipo A (`lead_aquisicao`).** Tabela `lead_aquisicao` (migration
+   000027, renomeada em 000029) com perfil rico para alimentar vias 1 e 2.
    - Campos: `nome, email, telefone, categoria_pretendida_id (FK opcional),
      categoria_pretendida_livre, cidade, estado, porte (enum), interesses
      (jsonb), mensagem, origem, utm_*, status_funil,
      convertido_em_usuario_id`.
-   - Endpoints: `POST /prospectos` (público), `GET /prospectos` (admin),
-     `GET /prospectos/{id}` (admin), `PATCH /prospectos/{id}/funil` (admin).
+   - Endpoints: `POST /lead_aquisicao` (público), `GET /lead_aquisicao` (admin),
+     `GET /lead_aquisicao/{id}` (admin), `PATCH /lead_aquisicao/{id}/funil` (admin).
 5. [x] **JWKS público em buildnix.** Endpoint `GET /.well-known/jwks.json`.
    Ativo quando `JWT_RSA_PRIVATE_KEY` está configurado (RS256). Sem a chave,
    retorna 503. Aceita PKCS8 e PKCS1.
@@ -208,8 +208,7 @@ exatamente como o Observer. Quando a plataforma for escolhida, implementa-se só
 ## 9. Decisões pendentes
 
 - [ ] Nome do novo backend.
-- [ ] Nome final do recurso Tipo A: `lead_aquisicao` × `prospecto` ×
-      `inscricao` × `lead_b2b`. Sugestão de partida: `lead_aquisicao`.
+- [x] Nome final do recurso Tipo A: **`lead_aquisicao`** (decidido e implementado em 2026-05-18).
 - [ ] Quando criar o repositório do novo backend.
 - [ ] Modelo de SSO unificado Sognix (futuro, fase 3+).
 - [ ] Política de versionamento do schema de eventos publicados no Observer.
@@ -225,8 +224,8 @@ exatamente como o Observer. Quando a plataforma for escolhida, implementa-se só
 - **Contato** — pessoa registrada por um Negócio (lead/paciente/cliente final).
   No buildnix atual é `lead`; no novo backend será `contato` ligado a `pessoa`.
 - **Pessoa** (futuro) — entidade global do ser humano. Vive no novo backend.
-- **Lead Tipo A / Aquisição** — prospecto B2B do Sognix, capturado pelo
-  buildnix.
+- **Lead Tipo A / Aquisição** (`lead_aquisicao`) — lead B2B do Sognix, capturado pelo
+  buildnix. Potencial Operador interessado em contratar produtos Sognix.
 - **Lead Tipo B / Captura** — lead B2C do Operador, capturado pelo novo
   backend.
 - **Categoria** — discriminador de produto vertical (`dentista`, `advogado`,

@@ -9,7 +9,8 @@ import (
 	uclandingpage "buildnix-backend/internal/app/usecase/landingpage"
 	uclead "buildnix-backend/internal/app/usecase/lead"
 	ucnegocio "buildnix-backend/internal/app/usecase/negocio"
-	ucprospecto "buildnix-backend/internal/app/usecase/prospecto"
+	ucfaturamento "buildnix-backend/internal/app/usecase/faturamento"
+	ucleadaquisicao "buildnix-backend/internal/app/usecase/lead_aquisicao"
 	uctemplate "buildnix-backend/internal/app/usecase/template"
 	ucusuario "buildnix-backend/internal/app/usecase/usuario"
 	"buildnix-backend/internal/infra/eventbus"
@@ -18,6 +19,7 @@ import (
 
 func (c *Container) initApp() error {
 	c.Publisher = eventbus.NewOutboxPublisher(c.EventOutboxRepository, c.Publisher)
+	c.Publisher = eventbus.NewFaturamentoPublisher(c.Publisher, c.UsoRepository, c.BiRepository)
 
 	if c.Deployer == nil {
 		c.Deployer = noop.New()
@@ -32,7 +34,8 @@ func (c *Container) initApp() error {
 	c.TemplateUseCase = uctemplate.NewUseCase(c.TemplateRepository, c.ClienteRepository, c.PlanoRepository)
 	c.LandingPageUseCase = uclandingpage.NewUseCase(c.LandingPageRepository, c.ClienteRepository, c.Publisher, c.PlanoRepository, c.TemplateRepository, c.Deployer, c.ExportacaoRepository)
 	c.LeadUseCase = uclead.NewUseCase(c.LeadRepository, c.LandingPageRepository, c.Publisher)
-	c.ProspectoUseCase = ucprospecto.NewUseCase(c.ProspectoRepository)
+	c.LeadAquisicaoUseCase = ucleadaquisicao.NewUseCase(c.LeadAquisicaoRepository, c.Publisher)
+	c.FaturamentoUseCase = ucfaturamento.NewUseCase(c.UsoRepository, c.FaturamentoRepository, c.BiRepository)
 	c.ExportacaoUseCase = ucexportacao.NewUseCase(c.ExportacaoRepository, c.LandingPageRepository)
 
 	return nil

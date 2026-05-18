@@ -1,4 +1,4 @@
-package prospecto
+package lead_aquisicao
 
 import (
 	"context"
@@ -27,9 +27,9 @@ type AtualizacaoFunil struct {
 }
 
 type Repository interface {
-	Salvar(ctx context.Context, p *Prospecto) error
-	BuscarPorID(ctx context.Context, id string) (*Prospecto, error)
-	BuscarPorEmail(ctx context.Context, email string) (*Prospecto, error)
+	Salvar(ctx context.Context, la *LeadAquisicao) error
+	BuscarPorID(ctx context.Context, id string) (*LeadAquisicao, error)
+	BuscarPorEmail(ctx context.Context, email string) (*LeadAquisicao, error)
 	AtualizarFunil(ctx context.Context, id string, atualizacao AtualizacaoFunil, agora time.Time) error
-	Listar(ctx context.Context, filtro FiltroListagem) ([]*Prospecto, int, error)
+	Listar(ctx context.Context, filtro FiltroListagem) ([]*LeadAquisicao, int, error)
 }

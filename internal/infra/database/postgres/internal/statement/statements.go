@@ -94,11 +94,11 @@ type Statements struct {
 	AnonimizarLead           string
 	AnonimizarLeadsExpirados string
 
-	// prospecto
-	SalvarProspecto         string
-	BuscarProspectoPorID    string
-	BuscarProspectoPorEmail string
-	AtualizarFunilProspecto string
+	// lead_aquisicao
+	SalvarLeadAquisicao         string
+	BuscarLeadAquisicaoPorID    string
+	BuscarLeadAquisicaoPorEmail string
+	AtualizarFunilLeadAquisicao string
 
 	// exportacao
 	SalvarExportacao                          string
@@ -116,9 +116,18 @@ type Statements struct {
 	BuscarAuditoriaPorID string
 
 	// evento outbox
-	SalvarEventoOutbox          string
-	MarcarEventoOutboxPublicado string
-	MarcarEventoOutboxFalha     string
+	SalvarEventoOutbox           string
+	MarcarEventoOutboxPublicado  string
+	MarcarEventoOutboxFalha      string
+	BuscarEventosOutboxPendentes string
+
+	// faturamento / uso / BI
+	RegistrarUsoClienteEvento          string
+	ObterFaturamentoMensalPorCompetencia string
+	CriarFaturamentoMensal             string
+	AdicionarUsoFaturamentoMensal      string
+	FecharFaturamentoMensal            string
+	IncrementarBiMetricaDiaria         string
 }
 
 var stmts Statements

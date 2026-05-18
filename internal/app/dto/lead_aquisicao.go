@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type RegistrarProspectoInput struct {
+type RegistrarLeadAquisicaoInput struct {
 	Nome                     string          `json:"nome"`
 	Email                    string          `json:"email"`
 	Telefone                 string          `json:"telefone,omitempty"`
@@ -22,12 +22,12 @@ type RegistrarProspectoInput struct {
 	Honeypot string `json:"website,omitempty"`
 }
 
-type AtualizarFunilProspectoInput struct {
+type AtualizarFunilLeadAquisicaoInput struct {
 	StatusFunil           string `json:"status_funil"`
 	ConvertidoEmUsuarioId string `json:"convertido_em_usuario_id,omitempty"`
 }
 
-type ProspectoOutput struct {
+type LeadAquisicaoOutput struct {
 	Id                       string          `json:"id"`
 	Nome                     string          `json:"nome"`
 	Email                    string          `json:"email"`
@@ -47,9 +47,9 @@ type ProspectoOutput struct {
 	AtualizadoEm             time.Time       `json:"atualizado_em"`
 }
 
-type ListaProspectosOutput struct {
-	Dados     []*ProspectoOutput `json:"dados"`
-	Total     int                `json:"total"`
-	Pagina    int                `json:"pagina"`
-	PorPagina int                `json:"por_pagina"`
+type ListaLeadsAquisicaoOutput struct {
+	Dados     []*LeadAquisicaoOutput `json:"dados"`
+	Total     int                    `json:"total"`
+	Pagina    int                    `json:"pagina"`
+	PorPagina int                    `json:"por_pagina"`
 }

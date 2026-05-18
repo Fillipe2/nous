@@ -77,6 +77,7 @@ func (r *LandingPageRepository) Atualizar(ctx context.Context, lp *landingpage.L
 		"template_id":      nilableStr(lp.TemplateId),
 		"tipo":             string(lp.Tipo),
 		"nome":             lp.Nome,
+		"slug":             nilableStr(lp.Slug),
 		"conteudo":         nilableStr(lp.Conteudo),
 		"status":           string(lp.Status),
 		"is_draft":         lp.IsDraft,
@@ -86,6 +87,9 @@ func (r *LandingPageRepository) Atualizar(ctx context.Context, lp *landingpage.L
 		"id":               lp.Id,
 	})
 	if err != nil {
+		if isUniqueViolation(err, "idx_landingpage_slug") {
+			return landingpage.ErrSlugJaExiste
+		}
 		return fmt.Errorf("atualizar landingpage: %w", err)
 	}
 	if commandTag.RowsAffected() == 0 {

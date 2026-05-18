@@ -181,9 +181,9 @@ type Handlers struct {
 	Categoria   *handler.CategoriaHandler
 	Template    *handler.TemplateHandler
 	LandingPage *handler.LandingPageHandler
-	Lead        *handler.LeadHandler
-	Prospecto   *handler.ProspectoHandler
-	Exportacao  *handler.ExportacaoHandler
+	Lead          *handler.LeadHandler
+	LeadAquisicao *handler.LeadAquisicaoHandler
+	Exportacao    *handler.ExportacaoHandler
 	Auditoria   *handler.AuditoriaHandler
 	Opcao       *handler.OpcaoHandler
 }
@@ -222,8 +222,8 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 		// Lead público (formulário da LP)
 		r.Post("/leads", handlers.Lead.CapturarLead)
 
-		// Prospecto público (formulário de aquisição Sognix B2B)
-		r.Post("/prospectos", handlers.Prospecto.RegistrarProspecto)
+		// Lead de aquisição público (formulário de aquisição Sognix B2B)
+		r.Post("/lead_aquisicao", handlers.LeadAquisicao.RegistrarLeadAquisicao)
 	})
 
 	// Rotas autenticadas
@@ -298,10 +298,10 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 		r.Get("/exportacoes", handlers.Exportacao.ListarExportacoes)
 		r.Get("/exportacoes/{id}/download", handlers.Exportacao.BaixarExportacao)
 
-		// Prospectos: dados B2B restritos ao admin/Sognix
-		r.With(middleware.ApenasAdmin).Get("/prospectos", handlers.Prospecto.ListarProspectos)
-		r.With(middleware.ApenasAdmin).Get("/prospectos/{id}", handlers.Prospecto.ObterProspecto)
-		r.With(middleware.ApenasAdmin).Patch("/prospectos/{id}/funil", handlers.Prospecto.AtualizarFunilProspecto)
+		// Leads de aquisição: dados B2B restritos ao admin/Sognix
+		r.With(middleware.ApenasAdmin).Get("/lead_aquisicao", handlers.LeadAquisicao.ListarLeadsAquisicao)
+		r.With(middleware.ApenasAdmin).Get("/lead_aquisicao/{id}", handlers.LeadAquisicao.ObterLeadAquisicao)
+		r.With(middleware.ApenasAdmin).Patch("/lead_aquisicao/{id}/funil", handlers.LeadAquisicao.AtualizarFunilLeadAquisicao)
 
 		// Auditoria
 		r.With(middleware.ApenasAdmin).Get("/auditoria", handlers.Auditoria.ListarAuditoria)

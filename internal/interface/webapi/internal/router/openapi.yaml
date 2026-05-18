@@ -45,15 +45,59 @@ tags:
       do cliente comum. Inclui consentimento LGPD, UTMs e endpoints de anonimização.
   - name: Exportacoes
     description: Pacotes ZIP gerados a partir de landing pages.
+  - name: LeadAquisicao
+    description: |
+      Captura pública de leads de aquisição B2B (Lead Tipo A — potenciais Operadores Sognix).
+      Gestão de funil restrita ao admin/Sognix.
   - name: Auditoria
     description: Trilha imutável de operações sensíveis.
   - name: Sistema
-    description: Healthcheck e especificação OpenAPI.
+    description: Healthcheck, especificação OpenAPI e JWKS.
 paths:
+  /.well-known/jwks.json:
+    get:
+      tags: [Sistema]
+      summary: Chaves públicas para validação de tokens RS256
+      description: |
+        Retorna o conjunto de chaves públicas (JWKS) que permite ao novo backend
+        validar tokens JWT emitidos pelo buildnix quando `JWT_RSA_PRIVATE_KEY` está
+        configurado (RS256). Sem a chave RSA configurada, retorna 503.
+      responses:
+        '200':
+          description: JWKS com chave pública RSA
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kty:
+                          type: string
+                          example: RSA
+                        use:
+                          type: string
+                          example: sig
+                        alg:
+                          type: string
+                          example: RS256
+                        kid:
+                          type: string
+                        n:
+                          type: string
+                        e:
+                          type: string
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /health:
     get:
       tags: [Sistema]
       summary: Healthcheck da API
+      description: |
+        Retorna `{"status":"ok"}` se a aplicação subiu corretamente. Não verifica banco ou Redis — é um ping rápido usado por load balancers e readiness probes.
       responses:
         '200':
           description: API em execução
@@ -69,6 +113,8 @@ paths:
     get:
       tags: [Sistema]
       summary: Exibe a interface Swagger UI para testar a API
+      description: |
+        Abre a documentação interativa da API. Use para explorar e testar endpoints sem precisar de cliente HTTP externo. Autenticação via botão **Authorize** (cole o `access_token` retornado pelo login).
       responses:
         '200':
           description: Página HTML do Swagger UI
@@ -80,6 +126,8 @@ paths:
     get:
       tags: [Sistema]
       summary: Retorna a especificação OpenAPI embarcada
+      description: |
+        Retorna o arquivo `openapi.yaml` compilado dentro do binário. Útil para importar no Postman, Insomnia ou gerar SDKs de cliente.
       responses:
         '200':
           description: Especificação YAML
@@ -87,6 +135,8 @@ paths:
     post:
       tags: [Auth]
       summary: Login tradicional
+      description: |
+        Autentica com `email` + `senha` e retorna `access_token` (JWT de curta duração) e `refresh_token` (opaco, longa duração). O `access_token` deve ser enviado como `Authorization: Bearer <token>` em todas as requisições autenticadas.
       requestBody:
         required: true
         content:
@@ -108,6 +158,8 @@ paths:
     post:
       tags: [Auth]
       summary: Renova token JWT
+      description: |
+        Troca um `refresh_token` válido por um novo par `access_token` / `refresh_token`. O token antigo é imediatamente revogado (rotação). Use quando o `access_token` expirar (HTTP 401) antes de forçar o usuário a fazer login novamente.
       requestBody:
         required: true
         content:
@@ -129,6 +181,8 @@ paths:
     post:
       tags: [Auth]
       summary: Logout local do cliente
+      description: |
+        Revoga o `refresh_token` do cliente atual. O `access_token` não é invalidado (JWT stateless), mas expira naturalmente. Para logout em todos os dispositivos, revogue todos os tokens via gestão de usuário.
       responses:
         '200':
           description: Logout realizado
@@ -140,7 +194,8 @@ paths:
     post:
       tags: [Auth]
       summary: Solicita redefinição de senha
-      description: Sempre retorna mensagem genérica e aplica duração mínima para reduzir enumeração por resposta/timing. O token só é retornado quando RESET_PASSWORD_RETURN_TOKEN=true em ambiente local/teste.
+      description: |
+        Sempre retorna mensagem genérica e aplica duração mínima para reduzir enumeração por resposta/timing. O token só é retornado quando RESET_PASSWORD_RETURN_TOKEN=true em ambiente local/teste.
       requestBody:
         required: true
         content:
@@ -254,6 +309,8 @@ paths:
     post:
       tags: [Usuarios]
       summary: Cria usuário comum
+      description: |
+        Cria uma conta de usuário com papel `usuario`. Após criar, o usuário já pode fazer login via `POST /auth/login`. Para criar Operadores (clientes) use também `POST /clientes` após o login.
       requestBody:
         required: true
         content:
@@ -268,6 +325,8 @@ paths:
     get:
       tags: [Usuarios]
       summary: Lista usuários, admin
+      description: |
+        Lista todos os usuários do sistema. Exclusivo para `admin/Sognix`. Suporta filtros por nome, email, papel, status e período de criação, com paginação e ordenação.
       security:
         - bearerAuth: []
       parameters:
@@ -334,6 +393,8 @@ paths:
     get:
       tags: [Usuarios]
       summary: Obtém o usuário autenticado
+      description: |
+        Retorna os dados do usuário dono do `access_token` atual (nome, email, papel, clientes vinculados). Usado pelo frontend para montar o perfil e decidir o que exibir conforme o papel.
       security:
         - bearerAuth: []
       responses:
@@ -345,6 +406,8 @@ paths:
     patch:
       tags: [Usuarios]
       summary: Altera a senha do usuário autenticado
+      description: |
+        Troca a senha do usuário logado. Exige a senha atual como confirmação. Após a troca, todos os `refresh_tokens` ativos são revogados — o usuário precisará fazer login novamente em outros dispositivos.
       security:
         - bearerAuth: []
       requestBody:
@@ -368,6 +431,8 @@ paths:
     put:
       tags: [Usuarios]
       summary: Atualiza usuário
+      description: |
+        Atualiza nome, email ou papel de um usuário. Admin pode atualizar qualquer usuário; usuário comum só pode atualizar a si mesmo. Email duplicado retorna 409.
       security:
         - bearerAuth: []
       parameters:
@@ -394,6 +459,8 @@ paths:
     delete:
       tags: [Usuarios]
       summary: Exclui usuário com soft delete
+      description: |
+        Marca o usuário como excluído (soft delete). O registro é mantido no banco para auditoria. O usuário não consegue mais fazer login. Somente `admin` pode excluir outros usuários.
       security:
         - bearerAuth: []
       parameters:
@@ -409,6 +476,8 @@ paths:
     get:
       tags: [Clientes]
       summary: Lista clientes, admin
+      description: |
+        Lista todos os clientes (Operadores) do sistema. Exclusivo para `admin/Sognix`. Filtre por usuário vinculado, nome, email, status e período. Cada cliente pode ter múltiplos usuários e múltiplas landing pages.
       security:
         - bearerAuth: []
       parameters:
@@ -471,6 +540,8 @@ paths:
     post:
       tags: [Clientes]
       summary: Cria cliente vinculado ao usuário autenticado
+      description: |
+        Cria um novo cliente (Operador/empresa) e o vincula automaticamente ao usuário autenticado. Um usuário pode estar vinculado a múltiplos clientes. Use `GET /clientes/me` para listar os clientes do usuário logado.
       security:
         - bearerAuth: []
       requestBody:
@@ -490,6 +561,8 @@ paths:
     get:
       tags: [Clientes]
       summary: Lista clientes vinculados ao usuário autenticado
+      description: |
+        Retorna apenas os clientes aos quais o usuário autenticado tem acesso. Admin vê todos via `GET /clientes`. Use este endpoint no onboarding para permitir que o usuário escolha com qual cliente deseja trabalhar.
       security:
         - bearerAuth: []
       parameters:
@@ -546,6 +619,8 @@ paths:
     put:
       tags: [Clientes]
       summary: Atualiza cliente, admin
+      description: |
+        Atualiza dados cadastrais do cliente (nome, email, plano, status). Exclusivo para `admin/Sognix`. Mudanças de plano refletem imediatamente nos limites de landing pages e funcionalidades do Operador.
       security:
         - bearerAuth: []
       parameters:
@@ -572,6 +647,8 @@ paths:
     delete:
       tags: [Clientes]
       summary: Exclui cliente com soft delete, admin
+      description: |
+        Marca o cliente como excluído (soft delete). Todos os dados são mantidos para auditoria. Landing pages, leads e exportações do cliente continuam acessíveis para o admin. Exclusivo para `admin/Sognix`.
       security:
         - bearerAuth: []
       parameters:
@@ -587,7 +664,8 @@ paths:
     get:
       tags: [Dashboard]
       summary: Dashboard do usuário autenticado
-      description: Admin recebe métricas globais e pode recortar por cliente, usuário, landing page, negócio, categoria, template e tipo. Usuário comum recebe métricas agregadas dos clientes vinculados ao seu usuário; filtros não expõem dados pessoais de leads.
+      description: |
+        Admin recebe métricas globais e pode recortar por cliente, usuário, landing page, negócio, categoria, template e tipo. Usuário comum recebe métricas agregadas dos clientes vinculados ao seu usuário; filtros não expõem dados pessoais de leads.
       security:
         - bearerAuth: []
       parameters:
@@ -704,6 +782,8 @@ paths:
     get:
       tags: [Opcoes]
       summary: Lista opções de usuários para combos/filtros, admin
+      description: |
+        Retorna lista simplificada `{id, label}` de usuários para popular selects de filtro no painel admin. Suporta busca por nome (`q`), email, cliente vinculado, papel e status. Exclusivo para `admin/Sognix`.
       security:
         - bearerAuth: []
       parameters:
@@ -789,6 +869,8 @@ paths:
     get:
       tags: [Opcoes]
       summary: Lista opções de categorias para combos/filtros
+      description: |
+        Retorna lista simplificada `{id, label}` de categorias para popular selects. Suporta busca por nome (`q`) e filtro por status. Use nos formulários de criação de templates e landing pages.
       security:
         - bearerAuth: []
       parameters:
@@ -818,7 +900,8 @@ paths:
     get:
       tags: [Opcoes]
       summary: Lista opções de templates para combos/filtros
-      description: Usuário comum deve informar cliente_id e recebe templates oficiais Sognix mais templates daquele cliente, respeitando o plano.
+      description: |
+        Usuário comum deve informar cliente_id e recebe templates oficiais Sognix mais templates daquele cliente, respeitando o plano.
       security:
         - bearerAuth: []
       parameters:
@@ -932,6 +1015,8 @@ paths:
     get:
       tags: [Opcoes]
       summary: Lista opções estáticas de tipos e status para combos/filtros
+      description: |
+        Retorna os valores de enumeração utilizados na API (tipos de LP, status, portes, etc.) agrupados por contexto. Use no frontend para popular selects sem precisar hardcodar os valores.
       security:
         - bearerAuth: []
       responses:
@@ -943,6 +1028,8 @@ paths:
     get:
       tags: [Negocios]
       summary: Lista negócios visíveis ao usuário
+      description: |
+        Lista negócios segmentados por cliente. Admin vê todos; usuário comum vê apenas negócios dos clientes vinculados. Negócios são subdivisões de um cliente (ex.: uma clínica com múltiplas unidades). Suporta filtro por cliente, nome e status.
       security:
         - bearerAuth: []
       parameters:
@@ -1000,6 +1087,8 @@ paths:
     post:
       tags: [Negocios]
       summary: Cria negócio para cliente vinculado
+      description: |
+        Cria um negócio vinculado a um cliente. O negócio representa uma unidade operacional (ex.: filial, marca) dentro do cliente. Usuário comum só pode criar negócios em clientes aos quais tem acesso.
       security:
         - bearerAuth: []
       requestBody:
@@ -1021,6 +1110,8 @@ paths:
     put:
       tags: [Negocios]
       summary: Atualiza negócio do cliente vinculado
+      description: |
+        Atualiza nome, descrição ou status de um negócio. Usuário comum só pode atualizar negócios dos clientes vinculados a ele.
       security:
         - bearerAuth: []
       parameters:
@@ -1047,6 +1138,8 @@ paths:
     delete:
       tags: [Negocios]
       summary: Exclui negócio com soft delete
+      description: |
+        Marca o negócio como excluído (soft delete). Landing pages vinculadas ao negócio continuam existindo mas ficam órfãs de negócio. Usuário comum só pode excluir negócios dos seus clientes.
       security:
         - bearerAuth: []
       parameters:
@@ -1062,6 +1155,8 @@ paths:
     get:
       tags: [Categorias]
       summary: Lista categorias
+      description: |
+        Lista categorias de templates e landing pages (ex.: dentista, advogado, e-commerce). Admin vê todas, inclusive inativas. Usuário comum vê apenas categorias ativas. Use para popular o seletor de categoria no formulário de criação de LP.
       security:
         - bearerAuth: []
       parameters:
@@ -1112,6 +1207,8 @@ paths:
     post:
       tags: [Categorias]
       summary: Cria categoria, admin
+      description: |
+        Cria uma nova categoria vertical. Exclusivo para `admin/Sognix`. Categorias determinam quais templates ficam disponíveis para cada nicho de Operador.
       security:
         - bearerAuth: []
       requestBody:
@@ -1133,6 +1230,8 @@ paths:
     put:
       tags: [Categorias]
       summary: Atualiza categoria, admin
+      description: |
+        Atualiza nome, slug ou status de uma categoria. Exclusivo para `admin/Sognix`. A alteração de slug pode afetar filtros existentes no frontend.
       security:
         - bearerAuth: []
       parameters:
@@ -1159,6 +1258,8 @@ paths:
     delete:
       tags: [Categorias]
       summary: Exclui categoria com soft delete, admin
+      description: |
+        Marca a categoria como excluída (soft delete). Templates e landing pages vinculadas permanecem com o `categoria_id` preservado. Exclusivo para `admin/Sognix`.
       security:
         - bearerAuth: []
       parameters:
@@ -1174,6 +1275,8 @@ paths:
     get:
       tags: [Templates]
       summary: Lista templates
+      description: |
+        Lista templates disponíveis. Admin vê todos (Sognix + todos os clientes). Usuário comum filtra por `cliente_id` e vê templates oficiais Sognix + templates do cliente informado, respeitando o plano contratado. Suporta filtro por categoria, tipo e origem.
       security:
         - bearerAuth: []
       parameters:
@@ -1247,7 +1350,8 @@ paths:
     post:
       tags: [Templates]
       summary: Cadastra template pronto no banco
-      description: Admin pode criar templates oficiais Sognix ou templates de cliente. Usuário comum só pode criar template do cliente ao qual tem acesso.
+      description: |
+        Admin pode criar templates oficiais Sognix ou templates de cliente. Usuário comum só pode criar template do cliente ao qual tem acesso.
       security:
         - bearerAuth: []
       requestBody:
@@ -1293,6 +1397,8 @@ paths:
     delete:
       tags: [Templates]
       summary: Exclui template com soft delete, admin
+      description: |
+        Marca o template como excluído (soft delete). Landing pages que já usavam o template não são afetadas — elas mantêm o conteúdo copiado no momento da criação. Exclusivo para `admin/Sognix`.
       security:
         - bearerAuth: []
       parameters:
@@ -1310,6 +1416,8 @@ paths:
     get:
       tags: [LandingPages]
       summary: Lista landing pages
+      description: |
+        Lista landing pages com filtros por cliente, negócio, categoria, template, tipo e status. Admin vê todas; usuário comum vê apenas LPs dos clientes vinculados. Não retorna o campo `conteudo` (pesado) — use `GET /landingpages/{id}` para obter o conteúdo completo.
       security:
         - bearerAuth: []
       parameters:
@@ -1392,6 +1500,8 @@ paths:
     post:
       tags: [LandingPages]
       summary: Cria landing page
+      description: |
+        Cria uma nova landing page vinculada a um cliente. Se `template_id` for informado, o conteúdo inicial é copiado do template. Se `slug` for omitido, é gerado automaticamente a partir do nome. O limite de LPs por cliente é definido pelo plano contratado.
       security:
         - bearerAuth: []
       requestBody:
@@ -1413,6 +1523,8 @@ paths:
     get:
       tags: [LandingPages]
       summary: Obtém landing page
+      description: |
+        Retorna todos os campos da landing page, incluindo o `conteudo` (JSON do editor). Valida se o usuário tem acesso ao cliente dono da LP antes de retornar.
       security:
         - bearerAuth: []
       parameters:
@@ -1429,6 +1541,8 @@ paths:
     put:
       tags: [LandingPages]
       summary: Atualiza landing page
+      description: |
+        Atualiza metadados e conteúdo da landing page via PUT completo. Usa controle de versão otimista: envie o `version` atual — se houver conflito (outro usuário salvou antes), retorna 409. Para salvar rascunhos frequentemente, prefira `PATCH /landingpages/{id}/autosave`.
       security:
         - bearerAuth: []
       parameters:
@@ -1455,6 +1569,8 @@ paths:
     delete:
       tags: [LandingPages]
       summary: Exclui landing page com soft delete
+      description: |
+        Marca a landing page como excluída (soft delete). Se a LP estiver publicada, é despublicada automaticamente antes da exclusão. Leads e exportações vinculadas são mantidos para auditoria.
       security:
         - bearerAuth: []
       parameters:
@@ -1470,6 +1586,8 @@ paths:
     patch:
       tags: [LandingPages]
       summary: Salva rascunho automático da landing page
+      description: |
+        Endpoint de autosave para o editor. Aceita incrementos frequentes sem exigir o objeto completo. Usa controle de versão otimista (`version`) para evitar sobrescrita silenciosa. Retorna a nova versão após salvar — o frontend deve atualizar o `version` local com o valor retornado.
       security:
         - bearerAuth: []
       parameters:
@@ -1495,6 +1613,8 @@ paths:
     patch:
       tags: [LandingPages]
       summary: Bloqueia landing page para edição concorrente
+      description: |
+        Cria um lock pessimista de 5 minutos para a LP, identificando o editor pelo `usuario_id`. Enquanto o lock estiver ativo, outros usuários recebem 409 ao tentar editar. O frontend deve renovar o lock antes de expirar chamando este endpoint novamente.
       security:
         - bearerAuth: []
       parameters:
@@ -1510,6 +1630,8 @@ paths:
     patch:
       tags: [LandingPages]
       summary: Remove lock de edição da landing page
+      description: |
+        Libera o lock pessimista da LP. Deve ser chamado quando o usuário sair da tela de edição (beforeunload). Se o lock já expirou ou pertence a outro usuário, retorna sucesso silencioso.
       security:
         - bearerAuth: []
       parameters:
@@ -1523,7 +1645,8 @@ paths:
     post:
       tags: [LandingPages, Exportacoes]
       summary: Envia ZIP exportado da landing page
-      description: Upload multipart do ZIP gerado pelo frontend para a landing page. O arquivo é validado como ZIP e fica disponível para download em /exportacoes/{id}/download.
+      description: |
+        Upload multipart do ZIP gerado pelo frontend para a landing page. O arquivo é validado como ZIP e fica disponível para download em /exportacoes/{id}/download.
       security:
         - bearerAuth: []
       parameters:
@@ -1548,6 +1671,73 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /landingpages/{id}/publicar:
+    post:
+      tags: [LandingPages]
+      summary: Publica a landing page no hosting estático
+      description: |
+        Busca a exportação ZIP mais recente da landing page, extrai os arquivos e
+        faz deploy via adaptador de hosting configurado. Armazena `url_publica`,
+        `deploy_id` e `publicada_em` na LP. Publica evento `landingpage.publicada`
+        no outbox quando `OBSERVER_URL` estiver configurado.
+
+        Pré-requisitos:
+        - A LP deve ter um `slug` definido.
+        - Deve existir ao menos uma exportação ZIP para a LP.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Landing page publicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicarLandingPageOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Slug não definido ou sem exportação disponível
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+  /landingpages/{id}/despublicar:
+    post:
+      tags: [LandingPages]
+      summary: Despublica a landing page
+      description: |
+        Chama o adaptador de hosting para remover o deploy e atualiza o status
+        da LP para `rascunho`, limpando `url_publica` e `deploy_id`.
+        Retorna 422 se a LP não estiver publicada.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Landing page despublicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Landing page não está publicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
   /leads:
     post:
       tags: [Leads]
@@ -1592,7 +1782,8 @@ paths:
     get:
       tags: [Leads]
       summary: Lista leads (admin/Sognix)
-      description: Usuário comum não acessa dados pessoais de leads. Admin pode filtrar por cliente, landing page, status, UTM e período.
+      description: |
+        Usuário comum não acessa dados pessoais de leads. Admin pode filtrar por cliente, landing page, status, UTM e período.
       security:
         - bearerAuth: []
       parameters:
@@ -1663,6 +1854,8 @@ paths:
     get:
       tags: [Leads]
       summary: Obtém detalhes do lead (admin/Sognix)
+      description: |
+        Retorna todos os campos do lead, incluindo dados PII (nome, email, telefone, WhatsApp), UTMs e consentimento LGPD. Exclusivo para `admin/Sognix`. Leads anonimizados retornam os campos PII como `null`.
       security:
         - bearerAuth: []
       parameters:
@@ -1768,10 +1961,191 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /lead_aquisicao:
+    post:
+      tags: [LeadAquisicao]
+      summary: Registra lead de aquisição B2B (formulário público de aquisição Sognix)
+      description: |
+        Endpoint público (sem autenticação) chamado pelo formulário de aquisição da Sognix.
+        Captura dados de potenciais Operadores (Lead Tipo A) interessados em contratar produtos Sognix.
+
+        Validações:
+        - `nome` e `email` são obrigatórios.
+        - `email` é normalizado e deve ser único (409 em duplicata).
+        - `porte` aceita: `micro`, `pequeno`, `medio`, `grande` ou vazio.
+        - `mensagem` ≤ 2000 caracteres.
+        - Honeypot: o campo `website` deve ficar vazio; preenchido, a submissão é descartada silenciosamente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrarLeadAquisicaoInput'
+      responses:
+        '201':
+          description: Lead registrado (ou descartado silenciosamente em caso de honeypot)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  mensagem:
+                    type: string
+                    example: "Obrigado! Entraremos em contato em breve."
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email já cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    get:
+      tags: [LeadAquisicao]
+      summary: Lista leads de aquisição B2B (admin/Sognix)
+      description: |
+        Lista leads de aquisição (potenciais Operadores Sognix) com filtros por nome, email, status de funil, porte, localização, UTM e período. Exclusivo para `admin/Sognix`. Suporta paginação e ordenação.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status_funil
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [novo, contatado, qualificado, negociacao, convertido, perdido]
+        - name: porte
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [micro, pequeno, medio, grande]
+        - name: cidade
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: estado
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: utm_campaign
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: ordenar_por
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, email, status_funil, criado_em]
+            default: criado_em
+        - name: ordem
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de leads de aquisição
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaLeadsAquisicaoOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /lead_aquisicao/{id}:
+    get:
+      tags: [LeadAquisicao]
+      summary: Obtém lead de aquisição B2B (admin/Sognix)
+      description: |
+        Retorna todos os campos do lead de aquisição, incluindo dados de contato, perfil da empresa (porte, categoria pretendida, cidade, estado) e posição no funil comercial. Exclusivo para `admin/Sognix`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Lead de aquisição
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadAquisicaoOutput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /lead_aquisicao/{id}/funil:
+    patch:
+      tags: [LeadAquisicao]
+      summary: Atualiza status do funil do lead de aquisição (admin/Sognix)
+      description: |
+        Avança ou retrocede o lead no funil comercial Sognix (`novo → contatado → qualificado → negociacao → convertido | perdido`). Quando `status_funil=convertido`, informe `convertido_em_usuario_id` com o UUID do usuário criado para o Operador. Exclusivo para `admin/Sognix`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarFunilLeadAquisicaoInput'
+      responses:
+        '200':
+          description: Funil atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /exportacoes:
     get:
       tags: [Exportacoes]
       summary: Lista exportações, admin/Sognix global ou por landing page
+      description: |
+        Lista exportações (pacotes ZIP) geradas a partir de landing pages. Admin vê todas ou pode filtrar por cliente/LP. Usuário comum deve informar `landingpage_id` de uma LP à qual tem acesso. Use `GET /exportacoes/{id}/download` para baixar o arquivo.
       security:
         - bearerAuth: []
       parameters:
@@ -1838,6 +2212,8 @@ paths:
     get:
       tags: [Exportacoes]
       summary: Baixa ZIP gerado
+      description: |
+        Faz o download do arquivo ZIP de uma exportação. O ZIP contém os arquivos estáticos gerados pelo editor (HTML, CSS, JS, assets) prontos para deploy. A exportação deve pertencer a uma LP à qual o usuário tem acesso.
       security:
         - bearerAuth: []
       parameters:
@@ -1860,6 +2236,8 @@ paths:
     get:
       tags: [Auditoria]
       summary: Lista auditoria, admin
+      description: |
+        Lista eventos de auditoria registrados automaticamente pelo middleware para operações sensíveis (criação, atualização, exclusão, login, etc.). Exclusivo para `admin/Sognix`. Filtre por usuário, cliente, entidade, ação e período. Registros são imutáveis.
       security:
         - bearerAuth: []
       parameters:
@@ -1932,6 +2310,8 @@ paths:
     get:
       tags: [Auditoria]
       summary: Obtém evento de auditoria, admin
+      description: |
+        Retorna os detalhes completos de um evento de auditoria: quem fez (`usuario_id`), o quê (`entidade` + `entidade_id`), quando (`criado_em`), de onde (`ip`, `user_agent`) e o payload de mudança (`metadados`). Exclusivo para `admin/Sognix`.
       security:
         - bearerAuth: []
       parameters:
@@ -2269,6 +2649,9 @@ components:
           default: white_label
         nome:
           type: string
+        slug:
+          type: string
+          description: Slug da URL pública. Se omitido, é gerado automaticamente a partir do nome.
         conteudo:
           type: string
           description: Permitido para landing pages customizáveis. White label parte do conteúdo do template.
@@ -2287,6 +2670,9 @@ components:
           enum: [white_label, customizavel]
         nome:
           type: string
+        slug:
+          type: string
+          description: Slug da URL pública. Deve ser único entre as landing pages.
         conteudo:
           type: string
         status:
@@ -2462,3 +2848,123 @@ components:
           type: string
           maxLength: 500
           description: Obrigatorio quando `status = perdido`. Texto livre para registrar a razao.
+    PublicarLandingPageOutput:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          example: landingpage publicada com sucesso
+        url_publica:
+          type: string
+          example: https://minha-lp.exemplo.com
+        deploy_id:
+          type: string
+    RegistrarLeadAquisicaoInput:
+      type: object
+      required: [nome, email]
+      description: |
+        Payload público enviado pelo formulário de aquisição da Sognix. O campo `website`
+        é um honeypot anti-bot que deve permanecer vazio.
+      properties:
+        nome:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+        categoria_pretendida_id:
+          type: string
+          description: UUID de categoria existente, se conhecido.
+        categoria_pretendida_livre:
+          type: string
+          description: Nome livre da categoria/especialidade pretendida.
+        cidade:
+          type: string
+        estado:
+          type: string
+          maxLength: 2
+          example: SP
+        porte:
+          type: string
+          enum: [micro, pequeno, medio, grande]
+        interesses:
+          type: object
+          additionalProperties: true
+          description: Campos livres de interesse declarado.
+        mensagem:
+          type: string
+          maxLength: 2000
+        origem:
+          type: string
+          description: Identificador da campanha ou página de origem.
+        utm:
+          $ref: '#/components/schemas/UTMInput'
+        website:
+          type: string
+          description: Honeypot anti-spam. Deve ficar vazio; submissões preenchidas são descartadas silenciosamente.
+    AtualizarFunilLeadAquisicaoInput:
+      type: object
+      required: [status_funil]
+      properties:
+        status_funil:
+          type: string
+          enum: [novo, contatado, qualificado, negociacao, convertido, perdido]
+        convertido_em_usuario_id:
+          type: string
+          description: UUID do usuário criado quando o lead se converte em Operador.
+    LeadAquisicaoOutput:
+      type: object
+      properties:
+        id:
+          type: string
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+        categoria_pretendida_id:
+          type: string
+        categoria_pretendida_livre:
+          type: string
+        cidade:
+          type: string
+        estado:
+          type: string
+        porte:
+          type: string
+        interesses:
+          type: object
+          additionalProperties: true
+        mensagem:
+          type: string
+        origem:
+          type: string
+        utm:
+          $ref: '#/components/schemas/UTMInput'
+        status_funil:
+          type: string
+        convertido_em_usuario_id:
+          type: string
+        criado_em:
+          type: string
+          format: date-time
+        atualizado_em:
+          type: string
+          format: date-time
+    ListaLeadsAquisicaoOutput:
+      type: object
+      properties:
+        dados:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeadAquisicaoOutput'
+        total:
+          type: integer
+        pagina:
+          type: integer
+        por_pagina:
+          type: integer

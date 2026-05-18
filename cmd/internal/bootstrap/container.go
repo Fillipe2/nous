@@ -14,7 +14,8 @@ import (
 	uclandingpage "buildnix-backend/internal/app/usecase/landingpage"
 	uclead "buildnix-backend/internal/app/usecase/lead"
 	ucnegocio "buildnix-backend/internal/app/usecase/negocio"
-	ucprospecto "buildnix-backend/internal/app/usecase/prospecto"
+	ucfaturamento "buildnix-backend/internal/app/usecase/faturamento"
+	ucleadaquisicao "buildnix-backend/internal/app/usecase/lead_aquisicao"
 	uctemplate "buildnix-backend/internal/app/usecase/template"
 	ucusuario "buildnix-backend/internal/app/usecase/usuario"
 	"buildnix-backend/internal/domain/auditoria"
@@ -23,11 +24,12 @@ import (
 	"buildnix-backend/internal/domain/dashboard"
 	"buildnix-backend/internal/domain/evento"
 	"buildnix-backend/internal/domain/exportacao"
+	"buildnix-backend/internal/domain/faturamento"
 	"buildnix-backend/internal/domain/landingpage"
 	"buildnix-backend/internal/domain/lead"
 	"buildnix-backend/internal/domain/negocio"
 	"buildnix-backend/internal/domain/plano"
-	"buildnix-backend/internal/domain/prospecto"
+	domainleadaquisicao "buildnix-backend/internal/domain/lead_aquisicao"
 	"buildnix-backend/internal/domain/template"
 	"buildnix-backend/internal/domain/usuario"
 	"buildnix-backend/internal/domain/hosting"
@@ -54,9 +56,12 @@ type Container struct {
 	CategoriaRepository   categoria.Repository
 	TemplateRepository    template.Repository
 	LandingPageRepository landingpage.Repository
-	LeadRepository        lead.Repository
-	ProspectoRepository   prospecto.Repository
-	ExportacaoRepository  exportacao.Repository
+	LeadRepository           lead.Repository
+	LeadAquisicaoRepository  domainleadaquisicao.Repository
+	UsoRepository            faturamento.UsoRepository
+	FaturamentoRepository    faturamento.FaturamentoRepository
+	BiRepository             faturamento.BiRepository
+	ExportacaoRepository     exportacao.Repository
 	AuditoriaRepository   auditoria.Repository
 	EventOutboxRepository evento.OutboxRepository
 	PlanoRepository       plano.Repository
@@ -70,9 +75,10 @@ type Container struct {
 	CategoriaUseCase   *uccategoria.UseCase
 	TemplateUseCase    *uctemplate.UseCase
 	LandingPageUseCase *uclandingpage.UseCase
-	LeadUseCase        *uclead.UseCase
-	ProspectoUseCase   *ucprospecto.UseCase
-	ExportacaoUseCase  *ucexportacao.UseCase
+	LeadUseCase           *uclead.UseCase
+	LeadAquisicaoUseCase  *ucleadaquisicao.UseCase
+	FaturamentoUseCase    *ucfaturamento.UseCase
+	ExportacaoUseCase     *ucexportacao.UseCase
 }
 
 // New inicializa as dependencias na ordem obrigatoria: infra, repositorios e app.

@@ -14,7 +14,7 @@ FROM landingpage WHERE id=@id AND status != 'excluida';
 -- name: AtualizarLandingPage
 UPDATE landingpage
 SET negocio_id=@negocio_id, categoria_id=@categoria_id, template_id=@template_id, tipo=@tipo,
-    nome=@nome, conteudo=@conteudo, status=@status, is_draft=@is_draft,
+    nome=@nome, slug=@slug, conteudo=@conteudo, status=@status, is_draft=@is_draft,
     atualizado_em=@atualizado_em, version=@version
 WHERE id=@id AND version=@version_anterior;
 

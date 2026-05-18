@@ -28,4 +28,5 @@ type OutboxRepository interface {
 	Salvar(ctx context.Context, evento Evento) error
 	MarcarPublicado(ctx context.Context, eventId string) error
 	MarcarFalha(ctx context.Context, eventId string, mensagemErro string) error
+	BuscarPendentes(ctx context.Context, limite int) ([]Evento, error)
 }

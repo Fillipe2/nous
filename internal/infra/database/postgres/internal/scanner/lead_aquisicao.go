@@ -6,11 +6,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/prospecto"
+	domain "buildnix-backend/internal/domain/lead_aquisicao"
 )
 
-// Prospecto escaneia uma row do banco para a entidade de domínio Prospecto.
-func Prospecto(row pgx.Row) (*prospecto.Prospecto, error) {
+// LeadAquisicao escaneia uma row do banco para a entidade de domínio LeadAquisicao.
+func LeadAquisicao(row pgx.Row) (*domain.LeadAquisicao, error) {
 	var (
 		id                       string
 		nome                     string
@@ -46,62 +46,62 @@ func Prospecto(row pgx.Row) (*prospecto.Prospecto, error) {
 	); err != nil {
 		return nil, err
 	}
-	p := &prospecto.Prospecto{
-		Id:          id,
-		Nome:        nome,
-		Email:       email,
-		StatusFunil: prospecto.StatusFunil(statusFunil),
-		Interesses:  json.RawMessage(interesses),
-		CriadoEm:   criadoEm,
+	la := &domain.LeadAquisicao{
+		Id:           id,
+		Nome:         nome,
+		Email:        email,
+		StatusFunil:  domain.StatusFunil(statusFunil),
+		Interesses:   json.RawMessage(interesses),
+		CriadoEm:    criadoEm,
 		AtualizadoEm: atualizadoEm,
 	}
 	if telefone != nil {
-		p.Telefone = *telefone
+		la.Telefone = *telefone
 	}
 	if categoriaPretendidaId != nil {
-		p.CategoriaPretendidaId = *categoriaPretendidaId
+		la.CategoriaPretendidaId = *categoriaPretendidaId
 	}
 	if categoriaPretendidaLivre != nil {
-		p.CategoriaPretendidaLivre = *categoriaPretendidaLivre
+		la.CategoriaPretendidaLivre = *categoriaPretendidaLivre
 	}
 	if cidade != nil {
-		p.Cidade = *cidade
+		la.Cidade = *cidade
 	}
 	if estado != nil {
-		p.Estado = *estado
+		la.Estado = *estado
 	}
 	if porte != nil {
-		p.Porte = prospecto.Porte(*porte)
+		la.Porte = domain.Porte(*porte)
 	}
 	if mensagem != nil {
-		p.Mensagem = *mensagem
+		la.Mensagem = *mensagem
 	}
 	if origem != nil {
-		p.Origem = *origem
+		la.Origem = *origem
 	}
 	if utmSource != nil {
-		p.UTMSource = *utmSource
+		la.UTMSource = *utmSource
 	}
 	if utmMedium != nil {
-		p.UTMMedium = *utmMedium
+		la.UTMMedium = *utmMedium
 	}
 	if utmCampaign != nil {
-		p.UTMCampaign = *utmCampaign
+		la.UTMCampaign = *utmCampaign
 	}
 	if utmContent != nil {
-		p.UTMContent = *utmContent
+		la.UTMContent = *utmContent
 	}
 	if utmTerm != nil {
-		p.UTMTerm = *utmTerm
+		la.UTMTerm = *utmTerm
 	}
 	if convertidoEmUsuarioId != nil {
-		p.ConvertidoEmUsuarioId = *convertidoEmUsuarioId
+		la.ConvertidoEmUsuarioId = *convertidoEmUsuarioId
 	}
 	if ip != nil {
-		p.IP = *ip
+		la.IP = *ip
 	}
 	if userAgent != nil {
-		p.UserAgent = *userAgent
+		la.UserAgent = *userAgent
 	}
-	return p, nil
+	return la, nil
 }
