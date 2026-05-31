@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	ucdashboard "buildnix-backend/internal/app/usecase/dashboard"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/domain/dashboard"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	ucdashboard "nous/internal/app/usecase/dashboard"
+	"nous/internal/domain/cliente"
+	"nous/internal/domain/dashboard"
+	"nous/internal/interface/webapi/internal/middleware"
 )
 
 type DashboardHandler struct {

@@ -1,6 +1,6 @@
-# Buildnix Backend
+# Nous — backend do Buildnix
 
-Backend do **buildnix**, o produto *builder/admin* da plataforma Sognix. Gerencia identidade do Operador, Negócios, templates, definição de landing pages, planos/billing, captura de leads de aquisição B2B do Sognix e ponte para o Observer.
+Backend do **Buildnix**, o produto *builder/admin* da plataforma Sognix. O backend se chama **Nous** (νοῦς — intelecto divino que cria e ordena, em referência ao Nous de Plotino); o frontend que ele alimenta se chama **Buildnix**. Gerencia identidade do Operador, Negócios, templates, definição de landing pages, planos/billing, captura de leads de aquisição B2B do Sognix e ponte para o Observer.
 
 O buildnix opera em modo standalone e publica eventos no Observer quando configurado. Ele **não** serve as landing pages publicamente nem hospeda a operação vertical (agendamento, paciente, processo, etc.) — esses domínios pertencem ao novo backend de orquestração de LPs (em planejamento), que tem identidade própria validada via JWT do buildnix.
 

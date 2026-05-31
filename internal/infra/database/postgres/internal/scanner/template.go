@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/template"
+	"nous/internal/domain/template"
 )
 
 // Template escaneia uma row do banco para a entidade de domínio Template.

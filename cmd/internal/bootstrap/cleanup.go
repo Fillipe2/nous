@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"buildnix-backend/internal/infra/eventbus"
+	"nous/internal/infra/eventbus"
 )
 
 const (

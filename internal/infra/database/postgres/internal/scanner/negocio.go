@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/negocio"
+	"nous/internal/domain/negocio"
 )
 
 // Negocio escaneia uma row do banco para a entidade de domínio Negocio.

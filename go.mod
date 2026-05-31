@@ -1,4 +1,4 @@
-module buildnix-backend
+module nous
 
 go 1.26.2
 

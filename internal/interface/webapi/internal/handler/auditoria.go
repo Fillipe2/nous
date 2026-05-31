@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"buildnix-backend/internal/domain/auditoria"
+	"nous/internal/domain/auditoria"
 
 	"github.com/go-chi/chi/v5"
 )

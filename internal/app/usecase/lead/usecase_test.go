@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/evento"
-	"buildnix-backend/internal/domain/landingpage"
-	domain "buildnix-backend/internal/domain/lead"
+	"nous/internal/app/dto"
+	"nous/internal/domain/evento"
+	"nous/internal/domain/landingpage"
+	domain "nous/internal/domain/lead"
 )
 
 type leadRepositoryFake struct {

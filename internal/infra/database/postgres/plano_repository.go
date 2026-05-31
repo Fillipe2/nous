@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/plano"
-	"buildnix-backend/internal/infra/database/postgres/internal/statement"
+	"nous/internal/domain/plano"
+	"nous/internal/infra/database/postgres/internal/statement"
 )
 
 type PlanoRepository struct {

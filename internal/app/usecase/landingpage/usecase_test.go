@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/domain/evento"
-	domain "buildnix-backend/internal/domain/landingpage"
-	"buildnix-backend/internal/domain/plano"
-	"buildnix-backend/internal/domain/template"
+	"nous/internal/app/dto"
+	"nous/internal/domain/cliente"
+	"nous/internal/domain/evento"
+	domain "nous/internal/domain/landingpage"
+	"nous/internal/domain/plano"
+	"nous/internal/domain/template"
 )
 
 type landingPageRepositoryFake struct {

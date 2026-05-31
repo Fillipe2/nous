@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/exportacao"
+	"nous/internal/domain/exportacao"
 )
 
 // Exportacao escaneia uma row do banco para a entidade de domínio Exportacao.

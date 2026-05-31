@@ -3,7 +3,7 @@ package noop
 import (
 	"context"
 
-	"buildnix-backend/internal/domain/hosting"
+	"nous/internal/domain/hosting"
 )
 
 type Deployer struct{}

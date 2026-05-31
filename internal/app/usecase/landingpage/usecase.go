@@ -16,14 +16,14 @@ import (
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/domain/evento"
-	domainexportacao "buildnix-backend/internal/domain/exportacao"
-	"buildnix-backend/internal/domain/hosting"
-	domain "buildnix-backend/internal/domain/landingpage"
-	"buildnix-backend/internal/domain/plano"
-	"buildnix-backend/internal/domain/template"
+	"nous/internal/app/dto"
+	"nous/internal/domain/cliente"
+	"nous/internal/domain/evento"
+	domainexportacao "nous/internal/domain/exportacao"
+	"nous/internal/domain/hosting"
+	domain "nous/internal/domain/landingpage"
+	"nous/internal/domain/plano"
+	"nous/internal/domain/template"
 
 	"github.com/google/uuid"
 )
@@ -343,9 +343,9 @@ func (u *UseCase) PublicarLandingPage(ctx context.Context, id, usuarioId, role s
 
 	_ = u.publisher.Publicar(ctx, evento.Evento{
 		EventType:      "landingpage.publicada",
-		Source:         "buildnix",
+		Source:         "nous",
 		SchemaVersion:  1,
-		IdempotencyKey: "buildnix:landingpage:publicada:" + id,
+		IdempotencyKey: "nous:landingpage:publicada:" + id,
 		Payload: map[string]any{
 			"lp_id":       id,
 			"url_publica": resultado.UrlPublica,

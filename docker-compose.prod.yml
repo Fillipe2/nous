@@ -1,13 +1,13 @@
 services:
-  buildnix-backend:
+  nous:
     build: .
-    container_name: buildnix-api
+    container_name: nous-api
     ports:
       - "8081:8080"
     env_file:
       - .env.prod
     volumes:
-      - buildnix_backend_logs:/app/logs
+      - nous_backend_logs:/app/logs
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
       interval: 30s
@@ -24,4 +24,4 @@ networks:
     name: steeth-backend_steeth
 
 volumes:
-  buildnix_backend_logs:
+  nous_backend_logs:

@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	uclead "buildnix-backend/internal/app/usecase/lead"
-	"buildnix-backend/internal/domain/landingpage"
-	"buildnix-backend/internal/domain/lead"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	"nous/internal/app/dto"
+	uclead "nous/internal/app/usecase/lead"
+	"nous/internal/domain/landingpage"
+	"nous/internal/domain/lead"
+	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )

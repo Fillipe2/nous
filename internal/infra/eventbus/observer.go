@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"buildnix-backend/internal/domain/evento"
+	"nous/internal/domain/evento"
 )
 
 var ErrObserverNaoConfigurado = errors.New("observer nao configurado")

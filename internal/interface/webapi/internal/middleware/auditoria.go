@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"buildnix-backend/internal/domain/auditoria"
+	"nous/internal/domain/auditoria"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )

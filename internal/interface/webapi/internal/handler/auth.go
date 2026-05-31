@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	ucauth "buildnix-backend/internal/app/usecase/auth"
-	"buildnix-backend/internal/domain/usuario"
+	"nous/internal/app/dto"
+	ucauth "nous/internal/app/usecase/auth"
+	"nous/internal/domain/usuario"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	infrajwt "buildnix-backend/internal/infra/jwt"
+	infrajwt "nous/internal/infra/jwt"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )

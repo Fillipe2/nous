@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	ucusuario "buildnix-backend/internal/app/usecase/usuario"
-	"buildnix-backend/internal/domain/usuario"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	"nous/internal/app/dto"
+	ucusuario "nous/internal/app/usecase/usuario"
+	"nous/internal/domain/usuario"
+	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )

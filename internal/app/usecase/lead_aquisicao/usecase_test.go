@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/evento"
-	domain "buildnix-backend/internal/domain/lead_aquisicao"
+	"nous/internal/app/dto"
+	"nous/internal/domain/evento"
+	domain "nous/internal/domain/lead_aquisicao"
 )
 
 // --- fakes ---

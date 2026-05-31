@@ -1,20 +1,20 @@
 package bootstrap
 
 import (
-	ucauth "buildnix-backend/internal/app/usecase/auth"
-	uccategoria "buildnix-backend/internal/app/usecase/categoria"
-	uccliente "buildnix-backend/internal/app/usecase/cliente"
-	ucdashboard "buildnix-backend/internal/app/usecase/dashboard"
-	ucexportacao "buildnix-backend/internal/app/usecase/exportacao"
-	uclandingpage "buildnix-backend/internal/app/usecase/landingpage"
-	uclead "buildnix-backend/internal/app/usecase/lead"
-	ucnegocio "buildnix-backend/internal/app/usecase/negocio"
-	ucfaturamento "buildnix-backend/internal/app/usecase/faturamento"
-	ucleadaquisicao "buildnix-backend/internal/app/usecase/lead_aquisicao"
-	uctemplate "buildnix-backend/internal/app/usecase/template"
-	ucusuario "buildnix-backend/internal/app/usecase/usuario"
-	"buildnix-backend/internal/infra/eventbus"
-	"buildnix-backend/internal/infra/hosting/noop"
+	ucauth "nous/internal/app/usecase/auth"
+	uccategoria "nous/internal/app/usecase/categoria"
+	uccliente "nous/internal/app/usecase/cliente"
+	ucdashboard "nous/internal/app/usecase/dashboard"
+	ucexportacao "nous/internal/app/usecase/exportacao"
+	uclandingpage "nous/internal/app/usecase/landingpage"
+	uclead "nous/internal/app/usecase/lead"
+	ucnegocio "nous/internal/app/usecase/negocio"
+	ucfaturamento "nous/internal/app/usecase/faturamento"
+	ucleadaquisicao "nous/internal/app/usecase/lead_aquisicao"
+	uctemplate "nous/internal/app/usecase/template"
+	ucusuario "nous/internal/app/usecase/usuario"
+	"nous/internal/infra/eventbus"
+	"nous/internal/infra/hosting/noop"
 )
 
 func (c *Container) initApp() error {

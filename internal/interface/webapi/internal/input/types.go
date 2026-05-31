@@ -1,7 +1,7 @@
 // Package input define os payloads HTTP de entrada da API REST.
 package input
 
-import "buildnix-backend/internal/app/dto"
+import "nous/internal/app/dto"
 
 // Aliases mantem a camada de interface com contratos explicitamente nomeados sem duplicar DTOs da aplicação.
 type (

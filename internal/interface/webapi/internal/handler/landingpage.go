@@ -4,11 +4,11 @@ import (
 	"errors"
 	"net/http"
 
-	"buildnix-backend/internal/app/dto"
-	uclp "buildnix-backend/internal/app/usecase/landingpage"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/domain/landingpage"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	"nous/internal/app/dto"
+	uclp "nous/internal/app/usecase/landingpage"
+	"nous/internal/domain/cliente"
+	"nous/internal/domain/landingpage"
+	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )

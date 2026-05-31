@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	domain "buildnix-backend/internal/domain/exportacao"
-	"buildnix-backend/internal/domain/landingpage"
+	domain "nous/internal/domain/exportacao"
+	"nous/internal/domain/landingpage"
 )
 
 type exportacaoRepositoryFake struct {

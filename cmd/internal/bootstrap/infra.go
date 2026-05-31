@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"log"
 
-	"buildnix-backend/internal/infra/config"
-	"buildnix-backend/internal/infra/database/postgres"
-	"buildnix-backend/internal/infra/eventbus"
-	infrajwt "buildnix-backend/internal/infra/jwt"
-	"buildnix-backend/internal/infra/logging"
+	"nous/internal/infra/config"
+	"nous/internal/infra/database/postgres"
+	"nous/internal/infra/eventbus"
+	infrajwt "nous/internal/infra/jwt"
+	"nous/internal/infra/logging"
 )
 
 func (c *Container) initInfra(ctx context.Context) error {

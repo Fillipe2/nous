@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"buildnix-backend/cmd/internal/bootstrap"
-	"buildnix-backend/internal/interface/webapi"
+	"nous/cmd/internal/bootstrap"
+	"nous/internal/interface/webapi"
 
 	"github.com/joho/godotenv"
 )

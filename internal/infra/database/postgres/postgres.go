@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"buildnix-backend/internal/infra/database/postgres/internal/statement"
+	"nous/internal/infra/database/postgres/internal/statement"
 )
 
 // Postgres encapsula o pool de conexões e os statements SQL embarcados.

@@ -1,12 +1,12 @@
 .PHONY: build clean test test-integration run migrate-up migrate-down migrate-status tidy lint
 
 MIGRATE_IMAGE ?= migrate/migrate
-MIGRATE_NETWORK ?= buildnix_default
-MIGRATE_DATABASE_URL ?= postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable
+MIGRATE_NETWORK ?= nous_default
+MIGRATE_DATABASE_URL ?= postgres://nous:nous@db:5432/nous?sslmode=disable
 
 build:
 	@mkdir -p bin
-	go build -o bin/buildnix-backend-webapi ./cmd/webapi
+	go build -o bin/nous-webapi ./cmd/webapi
 
 clean:
 	rm -rf bin/
@@ -19,7 +19,7 @@ test-integration:
 	go test ./internal/infra/database/postgres -run Integration -count=1 -v
 
 run: build
-	./bin/buildnix-backend-webapi
+	./bin/nous-webapi
 
 migrate-up:
 	docker run --rm --network $(MIGRATE_NETWORK) -v "$(PWD)/migrations/postgres:/migrations" $(MIGRATE_IMAGE) -path=/migrations -database "$(MIGRATE_DATABASE_URL)" up

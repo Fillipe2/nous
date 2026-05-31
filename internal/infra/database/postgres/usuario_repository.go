@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/usuario"
-	"buildnix-backend/internal/infra/database/postgres/internal/scanner"
-	"buildnix-backend/internal/infra/database/postgres/internal/statement"
+	"nous/internal/domain/usuario"
+	"nous/internal/infra/database/postgres/internal/scanner"
+	"nous/internal/infra/database/postgres/internal/statement"
 
 	"github.com/google/uuid"
 )

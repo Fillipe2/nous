@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	ucexportacao "buildnix-backend/internal/app/usecase/exportacao"
-	"buildnix-backend/internal/domain/exportacao"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	ucexportacao "nous/internal/app/usecase/exportacao"
+	"nous/internal/domain/exportacao"
+	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )

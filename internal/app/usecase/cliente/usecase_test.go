@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"buildnix-backend/internal/app/dto"
-	domain "buildnix-backend/internal/domain/cliente"
+	"nous/internal/app/dto"
+	domain "nous/internal/domain/cliente"
 )
 
 type clienteRepositoryFake struct {

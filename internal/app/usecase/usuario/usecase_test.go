@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	domain "buildnix-backend/internal/domain/usuario"
+	"nous/internal/app/dto"
+	domain "nous/internal/domain/usuario"
 
 	"golang.org/x/crypto/bcrypt"
 )

@@ -3,7 +3,7 @@ package bootstrap
 import (
 	"fmt"
 
-	"buildnix-backend/internal/infra/database/postgres"
+	"nous/internal/infra/database/postgres"
 )
 
 func (c *Container) initRepositories() error {

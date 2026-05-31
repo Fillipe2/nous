@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	domain "buildnix-backend/internal/domain/exportacao"
-	"buildnix-backend/internal/domain/landingpage"
+	"nous/internal/app/dto"
+	domain "nous/internal/domain/exportacao"
+	"nous/internal/domain/landingpage"
 )
 
 type UseCase struct {

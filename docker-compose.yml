@@ -1,10 +1,10 @@
 services:
-  buildnix-backend:
+  nous:
     build: .
     ports:
       - "8080:8080"
     environment:
-      DATABASE_URL: postgres://buildnix:buildnix@db:5432/buildnix?sslmode=disable
+      DATABASE_URL: postgres://nous:nous@db:5432/nous?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET obrigatorio com pelo menos 32 caracteres}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET obrigatorio com pelo menos 32 caracteres}
       OBSERVER_URL: ${OBSERVER_URL:-}
@@ -12,7 +12,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-http://localhost:8080/auth/google/callback}
       OAUTH_STATE_SAMESITE: ${OAUTH_STATE_SAMESITE:-lax}
-      LOG_FILE_PATH: ${LOG_FILE_PATH:-./logs/buildnix-backend.log}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-./logs/nous.log}
       LOG_MAX_SIZE_MB: ${LOG_MAX_SIZE_MB:-50}
       LOG_MAX_AGE_DAYS: ${LOG_MAX_AGE_DAYS:-30}
       LOG_MAX_BACKUPS: ${LOG_MAX_BACKUPS:-10}
@@ -25,7 +25,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - buildnix_backend_logs:/app/logs
+      - nous_backend_logs:/app/logs
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
       interval: 30s
@@ -37,19 +37,19 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: buildnix
-      POSTGRES_PASSWORD: buildnix
-      POSTGRES_DB: buildnix
+      POSTGRES_USER: nous
+      POSTGRES_PASSWORD: nous
+      POSTGRES_DB: nous
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U buildnix"]
+      test: ["CMD-SHELL", "pg_isready -U nous"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
   postgres_data:
-  buildnix_backend_logs:
+  nous_backend_logs:

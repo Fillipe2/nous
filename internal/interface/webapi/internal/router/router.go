@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"buildnix-backend/internal/domain/auditoria"
-	infrajwt "buildnix-backend/internal/infra/jwt"
-	"buildnix-backend/internal/interface/webapi/internal/handler"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	"nous/internal/domain/auditoria"
+	infrajwt "nous/internal/infra/jwt"
+	"nous/internal/interface/webapi/internal/handler"
+	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"

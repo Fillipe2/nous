@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/auditoria"
+	"nous/internal/domain/auditoria"
 )
 
 // Auditoria escaneia uma row do banco para a entidade de domínio Auditoria.

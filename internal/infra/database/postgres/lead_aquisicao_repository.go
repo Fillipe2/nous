@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	domain "buildnix-backend/internal/domain/lead_aquisicao"
-	"buildnix-backend/internal/infra/database/postgres/internal/scanner"
-	"buildnix-backend/internal/infra/database/postgres/internal/statement"
+	domain "nous/internal/domain/lead_aquisicao"
+	"nous/internal/infra/database/postgres/internal/scanner"
+	"nous/internal/infra/database/postgres/internal/statement"
 )
 
 // LeadAquisicaoRepository implementa lead_aquisicao.Repository para PostgreSQL.

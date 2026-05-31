@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/evento"
-	domain "buildnix-backend/internal/domain/lead_aquisicao"
+	"nous/internal/app/dto"
+	"nous/internal/domain/evento"
+	domain "nous/internal/domain/lead_aquisicao"
 )
 
 const limiteMensagem = 2000
@@ -85,9 +85,9 @@ func (u *UseCase) RegistrarLeadAquisicao(ctx context.Context, input dto.Registra
 
 	_ = u.publisher.Publicar(ctx, evento.Evento{
 		EventType:      "lead_aquisicao.registrado",
-		Source:         "buildnix",
+		Source:         "nous",
 		SchemaVersion:  1,
-		IdempotencyKey: "buildnix:lead_aquisicao:registrado:" + la.Id,
+		IdempotencyKey: "nous:lead_aquisicao:registrado:" + la.Id,
 		Payload: map[string]interface{}{
 			"lead_aquisicao_id": la.Id,
 			"email":             la.Email,

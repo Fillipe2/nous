@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/domain/plano"
-	domain "buildnix-backend/internal/domain/template"
+	"nous/internal/app/dto"
+	"nous/internal/domain/cliente"
+	"nous/internal/domain/plano"
+	domain "nous/internal/domain/template"
 )
 
 type UseCase struct {

@@ -1,8 +1,23 @@
 # Roadmap do Ecossistema Sognix
 
 Este documento registra decisões arquiteturais sobre o posicionamento do
-**buildnix-backend** dentro do ecossistema Sognix e o caminho para os próximos
+**Nous** (backend do Buildnix) dentro do ecossistema Sognix e o caminho para os próximos
 produtos. É a fonte de verdade para retomar o trabalho em outras threads.
+
+## Nomenclatura
+
+Os **frontends** mantêm seus nomes de produto. Os **backends** recebem nomes filosófico-teológicos.
+
+| Backend | Frontend | Significado |
+|---|---|---|
+| **Nous** | Buildnix | νοῦς — intelecto divino que cria e ordena (Plotino) |
+| **Sophia** | Sbrain | σοφία — sabedoria divina acima de tudo |
+| **Observer** | — | O transcendente que tudo observa (homenagem a Galileu via Haggard) |
+| **Logos** | LPs públicas + área logada | λόγος — o Verbo que se fez carne |
+| **Daemon** | — | δαίμων — executores invisíveis nos bastidores |
+| **Topos** | AcheiAqui | τόπος — o lugar onde pessoas e serviços se encontram |
+| **Pragma** | Worknix | πρᾶγμα — a ação prática, fazer acontecer |
+
 
 ## 1. Posicionamento do buildnix
 

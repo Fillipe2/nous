@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"buildnix-backend/internal/app/dto"
-	ucleadaquisicao "buildnix-backend/internal/app/usecase/lead_aquisicao"
-	domain "buildnix-backend/internal/domain/lead_aquisicao"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	"nous/internal/app/dto"
+	ucleadaquisicao "nous/internal/app/usecase/lead_aquisicao"
+	domain "nous/internal/domain/lead_aquisicao"
+	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )

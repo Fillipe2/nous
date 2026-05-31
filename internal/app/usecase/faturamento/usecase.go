@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"buildnix-backend/internal/domain/faturamento"
+	"nous/internal/domain/faturamento"
 )
 
 // UseCase centraliza operações de registro de uso, BI e fechamento de competência.

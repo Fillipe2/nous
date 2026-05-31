@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	domain "buildnix-backend/internal/domain/cliente"
+	"nous/internal/app/dto"
+	domain "nous/internal/domain/cliente"
 )
 
 type UseCase struct {

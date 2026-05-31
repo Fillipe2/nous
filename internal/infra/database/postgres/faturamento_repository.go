@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/faturamento"
-	"buildnix-backend/internal/infra/database/postgres/internal/statement"
+	"nous/internal/domain/faturamento"
+	"nous/internal/infra/database/postgres/internal/statement"
 )
 
 // UsoRepository implementa faturamento.UsoRepository para PostgreSQL.

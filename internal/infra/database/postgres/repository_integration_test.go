@@ -14,15 +14,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"buildnix-backend/internal/domain/categoria"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/domain/dashboard"
-	"buildnix-backend/internal/domain/exportacao"
-	"buildnix-backend/internal/domain/landingpage"
-	"buildnix-backend/internal/domain/lead"
-	"buildnix-backend/internal/domain/negocio"
-	"buildnix-backend/internal/domain/template"
-	"buildnix-backend/internal/domain/usuario"
+	"nous/internal/domain/categoria"
+	"nous/internal/domain/cliente"
+	"nous/internal/domain/dashboard"
+	"nous/internal/domain/exportacao"
+	"nous/internal/domain/landingpage"
+	"nous/internal/domain/lead"
+	"nous/internal/domain/negocio"
+	"nous/internal/domain/template"
+	"nous/internal/domain/usuario"
 )
 
 func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {

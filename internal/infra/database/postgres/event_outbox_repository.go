@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/evento"
-	"buildnix-backend/internal/infra/database/postgres/internal/statement"
+	"nous/internal/domain/evento"
+	"nous/internal/infra/database/postgres/internal/statement"
 )
 
 type EventOutboxRepository struct {

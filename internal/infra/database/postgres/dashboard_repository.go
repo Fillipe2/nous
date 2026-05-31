@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"buildnix-backend/internal/domain/dashboard"
+	"nous/internal/domain/dashboard"
 
 	"github.com/jackc/pgx/v5"
 )

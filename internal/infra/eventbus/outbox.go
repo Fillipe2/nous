@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"buildnix-backend/internal/domain/evento"
+	"nous/internal/domain/evento"
 )
 
 type OutboxPublisher struct {

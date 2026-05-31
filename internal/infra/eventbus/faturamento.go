@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"buildnix-backend/internal/domain/evento"
-	"buildnix-backend/internal/domain/faturamento"
+	"nous/internal/domain/evento"
+	"nous/internal/domain/faturamento"
 )
 
 // FaturamentoPublisher é um decorator de Publisher que intercepta eventos conhecidos

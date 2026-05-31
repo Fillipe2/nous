@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/cliente"
-	domain "buildnix-backend/internal/domain/dashboard"
+	"nous/internal/app/dto"
+	"nous/internal/domain/cliente"
+	domain "nous/internal/domain/dashboard"
 )
 
 type dashboardRepositoryFake struct {

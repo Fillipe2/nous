@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/domain/usuario"
+	"nous/internal/app/dto"
+	"nous/internal/domain/cliente"
+	"nous/internal/domain/usuario"
 
 	"golang.org/x/crypto/bcrypt"
 )

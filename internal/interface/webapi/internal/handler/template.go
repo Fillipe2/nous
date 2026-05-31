@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"buildnix-backend/internal/app/dto"
-	uctemplate "buildnix-backend/internal/app/usecase/template"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/domain/template"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	"nous/internal/app/dto"
+	uctemplate "nous/internal/app/usecase/template"
+	"nous/internal/domain/cliente"
+	"nous/internal/domain/template"
+	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )

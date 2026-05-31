@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"buildnix-backend/internal/domain/usuario"
+	"nous/internal/domain/usuario"
 
 	"golang.org/x/crypto/bcrypt"
 )

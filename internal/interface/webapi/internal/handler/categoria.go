@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"buildnix-backend/internal/app/dto"
-	uccategoria "buildnix-backend/internal/app/usecase/categoria"
-	"buildnix-backend/internal/domain/categoria"
+	"nous/internal/app/dto"
+	uccategoria "nous/internal/app/usecase/categoria"
+	"nous/internal/domain/categoria"
 
 	"github.com/go-chi/chi/v5"
 )

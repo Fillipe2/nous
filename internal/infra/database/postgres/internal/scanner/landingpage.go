@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/landingpage"
+	"nous/internal/domain/landingpage"
 )
 
 // LandingPage escaneia uma row do banco para a entidade de domínio LandingPage.

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"buildnix-backend/internal/app/dto"
-	uccliente "buildnix-backend/internal/app/usecase/cliente"
-	"buildnix-backend/internal/domain/cliente"
-	"buildnix-backend/internal/interface/webapi/internal/middleware"
+	"nous/internal/app/dto"
+	uccliente "nous/internal/app/usecase/cliente"
+	"nous/internal/domain/cliente"
+	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )

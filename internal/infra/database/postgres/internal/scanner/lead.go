@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"buildnix-backend/internal/domain/lead"
+	"nous/internal/domain/lead"
 )
 
 // Lead escaneia uma row do banco para a entidade de domínio Lead.

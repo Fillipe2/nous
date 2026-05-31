@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"buildnix-backend/internal/app/dto"
-	"buildnix-backend/internal/domain/evento"
-	"buildnix-backend/internal/domain/landingpage"
-	domain "buildnix-backend/internal/domain/lead"
+	"nous/internal/app/dto"
+	"nous/internal/domain/evento"
+	"nous/internal/domain/landingpage"
+	domain "nous/internal/domain/lead"
 )
 
 const (
@@ -169,9 +169,9 @@ func (u *UseCase) publicarEvento(ctx context.Context, l *domain.Lead) {
 		EventId:        uuid.New().String(),
 		EventType:      "lead.capturado",
 		SchemaVersion:  1,
-		Source:         "buildnix",
+		Source:         "nous",
 		OccurredAt:     l.CriadoEm,
-		IdempotencyKey: "buildnix:lead:" + l.Id,
+		IdempotencyKey: "nous:lead:" + l.Id,
 		Payload:        payload,
 	}); err != nil {
 		log.Printf("publicar evento lead.capturado: %v", err)
