@@ -91,6 +91,9 @@ type clienteHandlerRepositoryFake struct {
 }
 
 func (r *clienteHandlerRepositoryFake) Salvar(context.Context, *cliente.Cliente) error { return nil }
+func (r *clienteHandlerRepositoryFake) SalvarComVinculo(context.Context, *cliente.Cliente, *cliente.UsuarioCliente) error {
+	return nil
+}
 func (r *clienteHandlerRepositoryFake) BuscarPorID(context.Context, string) (*cliente.Cliente, error) {
 	if r.cliente == nil {
 		return nil, cliente.ErrNaoEncontrado
@@ -206,6 +209,9 @@ type clienteAcessoHandlerRepositoryFake struct{ err error }
 func (r *clienteAcessoHandlerRepositoryFake) Salvar(context.Context, *cliente.Cliente) error {
 	return nil
 }
+func (r *clienteAcessoHandlerRepositoryFake) SalvarComVinculo(context.Context, *cliente.Cliente, *cliente.UsuarioCliente) error {
+	return nil
+}
 func (r *clienteAcessoHandlerRepositoryFake) BuscarPorID(context.Context, string) (*cliente.Cliente, error) {
 	return nil, cliente.ErrNaoEncontrado
 }
@@ -268,8 +274,10 @@ func TestLeadHandlerIntegrationCapturaLeadComIPValidado(t *testing.T) {
 	repository := &leadHandlerRepositoryFake{}
 	lpFake := &leadHandlerLandingPageFake{lp: &landingpage.LandingPage{Id: "lp-1", ClienteId: "cliente-1", Status: landingpage.StatusPublicada}}
 	handler := NewLeadHandler(uclead.NewUseCase(repository, lpFake, publisherHandlerFake{}))
+	t.Setenv("TRUSTED_PROXY_COUNT", "1")
 	request := httptest.NewRequest(http.MethodPost, "/leads", strings.NewReader(`{"landingpage_id":"lp-1","nome":"Lead HTTP","email":"lead@sognix.test","whatsapp":"11999999999","consentimento":true}`))
-	request.Header.Set("X-Forwarded-For", "invalido, 203.0.113.10")
+	request.RemoteAddr = "10.0.0.1:443"
+	request.Header.Set("X-Forwarded-For", "203.0.113.10")
 	request.Header.Set("User-Agent", "handler-test")
 	response := httptest.NewRecorder()
 

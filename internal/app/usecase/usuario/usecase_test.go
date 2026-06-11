@@ -109,7 +109,7 @@ func TestAtualizarUsuarioIncrementaVersaoSemAlterarSenha(t *testing.T) {
 	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "usuario-1", Nome: "Antigo", Email: "old@sognix.com.br", SenhaHash: string(senhaAntiga), Role: domain.RoleUsuario, Status: domain.StatusAtivo, Version: 3}}
 	useCase := NewUseCase(repository)
 
-	output, err := useCase.AtualizarUsuario(context.Background(), "usuario-1", dto.AtualizarUsuarioInput{Nome: "Novo", Email: "new@sognix.com.br"})
+	output, err := useCase.AtualizarUsuario(context.Background(), "usuario-1", dto.AtualizarUsuarioInput{Nome: "Novo", Email: "new@sognix.com.br", Version: 3})
 
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)

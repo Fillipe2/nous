@@ -11,19 +11,27 @@ type TemplateOutput struct {
 	Nome         string    `json:"nome"`
 	ArquivoURL   string    `json:"arquivo_url"`
 	Conteudo     string    `json:"conteudo"`
+	TemArquivo   bool      `json:"tem_arquivo"`
+	NomeArquivo  string    `json:"nome_arquivo,omitempty"`
+	ContentType  string    `json:"content_type,omitempty"`
+	TamanhoBytes int64     `json:"tamanho_bytes,omitempty"`
 	Status       string    `json:"status"`
 	CriadoEm     time.Time `json:"criado_em"`
 	AtualizadoEm time.Time `json:"atualizado_em"`
 }
 
 type CriarTemplateInput struct {
-	ClienteId   string
-	CategoriaId string
-	Tipo        string
-	Origem      string
-	Nome        string
-	ArquivoURL  string
-	Conteudo    string
+	ClienteId    string
+	CategoriaId  string
+	Tipo         string
+	Origem       string
+	Nome         string
+	ArquivoURL   string
+	Conteudo     string
+	Arquivo      []byte
+	NomeArquivo  string
+	ContentType  string
+	TamanhoBytes int64
 }
 
 type ListaTemplatesOutput struct {

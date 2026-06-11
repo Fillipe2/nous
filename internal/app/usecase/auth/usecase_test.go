@@ -113,6 +113,9 @@ type clienteRepositoryFake struct {
 }
 
 func (r *clienteRepositoryFake) Salvar(context.Context, *cliente.Cliente) error { return nil }
+func (r *clienteRepositoryFake) SalvarComVinculo(context.Context, *cliente.Cliente, *cliente.UsuarioCliente) error {
+	return nil
+}
 func (r *clienteRepositoryFake) BuscarPorID(context.Context, string) (*cliente.Cliente, error) {
 	return nil, cliente.ErrNaoEncontrado
 }

@@ -142,7 +142,8 @@ Resposta:
 - `PUT /categorias/{id}`: edita categoria, admin. Requer `version`.
 - `DELETE /categorias/{id}`: soft delete categoria, admin.
 - `GET /templates`: lista templates. Filtros: `cliente_id`, `categoria_id`, `tipo`, `origem`.
-- `POST /templates`: cadastra template pronto no banco. Admin pode criar template oficial Sognix ou template de cliente; usuário comum só pode criar template do cliente ao qual tem acesso. Aceita multipart com `cliente_id`, `origem`, `nome`, `tipo`, `categoria_id`, `conteudo` e/ou `arquivo`.
+- `POST /templates`: cadastra template pronto no banco. Admin pode criar template oficial Sognix ou template de cliente; usuário comum só pode criar template do cliente ao qual tem acesso. Aceita multipart com `cliente_id`, `origem`, `nome`, `tipo`, `categoria_id`, `conteudo` e/ou `arquivo`. Para white label, envie o `.zip` em `arquivo`: ele é validado (estrutura, zip-slip, limite de descompressão) e armazenado em binário. Arquivos de texto precisam ser UTF-8 válido e são salvos em `conteudo`.
+- `GET /templates/{id}/download`: baixa o pacote `.zip` do template. Templates Sognix ficam disponíveis a qualquer usuário autenticado; templates de cliente exigem acesso ao cliente dono. Retorna `404` se o template não tiver arquivo binário.
 - `DELETE /templates/{id}`: soft delete template, admin.
 
 Na tela de criação/edição de LP, use:

@@ -50,6 +50,11 @@ func (p *Postgres) Close() {
 	p.pool.Close()
 }
 
+// Begin inicia uma transação no pool de conexões.
+func (p *Postgres) Begin(ctx context.Context) (pgx.Tx, error) {
+	return p.pool.Begin(ctx)
+}
+
 // QueryRow executa uma query que retorna no máximo uma linha.
 func (p *Postgres) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
 	return p.pool.QueryRow(ctx, sql, args...)

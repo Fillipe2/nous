@@ -432,7 +432,7 @@ paths:
       tags: [Usuarios]
       summary: Atualiza usuário
       description: |
-        Atualiza nome, email ou papel de um usuário. Admin pode atualizar qualquer usuário; usuário comum só pode atualizar a si mesmo. Email duplicado retorna 409.
+        Atualiza nome e/ou email de um usuário. Admin pode atualizar qualquer usuário; usuário comum só pode atualizar a si mesmo. Usa controle de concorrência otimista: envie o `version` atual — conflito de versão ou email duplicado retorna 409.
       security:
         - bearerAuth: []
       parameters:
@@ -1361,6 +1361,12 @@ paths:
             schema:
               type: object
               required: [nome]
+              description: |
+                Informe `conteudo` (HTML/texto) **ou** `arquivo`. Para templates white label,
+                envie o pacote `.zip` no campo `arquivo`: ele é validado (estrutura, zip-slip,
+                limite de descompressão) e armazenado em binário, ficando disponível em
+                `GET /templates/{id}/download`. Arquivos de texto (não-zip) precisam ser UTF-8
+                válido e seu conteúdo é salvo em `conteudo`.
               properties:
                 cliente_id:
                   type: string
@@ -1379,11 +1385,13 @@ paths:
                   type: string
                 conteudo:
                   type: string
-                  description: Conteúdo do template salvo no banco. Pode substituir ou complementar o arquivo enviado.
+                  description: Conteúdo textual do template (HTML). Obrigatório quando nenhum arquivo é enviado.
                 arquivo:
                   type: string
                   format: binary
-                  description: Arquivo opcional; quando enviado e conteudo estiver vazio, seu conteúdo será salvo no banco.
+                  description: |
+                    Pacote `.zip` do template white label (armazenado em binário) ou um arquivo
+                    de texto UTF-8 (salvo em `conteudo` quando este estiver vazio).
       responses:
         '201':
           description: Template criado
@@ -1406,6 +1414,33 @@ paths:
       responses:
         '204':
           description: Template excluído
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /templates/{id}/download:
+    get:
+      tags: [Templates]
+      summary: Baixa o pacote ZIP do template
+      description: |
+        Faz o download do pacote `.zip` de um template white label. Templates oficiais Sognix
+        ficam disponíveis para qualquer usuário autenticado; templates de cliente exigem que o
+        usuário tenha acesso ao cliente dono. Retorna `404` se o template não possuir arquivo
+        binário (apenas conteúdo textual).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Arquivo ZIP do template
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2532,12 +2567,16 @@ components:
           enum: [usuario, admin]
     AtualizarUsuarioInput:
       type: object
+      required: [version]
       properties:
         nome:
           type: string
         email:
           type: string
           format: email
+        version:
+          type: integer
+          description: Versão atual do usuário (controle de concorrência otimista). Se houver conflito, retorna 409.
     AlterarSenhaInput:
       type: object
       required: [senha_atual, nova_senha]

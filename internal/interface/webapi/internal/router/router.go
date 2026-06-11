@@ -173,19 +173,19 @@ const swaggerHTML = `<!doctype html>
 </html>`
 
 type Handlers struct {
-	Auth        *handler.AuthHandler
-	Usuario     *handler.UsuarioHandler
-	Cliente     *handler.ClienteHandler
-	Dashboard   *handler.DashboardHandler
-	Negocio     *handler.NegocioHandler
-	Categoria   *handler.CategoriaHandler
-	Template    *handler.TemplateHandler
-	LandingPage *handler.LandingPageHandler
+	Auth          *handler.AuthHandler
+	Usuario       *handler.UsuarioHandler
+	Cliente       *handler.ClienteHandler
+	Dashboard     *handler.DashboardHandler
+	Negocio       *handler.NegocioHandler
+	Categoria     *handler.CategoriaHandler
+	Template      *handler.TemplateHandler
+	LandingPage   *handler.LandingPageHandler
 	Lead          *handler.LeadHandler
 	LeadAquisicao *handler.LeadAquisicaoHandler
 	Exportacao    *handler.ExportacaoHandler
-	Auditoria   *handler.AuditoriaHandler
-	Opcao       *handler.OpcaoHandler
+	Auditoria     *handler.AuditoriaHandler
+	Opcao         *handler.OpcaoHandler
 }
 
 func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo auditoria.Repository) http.Handler {
@@ -272,6 +272,7 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 		// Templates
 		r.Get("/templates", handlers.Template.ListarTemplates)
 		r.Post("/templates", handlers.Template.UploadTemplate)
+		r.Get("/templates/{id}/download", handlers.Template.BaixarTemplate)
 		r.With(middleware.ApenasAdmin).Delete("/templates/{id}", handlers.Template.ExcluirTemplate)
 
 		// Landing Pages

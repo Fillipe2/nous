@@ -22,6 +22,14 @@ func (r *clienteRepositoryFake) Salvar(_ context.Context, c *domain.Cliente) err
 	return nil
 }
 
+func (r *clienteRepositoryFake) SalvarComVinculo(_ context.Context, c *domain.Cliente, uc *domain.UsuarioCliente) error {
+	c.Id = "cliente-novo"
+	uc.ClienteId = c.Id
+	r.salvo = c
+	r.vinculo = uc
+	return nil
+}
+
 func (r *clienteRepositoryFake) BuscarPorID(context.Context, string) (*domain.Cliente, error) {
 	if r.cliente == nil {
 		return nil, domain.ErrNaoEncontrado

@@ -12,8 +12,10 @@ import (
 )
 
 type templateRepositoryFake struct {
-	salvo  *domain.Template
-	filtro domain.FiltroListagem
+	salvo     *domain.Template
+	filtro    domain.FiltroListagem
+	buscado   *domain.Template
+	buscarErr error
 }
 
 func (r *templateRepositoryFake) Salvar(_ context.Context, t *domain.Template) error {
@@ -23,6 +25,12 @@ func (r *templateRepositoryFake) Salvar(_ context.Context, t *domain.Template) e
 }
 
 func (r *templateRepositoryFake) BuscarPorID(context.Context, string) (*domain.Template, error) {
+	if r.buscado != nil {
+		return r.buscado, nil
+	}
+	if r.buscarErr != nil {
+		return nil, r.buscarErr
+	}
 	return nil, domain.ErrNaoEncontrado
 }
 func (r *templateRepositoryFake) SoftDelete(context.Context, string) error { return nil }
@@ -34,6 +42,9 @@ func (r *templateRepositoryFake) Listar(_ context.Context, filtro domain.FiltroL
 type clienteRepositoryFake struct{ err error }
 
 func (r *clienteRepositoryFake) Salvar(context.Context, *cliente.Cliente) error { return nil }
+func (r *clienteRepositoryFake) SalvarComVinculo(context.Context, *cliente.Cliente, *cliente.UsuarioCliente) error {
+	return nil
+}
 func (r *clienteRepositoryFake) BuscarPorID(context.Context, string) (*cliente.Cliente, error) {
 	return nil, cliente.ErrNaoEncontrado
 }
@@ -100,6 +111,95 @@ func TestCriarTemplateClienteBaseCustomizavelPermitido(t *testing.T) {
 	}
 	if output.Id != "template-1" || output.Tipo != string(domain.TipoBaseCustomizavel) || repository.salvo.ClienteId != "cliente-1" {
 		t.Fatalf("template salvo inesperado: output=%+v salvo=%+v", output, repository.salvo)
+	}
+}
+
+func TestCriarTemplateAceitaArquivoSemConteudo(t *testing.T) {
+	repository := &templateRepositoryFake{}
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+
+	output, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{
+		Origem:       string(domain.OrigemSognix),
+		Nome:         "White Label",
+		Arquivo:      []byte("PK\x03\x04 conteudo zip"),
+		NomeArquivo:  "site.zip",
+		ContentType:  "application/zip",
+		TamanhoBytes: 20,
+	}, "admin-1", "admin")
+
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if !output.TemArquivo || output.NomeArquivo != "site.zip" || output.TamanhoBytes != 20 {
+		t.Fatalf("metadados do arquivo nao propagados: %+v", output)
+	}
+	if repository.salvo == nil || len(repository.salvo.Arquivo) == 0 {
+		t.Fatalf("arquivo binario nao foi salvo: %+v", repository.salvo)
+	}
+}
+
+func TestCriarTemplateExigeConteudoOuArquivo(t *testing.T) {
+	repository := &templateRepositoryFake{}
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+
+	_, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{
+		Origem: string(domain.OrigemSognix),
+		Nome:   "Vazio",
+	}, "admin-1", "admin")
+
+	if err == nil {
+		t.Fatal("esperado erro quando nem conteudo nem arquivo sao informados")
+	}
+	if repository.salvo != nil {
+		t.Fatal("template sem conteudo/arquivo nao deveria ser salvo")
+	}
+}
+
+func TestBaixarTemplateSognixRetornaBytes(t *testing.T) {
+	repository := &templateRepositoryFake{buscado: &domain.Template{
+		Id:           "template-1",
+		Origem:       domain.OrigemSognix,
+		Arquivo:      []byte("zip-bytes"),
+		NomeArquivo:  "site.zip",
+		TamanhoBytes: 9,
+	}}
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+
+	dados, meta, err := useCase.BaixarTemplate(context.Background(), "template-1", "usuario-1", "usuario")
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if string(dados) != "zip-bytes" || meta.NomeArquivo != "site.zip" {
+		t.Fatalf("download inesperado: dados=%q meta=%+v", dados, meta)
+	}
+}
+
+func TestBaixarTemplateClienteExigeAcesso(t *testing.T) {
+	repository := &templateRepositoryFake{buscado: &domain.Template{
+		Id:        "template-1",
+		Origem:    domain.OrigemCliente,
+		ClienteId: "cliente-1",
+		Arquivo:   []byte("zip-bytes"),
+	}}
+	useCase := NewUseCase(repository, &clienteRepositoryFake{err: cliente.ErrNaoEncontrado}, &planoRepositoryFake{})
+
+	_, _, err := useCase.BaixarTemplate(context.Background(), "template-1", "usuario-1", "usuario")
+	if err == nil {
+		t.Fatal("esperado erro de acesso ao baixar template de outro cliente")
+	}
+}
+
+func TestBaixarTemplateSemArquivo(t *testing.T) {
+	repository := &templateRepositoryFake{buscado: &domain.Template{
+		Id:       "template-1",
+		Origem:   domain.OrigemSognix,
+		Conteudo: "<html></html>",
+	}}
+	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+
+	_, _, err := useCase.BaixarTemplate(context.Background(), "template-1", "admin-1", "admin")
+	if !errors.Is(err, domain.ErrSemArquivo) {
+		t.Fatalf("esperado ErrSemArquivo, recebido %v", err)
 	}
 }
 

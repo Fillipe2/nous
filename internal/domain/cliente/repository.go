@@ -17,6 +17,7 @@ type FiltroListagem struct {
 
 type Repository interface {
 	Salvar(ctx context.Context, c *Cliente) error
+	SalvarComVinculo(ctx context.Context, c *Cliente, uc *UsuarioCliente) error
 	BuscarPorID(ctx context.Context, id string) (*Cliente, error)
 	Atualizar(ctx context.Context, c *Cliente) error
 	SoftDelete(ctx context.Context, id string) error

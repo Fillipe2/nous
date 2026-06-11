@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -267,18 +268,53 @@ func classeRota(r *http.Request) string {
 	return ""
 }
 
+// ClienteIP resolve o IP do cliente de forma resistente a spoofing.
+//
+// Por padrão (TRUSTED_PROXY_COUNT=0) o cabeçalho X-Forwarded-For é ignorado e
+// usa-se apenas o endereço da conexão (RemoteAddr), pois o XFF pode ser forjado
+// por qualquer cliente. Quando a aplicação roda atrás de N proxies confiáveis
+// (nginx, Cloudflare, Traefik, etc.), defina TRUSTED_PROXY_COUNT=N: o IP real é
+// extraído da posição correta da cadeia, descartando os hops adicionados pelos
+// proxies confiáveis. Isso evita que um atacante burle o rate-limit (inclusive o
+// de login) injetando IPs falsos no XFF.
 func ClienteIP(r *http.Request) string {
+	remoto := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		remoto = host
+	}
+
+	trustedProxies := proxiesConfiaveis()
+	if trustedProxies <= 0 {
+		return remoto
+	}
+
+	// cadeia = [XFF..., RemoteAddr]; o RemoteAddr é sempre o hop direto (confiável).
+	cadeia := make([]string, 0, 8)
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 		for _, item := range strings.Split(forwarded, ",") {
-			ip := strings.TrimSpace(item)
-			if net.ParseIP(ip) != nil {
-				return ip
+			if ip := strings.TrimSpace(item); ip != "" {
+				cadeia = append(cadeia, ip)
 			}
 		}
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
+	cadeia = append(cadeia, remoto)
+
+	// O cliente real fica `trustedProxies` posições à esquerda do RemoteAddr.
+	idx := max(len(cadeia)-1-trustedProxies, 0)
+	if ip := cadeia[idx]; net.ParseIP(ip) != nil {
+		return ip
 	}
-	return r.RemoteAddr
+	return remoto
+}
+
+func proxiesConfiaveis() int {
+	valor := strings.TrimSpace(os.Getenv("TRUSTED_PROXY_COUNT"))
+	if valor == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(valor)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }

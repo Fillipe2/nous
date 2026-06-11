@@ -134,6 +134,10 @@ func (h *UsuarioHandler) AtualizarUsuario(w http.ResponseWriter, r *http.Request
 		responderErro(w, http.StatusNotFound, "usuario nao encontrado")
 		return
 	}
+	if errors.Is(err, usuario.ErrVersaoConflito) {
+		responderErro(w, http.StatusConflict, "usuario foi alterado em outra sessao, recarregue os dados e tente novamente")
+		return
+	}
 	if err != nil {
 		responderErro(w, http.StatusBadRequest, err.Error())
 		return

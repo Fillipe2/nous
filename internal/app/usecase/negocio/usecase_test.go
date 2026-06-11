@@ -42,6 +42,9 @@ func (r *negocioRepositoryFake) Listar(context.Context, domain.FiltroListagem) (
 type clienteAcessoRepositoryFake struct{ err error }
 
 func (r *clienteAcessoRepositoryFake) Salvar(context.Context, *cliente.Cliente) error { return nil }
+func (r *clienteAcessoRepositoryFake) SalvarComVinculo(context.Context, *cliente.Cliente, *cliente.UsuarioCliente) error {
+	return nil
+}
 func (r *clienteAcessoRepositoryFake) BuscarPorID(context.Context, string) (*cliente.Cliente, error) {
 	return nil, cliente.ErrNaoEncontrado
 }

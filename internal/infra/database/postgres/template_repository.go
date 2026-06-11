@@ -29,6 +29,10 @@ func NewTemplateRepository(connection *Postgres) (*TemplateRepository, error) {
 
 func (r *TemplateRepository) Salvar(ctx context.Context, t *template.Template) error {
 	t.Id = uuid.New().String()
+	arquivo := t.Arquivo
+	if arquivo == nil {
+		arquivo = []byte{}
+	}
 	stmts := statement.Get()
 	err := r.connection.Exec(ctx, stmts.SalvarTemplate, pgx.NamedArgs{
 		"id":            t.Id,
@@ -39,6 +43,10 @@ func (r *TemplateRepository) Salvar(ctx context.Context, t *template.Template) e
 		"nome":          t.Nome,
 		"arquivo_url":   nilableStr(t.ArquivoURL),
 		"conteudo":      t.Conteudo,
+		"arquivo":       arquivo,
+		"nome_arquivo":  t.NomeArquivo,
+		"content_type":  t.ContentType,
+		"tamanho_bytes": t.TamanhoBytes,
 		"status":        string(t.Status),
 		"criado_em":     t.CriadoEm,
 		"atualizado_em": t.AtualizadoEm,
@@ -77,7 +85,7 @@ func (r *TemplateRepository) SoftDelete(ctx context.Context, id string) error {
 
 func (r *TemplateRepository) Listar(ctx context.Context, filtro template.FiltroListagem) ([]*template.Template, int, error) {
 	offset := (filtro.Pagina - 1) * filtro.PorPagina
-	query := `SELECT id, cliente_id, categoria_id, tipo, origem, nome, arquivo_url, conteudo, status, criado_em, atualizado_em, version FROM template WHERE status != 'excluido'`
+	query := `SELECT id, cliente_id, categoria_id, tipo, origem, nome, arquivo_url, conteudo, ''::bytea AS arquivo, nome_arquivo, content_type, tamanho_bytes, status, criado_em, atualizado_em, version FROM template WHERE status != 'excluido'`
 	args := []any{}
 	argIdx := 1
 

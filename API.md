@@ -89,7 +89,8 @@ Resposta:
 - `PUT /categorias/{id}`: edita categoria, admin. Requer `version`.
 - `DELETE /categorias/{id}`: soft delete categoria, admin.
 - `GET /templates`: lista templates.
-- `POST /templates`: upload de template, admin.
+- `POST /templates`: upload de template (multipart). Envie `conteudo` (HTML/texto) ou `arquivo` — para white label, um `.zip` validado e armazenado em binário.
+- `GET /templates/{id}/download`: baixa o `.zip` do template. Sognix é público a usuários autenticados; template de cliente exige acesso ao cliente dono.
 - `DELETE /templates/{id}`: soft delete template, admin.
 
 ## Leads

@@ -27,8 +27,8 @@ func (u *UseCase) CriarTemplate(ctx context.Context, input dto.CriarTemplateInpu
 	if strings.TrimSpace(input.Nome) == "" {
 		return nil, fmt.Errorf("nome e obrigatorio")
 	}
-	if strings.TrimSpace(input.Conteudo) == "" {
-		return nil, fmt.Errorf("conteudo do template e obrigatorio")
+	if strings.TrimSpace(input.Conteudo) == "" && len(input.Arquivo) == 0 {
+		return nil, fmt.Errorf("informe o conteudo ou o arquivo do template")
 	}
 
 	origem, err := domain.NormalizarOrigem(input.Origem)
@@ -67,6 +67,10 @@ func (u *UseCase) CriarTemplate(ctx context.Context, input dto.CriarTemplateInpu
 		Nome:         input.Nome,
 		ArquivoURL:   input.ArquivoURL,
 		Conteudo:     input.Conteudo,
+		Arquivo:      input.Arquivo,
+		NomeArquivo:  input.NomeArquivo,
+		ContentType:  input.ContentType,
+		TamanhoBytes: input.TamanhoBytes,
 		Status:       domain.StatusAtivo,
 		CriadoEm:     time.Now(),
 		AtualizadoEm: time.Now(),
@@ -86,6 +90,25 @@ func (u *UseCase) ObterTemplate(ctx context.Context, id string) (*dto.TemplateOu
 		return nil, fmt.Errorf("obter template: %w", err)
 	}
 	return mapearTemplateOutput(t), nil
+}
+
+// BaixarTemplate retorna os bytes do pacote (ZIP) de um template e seus metadados.
+// Templates oficiais Sognix ficam disponíveis para qualquer usuário autenticado;
+// templates de cliente exigem que o usuário tenha acesso ao cliente dono.
+func (u *UseCase) BaixarTemplate(ctx context.Context, id, usuarioId, role string) ([]byte, *dto.TemplateOutput, error) {
+	t, err := u.repository.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("baixar template: %w", err)
+	}
+	if t.Origem == domain.OrigemCliente && t.ClienteId != "" {
+		if err := u.verificarAcessoCliente(ctx, t.ClienteId, usuarioId, role); err != nil {
+			return nil, nil, err
+		}
+	}
+	if !t.TemArquivo() {
+		return nil, nil, domain.ErrSemArquivo
+	}
+	return t.Arquivo, mapearTemplateOutput(t), nil
 }
 
 func (u *UseCase) ExcluirTemplate(ctx context.Context, id string) error {
@@ -158,6 +181,10 @@ func mapearTemplateOutput(t *domain.Template) *dto.TemplateOutput {
 		Nome:         t.Nome,
 		ArquivoURL:   t.ArquivoURL,
 		Conteudo:     t.Conteudo,
+		TemArquivo:   t.TemArquivo(),
+		NomeArquivo:  t.NomeArquivo,
+		ContentType:  t.ContentType,
+		TamanhoBytes: t.TamanhoBytes,
 		Status:       string(t.Status),
 		CriadoEm:     t.CriadoEm,
 		AtualizadoEm: t.AtualizadoEm,

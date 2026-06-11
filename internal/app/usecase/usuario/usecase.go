@@ -64,6 +64,9 @@ func (u *UseCase) AtualizarUsuario(ctx context.Context, id string, input dto.Atu
 	if err != nil {
 		return nil, fmt.Errorf("atualizar usuario: %w", err)
 	}
+	if input.Version != us.Version {
+		return nil, domain.ErrVersaoConflito
+	}
 
 	if input.Nome != "" {
 		us.Nome = input.Nome

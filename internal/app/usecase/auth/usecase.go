@@ -21,6 +21,11 @@ const duracaoRefreshToken = 7 * 24 * time.Hour
 const duracaoResetSenhaToken = 30 * time.Minute
 const duracaoMinimaEsqueciSenha = 150 * time.Millisecond
 
+// hashSenhaDummy é um hash bcrypt válido usado para igualar o tempo de resposta
+// do login quando o e-mail não existe ou o usuário está inativo, evitando
+// enumeração de usuários por timing.
+var hashSenhaDummy, _ = bcrypt.GenerateFromPassword([]byte("dummy-timing-equalization-secret"), bcrypt.DefaultCost)
+
 type TokenService interface {
 	GerarTokens(usuarioId, email, role string) (accessToken, refreshToken string, err error)
 	ValidarRefreshToken(token string) (usuarioId string, err error)
@@ -39,9 +44,13 @@ func NewUseCase(repository usuario.Repository, clienteRepository cliente.Reposit
 func (u *UseCase) Login(ctx context.Context, input dto.LoginInput) (*dto.LoginOutput, error) {
 	us, err := u.repository.BuscarPorEmail(ctx, input.Email)
 	if err != nil {
+		// Compara contra um hash dummy para manter o tempo de resposta constante
+		// e impedir enumeração de usuários por timing.
+		_ = bcrypt.CompareHashAndPassword(hashSenhaDummy, []byte(input.Senha))
 		return nil, fmt.Errorf("login: %w", usuario.ErrNaoAutorizado)
 	}
 	if us.Status == usuario.StatusExcluido || us.Status == usuario.StatusInativo {
+		_ = bcrypt.CompareHashAndPassword(hashSenhaDummy, []byte(input.Senha))
 		return nil, usuario.ErrNaoAutorizado
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(us.SenhaHash), []byte(input.Senha)); err != nil {

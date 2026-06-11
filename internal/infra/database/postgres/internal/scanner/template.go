@@ -19,12 +19,16 @@ func Template(row pgx.Row) (*template.Template, error) {
 		nome         string
 		arquivoURL   *string
 		conteudo     string
+		arquivo      []byte
+		nomeArquivo  string
+		contentType  string
+		tamanhoBytes int64
 		status       string
 		criadoEm     time.Time
 		atualizadoEm time.Time
 		version      int
 	)
-	if err := row.Scan(&id, &clienteID, &categoriaID, &tipo, &origem, &nome, &arquivoURL, &conteudo, &status, &criadoEm, &atualizadoEm, &version); err != nil {
+	if err := row.Scan(&id, &clienteID, &categoriaID, &tipo, &origem, &nome, &arquivoURL, &conteudo, &arquivo, &nomeArquivo, &contentType, &tamanhoBytes, &status, &criadoEm, &atualizadoEm, &version); err != nil {
 		return nil, err
 	}
 	t := &template.Template{
@@ -33,6 +37,10 @@ func Template(row pgx.Row) (*template.Template, error) {
 		Origem:       template.Origem(origem),
 		Nome:         nome,
 		Conteudo:     conteudo,
+		Arquivo:      arquivo,
+		NomeArquivo:  nomeArquivo,
+		ContentType:  contentType,
+		TamanhoBytes: tamanhoBytes,
 		Status:       template.Status(status),
 		CriadoEm:     criadoEm,
 		AtualizadoEm: atualizadoEm,

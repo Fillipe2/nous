@@ -36,15 +36,11 @@ func (u *UseCase) CriarCliente(ctx context.Context, input dto.CriarClienteInput,
 		Version:      1,
 	}
 
-	if err := u.repository.Salvar(ctx, c); err != nil {
-		return nil, fmt.Errorf("criar cliente: %w", err)
-	}
-	if err := u.repository.VincularUsuario(ctx, &domain.UsuarioCliente{
+	if err := u.repository.SalvarComVinculo(ctx, c, &domain.UsuarioCliente{
 		UsuarioId: usuarioId,
-		ClienteId: c.Id,
 		CriadoEm:  time.Now(),
 	}); err != nil {
-		return nil, fmt.Errorf("vincular usuario ao cliente: %w", err)
+		return nil, fmt.Errorf("criar cliente: %w", err)
 	}
 
 	return mapearClienteOutput(c), nil

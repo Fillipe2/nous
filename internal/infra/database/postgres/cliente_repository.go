@@ -47,6 +47,47 @@ func (r *ClienteRepository) Salvar(ctx context.Context, c *cliente.Cliente) erro
 	return nil
 }
 
+// SalvarComVinculo cria o cliente e o vínculo usuário-cliente numa única
+// transação, evitando clientes órfãos caso o vínculo falhe.
+func (r *ClienteRepository) SalvarComVinculo(ctx context.Context, c *cliente.Cliente, uc *cliente.UsuarioCliente) error {
+	c.Id = uuid.New().String()
+	uc.ClienteId = c.Id
+	stmts := statement.Get()
+
+	tx, err := r.connection.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("iniciar transacao salvar cliente: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, stmts.SalvarCliente, pgx.NamedArgs{
+		"id":            c.Id,
+		"nome":          c.Nome,
+		"email":         c.Email,
+		"telefone":      c.Telefone,
+		"whatsapp":      c.Whatsapp,
+		"status":        string(c.Status),
+		"criado_em":     c.CriadoEm,
+		"atualizado_em": c.AtualizadoEm,
+		"version":       c.Version,
+	}); err != nil {
+		return fmt.Errorf("salvar cliente: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, stmts.VincularUsuarioCliente, pgx.NamedArgs{
+		"usuario_id": uc.UsuarioId,
+		"cliente_id": uc.ClienteId,
+		"criado_em":  uc.CriadoEm,
+	}); err != nil {
+		return fmt.Errorf("vincular usuario cliente: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit salvar cliente: %w", err)
+	}
+	return nil
+}
+
 func (r *ClienteRepository) BuscarPorID(ctx context.Context, id string) (*cliente.Cliente, error) {
 	stmts := statement.Get()
 	row := r.connection.QueryRow(ctx, stmts.BuscarClientePorID, pgx.NamedArgs{"id": id})
@@ -102,7 +143,7 @@ func (r *ClienteRepository) Listar(ctx context.Context, filtro cliente.FiltroLis
 	if filtro.UsuarioId != "" {
 		query += " INNER JOIN usuario_cliente uc ON uc.cliente_id=c.id"
 	}
-	query += " WHERE 1=1"
+	query += " WHERE c.status != 'excluido'"
 	if filtro.UsuarioId != "" {
 		query += fmt.Sprintf(" AND uc.usuario_id=$%d", argIdx)
 		args = append(args, filtro.UsuarioId)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"nous/internal/app/dto"
 	uctemplate "nous/internal/app/usecase/template"
@@ -41,7 +42,12 @@ func (h *TemplateHandler) UploadTemplate(w http.ResponseWriter, r *http.Request)
 	claims := middleware.ObterClaims(r.Context())
 
 	conteudo := strings.TrimSpace(r.FormValue("conteudo"))
-	arquivoURL := ""
+	var (
+		arquivo      []byte
+		nomeArquivo  string
+		contentType  string
+		tamanhoBytes int64
+	)
 	file, header, err := r.FormFile("arquivo")
 	if err == nil {
 		defer file.Close()
@@ -50,20 +56,42 @@ func (h *TemplateHandler) UploadTemplate(w http.ResponseWriter, r *http.Request)
 			responderErro(w, http.StatusInternalServerError, "erro ao ler arquivo")
 			return
 		}
-		if conteudo == "" {
-			conteudo = string(dados)
+
+		nomeBase := filepath.Base(header.Filename)
+		ehZIP := contentTypeZIP(header.Header.Get("Content-Type")) && strings.EqualFold(filepath.Ext(nomeBase), ".zip")
+		if ehZIP {
+			if err := validarZIP(dados); err != nil {
+				responderErro(w, http.StatusBadRequest, "arquivo zip invalido")
+				return
+			}
+			arquivo = dados
+			nomeArquivo = nomeBase
+			contentType = "application/zip"
+			tamanhoBytes = int64(len(dados))
+		} else {
+			// Templates baseados em texto (HTML): só aceitamos conteúdo UTF-8 válido,
+			// pois é armazenado na coluna TEXT do banco.
+			if !utf8.Valid(dados) {
+				responderErro(w, http.StatusBadRequest, "arquivo invalido: envie um .zip ou conteudo de texto")
+				return
+			}
+			if conteudo == "" {
+				conteudo = string(dados)
+			}
 		}
-		arquivoURL = "templates/" + filepath.Base(header.Filename)
 	}
 
 	output, err := h.useCase.CriarTemplate(r.Context(), dto.CriarTemplateInput{
-		ClienteId:   clienteId,
-		CategoriaId: categoriaId,
-		Tipo:        r.FormValue("tipo"),
-		Origem:      r.FormValue("origem"),
-		Nome:        nome,
-		ArquivoURL:  arquivoURL,
-		Conteudo:    conteudo,
+		ClienteId:    clienteId,
+		CategoriaId:  categoriaId,
+		Tipo:         r.FormValue("tipo"),
+		Origem:       r.FormValue("origem"),
+		Nome:         nome,
+		Conteudo:     conteudo,
+		Arquivo:      arquivo,
+		NomeArquivo:  nomeArquivo,
+		ContentType:  contentType,
+		TamanhoBytes: tamanhoBytes,
 	}, claims.UsuarioId, claims.Role)
 	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, template.ErrPlanoNaoPermite) || errors.Is(err, cliente.ErrNaoAutorizado) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
@@ -118,6 +146,38 @@ func (h *TemplateHandler) ListarTemplates(w http.ResponseWriter, r *http.Request
 	}
 
 	responderJSON(w, http.StatusOK, output)
+}
+
+func (h *TemplateHandler) BaixarTemplate(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	claims := middleware.ObterClaims(r.Context())
+	dados, meta, err := h.useCase.BaixarTemplate(r.Context(), id, claims.UsuarioId, claims.Role)
+	if errors.Is(err, template.ErrNaoEncontrado) {
+		responderErro(w, http.StatusNotFound, "template nao encontrado")
+		return
+	}
+	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, cliente.ErrNaoAutorizado) {
+		responderErro(w, http.StatusForbidden, "acesso negado")
+		return
+	}
+	if errors.Is(err, template.ErrSemArquivo) {
+		responderErro(w, http.StatusNotFound, "template nao possui arquivo")
+		return
+	}
+	if err != nil {
+		responderErro(w, http.StatusInternalServerError, "erro ao baixar arquivo")
+		return
+	}
+
+	nomeArquivo := meta.NomeArquivo
+	if nomeArquivo == "" {
+		nomeArquivo = "template.zip"
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+filepath.Base(nomeArquivo)+"\"")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(dados)
 }
 
 func (h *TemplateHandler) ExcluirTemplate(w http.ResponseWriter, r *http.Request) {

@@ -49,16 +49,32 @@ func TestMemoryRateLimiterResetaJanelaExpirada(t *testing.T) {
 	}
 }
 
-func TestClienteIPIgnoraForwardedInvalido(t *testing.T) {
+func TestClienteIPIgnoraForwardedPorPadrao(t *testing.T) {
+	// Sem TRUSTED_PROXY_COUNT, o XFF (forjável) deve ser ignorado.
 	request, err := http.NewRequest(http.MethodGet, "/", nil)
 	if err != nil {
 		t.Fatalf("criar request: %v", err)
 	}
 	request.RemoteAddr = "10.0.0.10:12345"
-	request.Header.Set("X-Forwarded-For", "valor-invalido")
+	request.Header.Set("X-Forwarded-For", "203.0.113.10")
 
 	if ip := ClienteIP(request); ip != "10.0.0.10" {
-		t.Fatalf("ip esperado do RemoteAddr, recebido %s", ip)
+		t.Fatalf("ip esperado do RemoteAddr (XFF ignorado), recebido %s", ip)
+	}
+}
+
+func TestClienteIPUsaForwardedComProxyConfiavel(t *testing.T) {
+	t.Setenv("TRUSTED_PROXY_COUNT", "1")
+	request, err := http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		t.Fatalf("criar request: %v", err)
+	}
+	// RemoteAddr é o proxy confiável; o cliente real é o último IP do XFF.
+	request.RemoteAddr = "10.0.0.1:443"
+	request.Header.Set("X-Forwarded-For", "203.0.113.10")
+
+	if ip := ClienteIP(request); ip != "203.0.113.10" {
+		t.Fatalf("ip esperado do XFF via proxy confiavel, recebido %s", ip)
 	}
 }
 

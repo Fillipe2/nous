@@ -115,7 +115,7 @@ func (r *UsuarioRepository) Listar(ctx context.Context, filtro usuario.FiltroLis
 	if filtro.ClienteId != "" {
 		query += " INNER JOIN usuario_cliente uc ON uc.usuario_id=u.id"
 	}
-	query += " WHERE 1=1"
+	query += " WHERE u.status != 'excluido'"
 	if filtro.Id != "" {
 		query += fmt.Sprintf(" AND u.id=$%d", argIdx)
 		args = append(args, filtro.Id)

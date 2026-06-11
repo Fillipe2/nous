@@ -11,6 +11,7 @@ var (
 	ErrClienteObrigatorio = errors.New("cliente_id obrigatorio para template do cliente")
 	ErrNaoAutorizado      = errors.New("acesso nao autorizado ao template")
 	ErrPlanoNaoPermite    = errors.New("plano nao permite este tipo de template")
+	ErrSemArquivo         = errors.New("template nao possui arquivo para download")
 )
 
 type Status string
@@ -30,10 +31,20 @@ type Template struct {
 	Nome         string
 	ArquivoURL   string
 	Conteudo     string
+	Arquivo      []byte
+	NomeArquivo  string
+	ContentType  string
+	TamanhoBytes int64
 	Status       Status
 	CriadoEm     time.Time
 	AtualizadoEm time.Time
 	Version      int
+}
+
+// TemArquivo indica se o template possui um pacote binário (ex.: ZIP white label)
+// armazenado, em vez de apenas conteúdo textual.
+func (t *Template) TemArquivo() bool {
+	return t.TamanhoBytes > 0 || len(t.Arquivo) > 0
 }
 
 type Origem string
