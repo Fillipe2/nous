@@ -2,22 +2,22 @@ package dashboard
 
 import "errors"
 
-var ErrClienteObrigatorio = errors.New("cliente_id e obrigatorio")
+var ErrNegocioObrigatorio = errors.New("negocio_id e obrigatorio")
 
 type FiltroPeriodo struct {
 	DataInicio    string
 	DataFim       string
-	ClienteId     string
+	NegocioId     string
 	UsuarioId     string
 	LandingPageId string
-	NegocioId     string
+	UnidadeId     string
 	CategoriaId   string
 	TemplateId    string
 	Tipo          string
 }
 
-type ResumoCliente struct {
-	ClienteId            string
+type ResumoNegocio struct {
+	NegocioId            string
 	UsuariosVinculados   int
 	LandingPagesCriadas  int
 	LandingPagesOnline   int
@@ -27,7 +27,7 @@ type ResumoCliente struct {
 
 type ResumoUsuario struct {
 	UsuarioId            string
-	ClientesVinculados   int
+	NegociosVinculados   int
 	LandingPagesCriadas  int
 	LandingPagesOnline   int
 	ExportacoesGeradas   int
@@ -41,13 +41,13 @@ type LandingPageUtilizada struct {
 }
 
 type ResumoAdmin struct {
-	ClientesAtivos         int
+	NegociosAtivos         int
 	UsuariosAtivos         int
 	TemplatesSognix        int
-	TemplatesClientes      int
+	TemplatesNegocios      int
 	LandingPagesCriadas    int
 	LandingPagesOnline     int
 	LeadsCapturados        int
 	ExportacoesGeradas     int
-	ClientesComPlanoCustom int
+	NegociosComPlanoCustom int
 }

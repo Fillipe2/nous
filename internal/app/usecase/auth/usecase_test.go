@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"nous/internal/app/dto"
-	"nous/internal/domain/cliente"
+	"nous/internal/domain/negocio"
 	"nous/internal/domain/usuario"
 
 	"golang.org/x/crypto/bcrypt"
@@ -27,6 +27,9 @@ type usuarioRepositoryFake struct {
 	salvoReset      *usuario.ResetSenhaToken
 	resetTokens     map[string]*usuario.ResetSenhaToken
 	resetUsado      string
+	salvoVerif      *usuario.VerificacaoEmailToken
+	verifTokens     map[string]*usuario.VerificacaoEmailToken
+	verifUsado      string
 }
 
 func (r *usuarioRepositoryFake) Salvar(_ context.Context, u *usuario.Usuario) error {
@@ -52,7 +55,13 @@ func (r *usuarioRepositoryFake) BuscarPorEmail(_ context.Context, email string) 
 }
 
 func (r *usuarioRepositoryFake) Atualizar(context.Context, *usuario.Usuario) error { return nil }
-func (r *usuarioRepositoryFake) SoftDelete(context.Context, string) error          { return nil }
+func (r *usuarioRepositoryFake) AtualizarUltimoLogin(context.Context, string, time.Time) error {
+	return nil
+}
+func (r *usuarioRepositoryFake) SoftDelete(context.Context, string) error { return nil }
+func (r *usuarioRepositoryFake) ContarAdministradoresAtivos(context.Context) (int, error) {
+	return 0, nil
+}
 
 func (r *usuarioRepositoryFake) Listar(context.Context, usuario.FiltroListagem) ([]*usuario.Usuario, int, error) {
 	return nil, 0, nil
@@ -107,30 +116,44 @@ func (r *usuarioRepositoryFake) MarcarResetSenhaTokenUsado(_ context.Context, to
 	r.resetUsado = tokenHash
 	return nil
 }
-
-type clienteRepositoryFake struct {
-	clientes []*cliente.Cliente
-}
-
-func (r *clienteRepositoryFake) Salvar(context.Context, *cliente.Cliente) error { return nil }
-func (r *clienteRepositoryFake) SalvarComVinculo(context.Context, *cliente.Cliente, *cliente.UsuarioCliente) error {
+func (r *usuarioRepositoryFake) SalvarVerificacaoEmailToken(_ context.Context, token *usuario.VerificacaoEmailToken) error {
+	r.salvoVerif = token
 	return nil
 }
-func (r *clienteRepositoryFake) BuscarPorID(context.Context, string) (*cliente.Cliente, error) {
-	return nil, cliente.ErrNaoEncontrado
+func (r *usuarioRepositoryFake) BuscarVerificacaoEmailTokenPorHash(_ context.Context, tokenHash string) (*usuario.VerificacaoEmailToken, error) {
+	if token, ok := r.verifTokens[tokenHash]; ok {
+		return token, nil
+	}
+	return nil, usuario.ErrNaoEncontrado
 }
-func (r *clienteRepositoryFake) Atualizar(context.Context, *cliente.Cliente) error { return nil }
-func (r *clienteRepositoryFake) SoftDelete(context.Context, string) error          { return nil }
-func (r *clienteRepositoryFake) Listar(context.Context, cliente.FiltroListagem) ([]*cliente.Cliente, int, error) {
+func (r *usuarioRepositoryFake) MarcarVerificacaoEmailTokenUsado(_ context.Context, tokenHash string, _ time.Time) error {
+	r.verifUsado = tokenHash
+	return nil
+}
+
+type negocioRepositoryFake struct {
+	negocios []*negocio.Negocio
+}
+
+func (r *negocioRepositoryFake) Salvar(context.Context, *negocio.Negocio) error { return nil }
+func (r *negocioRepositoryFake) SalvarComVinculo(context.Context, *negocio.Negocio, *negocio.UsuarioNegocio) error {
+	return nil
+}
+func (r *negocioRepositoryFake) BuscarPorID(context.Context, string) (*negocio.Negocio, error) {
+	return nil, negocio.ErrNaoEncontrado
+}
+func (r *negocioRepositoryFake) Atualizar(context.Context, *negocio.Negocio) error { return nil }
+func (r *negocioRepositoryFake) SoftDelete(context.Context, string) error          { return nil }
+func (r *negocioRepositoryFake) Listar(context.Context, negocio.FiltroListagem) ([]*negocio.Negocio, int, error) {
 	return nil, 0, nil
 }
-func (r *clienteRepositoryFake) VincularUsuario(context.Context, *cliente.UsuarioCliente) error {
+func (r *negocioRepositoryFake) VincularUsuario(context.Context, *negocio.UsuarioNegocio) error {
 	return nil
 }
-func (r *clienteRepositoryFake) ListarPorUsuario(context.Context, string) ([]*cliente.Cliente, error) {
-	return r.clientes, nil
+func (r *negocioRepositoryFake) ListarPorUsuario(context.Context, string) ([]*negocio.Negocio, error) {
+	return r.negocios, nil
 }
-func (r *clienteRepositoryFake) VerificarAcessoUsuario(context.Context, string, string) error {
+func (r *negocioRepositoryFake) VerificarAcessoUsuario(context.Context, string, string) error {
 	return nil
 }
 
@@ -153,7 +176,7 @@ func (s *tokenServiceFake) ValidarRefreshToken(string) (string, error) {
 	return s.refreshUserID, nil
 }
 
-func TestLoginSalvaRefreshHashEListaClientes(t *testing.T) {
+func TestLoginSalvaRefreshHashEListaNegocios(t *testing.T) {
 	senhaHash, err := bcrypt.GenerateFromPassword([]byte("senha-segura"), bcrypt.DefaultCost)
 	if err != nil {
 		t.Fatalf("gerar hash: %v", err)
@@ -169,14 +192,14 @@ func TestLoginSalvaRefreshHashEListaClientes(t *testing.T) {
 		},
 	}}
 	tokenService := &tokenServiceFake{accessToken: "access-token", refreshToken: "refresh-token"}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{clientes: []*cliente.Cliente{{Id: "cliente-1", Nome: "Cliente", Status: cliente.StatusAtivo}}}, tokenService)
+	useCase := NewUseCase(repository, &negocioRepositoryFake{negocios: []*negocio.Negocio{{Id: "negocio-1", Nome: "Negocio", Status: negocio.StatusAtivo}}}, tokenService)
 
 	output, err := useCase.Login(context.Background(), dto.LoginInput{Email: "user@sognix.com.br", Senha: "senha-segura"})
 
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
-	if output.Token != "access-token" || output.RefreshToken != "refresh-token" || len(output.Clientes) != 1 {
+	if output.Token != "access-token" || output.RefreshToken != "refresh-token" || len(output.Negocios) != 1 {
 		t.Fatalf("saida de login inesperada: %+v", output)
 	}
 	if repository.salvoRefresh == nil || repository.salvoRefresh.TokenHash != hashToken("refresh-token") {
@@ -192,7 +215,7 @@ func TestLoginRecusaUsuarioInativoSemGerarToken(t *testing.T) {
 		"user@sognix.com.br": {Id: "usuario-1", Email: "user@sognix.com.br", Status: usuario.StatusInativo},
 	}}
 	tokenService := &tokenServiceFake{accessToken: "access-token", refreshToken: "refresh-token"}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, tokenService)
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, tokenService)
 
 	_, err := useCase.Login(context.Background(), dto.LoginInput{Email: "user@sognix.com.br", Senha: "senha"})
 
@@ -213,7 +236,7 @@ func TestRefreshTokenRotacionaERevogaAnterior(t *testing.T) {
 			hashToken("refresh-antigo"): {UsuarioId: "usuario-1", TokenHash: hashToken("refresh-antigo"), ExpiresAt: time.Now().Add(time.Hour)},
 		},
 	}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &tokenServiceFake{accessToken: "access-novo", refreshToken: "refresh-novo", refreshUserID: "usuario-1"})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &tokenServiceFake{accessToken: "access-novo", refreshToken: "refresh-novo", refreshUserID: "usuario-1"})
 
 	output, err := useCase.RefreshToken(context.Background(), dto.RefreshTokenInput{RefreshToken: "refresh-antigo"})
 
@@ -233,7 +256,7 @@ func TestRefreshTokenRotacionaERevogaAnterior(t *testing.T) {
 
 func TestLoginGoogleCriaUsuarioEAuthQuandoProviderNovo(t *testing.T) {
 	repository := &usuarioRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &tokenServiceFake{accessToken: "access", refreshToken: "refresh"})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &tokenServiceFake{accessToken: "access", refreshToken: "refresh"})
 
 	_, err := useCase.LoginGoogle(context.Background(), GoogleCallbackInput{ProviderId: "google-1", ProviderEmail: "user@sognix.com.br", Nome: "Usuario Google"})
 
@@ -253,7 +276,7 @@ func TestEsqueciSenhaSalvaTokenHasheadoSemEnumerarEmail(t *testing.T) {
 	repository := &usuarioRepositoryFake{porEmail: map[string]*usuario.Usuario{
 		"user@sognix.com.br": {Id: "usuario-1", Email: "user@sognix.com.br", Status: usuario.StatusAtivo},
 	}}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &tokenServiceFake{})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &tokenServiceFake{})
 
 	output, err := useCase.EsqueciSenha(context.Background(), dto.EsqueciSenhaInput{Email: "user@sognix.com.br"})
 
@@ -290,18 +313,76 @@ func TestRedefinirSenhaUsaTokenUnico(t *testing.T) {
 			hashToken(token): {UsuarioId: "usuario-1", TokenHash: hashToken(token), ExpiresAt: time.Now().Add(time.Minute)},
 		},
 	}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &tokenServiceFake{})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &tokenServiceFake{})
 
-	if err := useCase.RedefinirSenha(context.Background(), dto.RedefinirSenhaInput{Token: token, NovaSenha: "nova"}); err != nil {
+	if err := useCase.RedefinirSenha(context.Background(), dto.RedefinirSenhaInput{Token: token, NovaSenha: "nova-senha-segura"}); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	if repository.resetUsado != hashToken(token) {
 		t.Fatal("token deveria ser marcado como usado")
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(repository.porID["usuario-1"].SenhaHash), []byte("nova")); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(repository.porID["usuario-1"].SenhaHash), []byte("nova-senha-segura")); err != nil {
 		t.Fatalf("senha nova nao foi persistida: %v", err)
 	}
 	if repository.revogadoUsuario != "usuario-1" {
 		t.Fatalf("refresh tokens do usuario deveriam ser revogados, recebido %q", repository.revogadoUsuario)
+	}
+}
+
+func TestVerificarEmailMarcaVerificado(t *testing.T) {
+	token := "verif-token-abc"
+	repository := &usuarioRepositoryFake{
+		porID: map[string]*usuario.Usuario{
+			"u1": {Id: "u1", Status: usuario.StatusAtivo, EmailVerified: false, Version: 1},
+		},
+		verifTokens: map[string]*usuario.VerificacaoEmailToken{
+			hashToken(token): {UsuarioId: "u1", TokenHash: hashToken(token), ExpiresAt: time.Now().Add(time.Hour)},
+		},
+	}
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &tokenServiceFake{})
+
+	if err := useCase.VerificarEmail(context.Background(), dto.VerificarEmailInput{Token: token}); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if repository.verifUsado != hashToken(token) {
+		t.Fatal("token deveria ser marcado como usado")
+	}
+	if !repository.porID["u1"].EmailVerified {
+		t.Fatal("email deveria ficar verificado")
+	}
+}
+
+func TestVerificarEmailTokenExpiradoFalha(t *testing.T) {
+	token := "verif-token-exp"
+	repository := &usuarioRepositoryFake{
+		porID: map[string]*usuario.Usuario{"u1": {Id: "u1", Status: usuario.StatusAtivo}},
+		verifTokens: map[string]*usuario.VerificacaoEmailToken{
+			hashToken(token): {UsuarioId: "u1", TokenHash: hashToken(token), ExpiresAt: time.Now().Add(-time.Hour)},
+		},
+	}
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &tokenServiceFake{})
+
+	if err := useCase.VerificarEmail(context.Background(), dto.VerificarEmailInput{Token: token}); !errors.Is(err, usuario.ErrNaoAutorizado) {
+		t.Fatalf("esperava ErrNaoAutorizado, recebeu %v", err)
+	}
+}
+
+func TestSolicitarVerificacaoEmailUsuarioJaVerificado(t *testing.T) {
+	repository := &usuarioRepositoryFake{
+		porEmail: map[string]*usuario.Usuario{
+			"v@x.com": {Id: "u1", Status: usuario.StatusAtivo, EmailVerified: true},
+		},
+	}
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &tokenServiceFake{})
+
+	out, err := useCase.SolicitarVerificacaoEmail(context.Background(), dto.SolicitarVerificacaoEmailInput{Email: "v@x.com"})
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if repository.salvoVerif != nil {
+		t.Fatal("nao deveria gerar token para email ja verificado")
+	}
+	if out.VerificacaoToken != "" {
+		t.Fatal("nao deveria retornar token")
 	}
 }

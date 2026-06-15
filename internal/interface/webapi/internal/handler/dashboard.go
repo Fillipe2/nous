@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	ucdashboard "nous/internal/app/usecase/dashboard"
-	"nous/internal/domain/cliente"
 	"nous/internal/domain/dashboard"
+	"nous/internal/domain/negocio"
 	"nous/internal/interface/webapi/internal/middleware"
 )
 
@@ -34,20 +34,20 @@ func (h *DashboardHandler) ObterDashboard(w http.ResponseWriter, r *http.Request
 	output, err := h.useCase.ObterDashboard(r.Context(), dashboard.FiltroPeriodo{
 		DataInicio:    dataInicio,
 		DataFim:       dataFim,
-		ClienteId:     r.URL.Query().Get("cliente_id"),
+		NegocioId:     r.URL.Query().Get("negocio_id"),
 		UsuarioId:     r.URL.Query().Get("usuario_id"),
 		LandingPageId: r.URL.Query().Get("landingpage_id"),
-		NegocioId:     r.URL.Query().Get("negocio_id"),
+		UnidadeId:     r.URL.Query().Get("unidade_id"),
 		CategoriaId:   r.URL.Query().Get("categoria_id"),
 		TemplateId:    r.URL.Query().Get("template_id"),
 		Tipo:          r.URL.Query().Get("tipo"),
 	}, claims.UsuarioId, claims.Role)
-	if errors.Is(err, dashboard.ErrClienteObrigatorio) {
-		responderErro(w, http.StatusBadRequest, "cliente_id e obrigatorio")
+	if errors.Is(err, dashboard.ErrNegocioObrigatorio) {
+		responderErro(w, http.StatusBadRequest, "negocio_id e obrigatorio")
 		return
 	}
-	if errors.Is(err, cliente.ErrNaoAutorizado) {
-		responderErro(w, http.StatusForbidden, "acesso negado ao cliente")
+	if errors.Is(err, negocio.ErrNaoAutorizado) {
+		responderErro(w, http.StatusForbidden, "acesso negado ao negocio")
 		return
 	}
 	if err != nil {

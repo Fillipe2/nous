@@ -1,4 +1,4 @@
-// Package webapi implementa a API REST principal do Buildnix.
+// Package webapi implementa a API REST principal do Nous.
 package webapi
 
 import (
@@ -11,12 +11,12 @@ import (
 
 	ucauth "nous/internal/app/usecase/auth"
 	uccategoria "nous/internal/app/usecase/categoria"
-	uccliente "nous/internal/app/usecase/cliente"
+	ucnegocio "nous/internal/app/usecase/negocio"
 	ucdashboard "nous/internal/app/usecase/dashboard"
 	ucexportacao "nous/internal/app/usecase/exportacao"
 	uclp "nous/internal/app/usecase/landingpage"
 	uclead "nous/internal/app/usecase/lead"
-	ucnegocio "nous/internal/app/usecase/negocio"
+	ucunidade "nous/internal/app/usecase/unidade"
 	ucleadaquisicao "nous/internal/app/usecase/lead_aquisicao"
 	uctemplate "nous/internal/app/usecase/template"
 	ucusuario "nous/internal/app/usecase/usuario"
@@ -31,9 +31,9 @@ import (
 type Server struct {
 	AuthUseCase        *ucauth.UseCase
 	UsuarioUseCase     *ucusuario.UseCase
-	ClienteUseCase     *uccliente.UseCase
-	DashboardUseCase   *ucdashboard.UseCase
 	NegocioUseCase     *ucnegocio.UseCase
+	DashboardUseCase   *ucdashboard.UseCase
+	UnidadeUseCase     *ucunidade.UseCase
 	CategoriaUseCase   *uccategoria.UseCase
 	TemplateUseCase    *uctemplate.UseCase
 	LandingPageUseCase *uclp.UseCase
@@ -80,9 +80,9 @@ func (s *Server) setupRouter() http.Handler {
 	handlers := &router.Handlers{
 		Auth:        handler.NewAuthHandler(s.AuthUseCase, s.GoogleClientID, s.GoogleClientSecret, s.GoogleRedirectURL),
 		Usuario:     handler.NewUsuarioHandler(s.UsuarioUseCase),
-		Cliente:     handler.NewClienteHandler(s.ClienteUseCase),
-		Dashboard:   handler.NewDashboardHandler(s.DashboardUseCase),
 		Negocio:     handler.NewNegocioHandler(s.NegocioUseCase),
+		Dashboard:   handler.NewDashboardHandler(s.DashboardUseCase),
+		Unidade:     handler.NewUnidadeHandler(s.UnidadeUseCase),
 		Categoria:   handler.NewCategoriaHandler(s.CategoriaUseCase),
 		Template:    handler.NewTemplateHandler(s.TemplateUseCase),
 		LandingPage: handler.NewLandingPageHandler(s.LandingPageUseCase),
@@ -90,7 +90,7 @@ func (s *Server) setupRouter() http.Handler {
 		LeadAquisicao: handler.NewLeadAquisicaoHandler(s.LeadAquisicaoUseCase),
 		Exportacao:  handler.NewExportacaoHandler(s.ExportacaoUseCase),
 		Auditoria:   handler.NewAuditoriaHandler(s.AuditoriaRepo),
-		Opcao:       handler.NewOpcaoHandler(s.ClienteUseCase, s.UsuarioUseCase, s.NegocioUseCase, s.CategoriaUseCase, s.TemplateUseCase, s.LandingPageUseCase),
+		Opcao:       handler.NewOpcaoHandler(s.NegocioUseCase, s.UsuarioUseCase, s.UnidadeUseCase, s.CategoriaUseCase, s.TemplateUseCase, s.LandingPageUseCase),
 	}
 	return router.NovoRouter(handlers, s.JWTServico, s.AuditoriaRepo)
 }

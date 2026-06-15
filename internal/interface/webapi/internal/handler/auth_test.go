@@ -22,7 +22,7 @@ func TestGoogleLoginRequerConfiguracao(t *testing.T) {
 
 func TestGoogleLoginRedirecionaParaGoogle(t *testing.T) {
 	t.Setenv("OAUTH_STATE_SAMESITE", "")
-	handler := NewAuthHandler(nil, "cliente-test", "segredo-test", "http://localhost:8080/auth/google/callback")
+	handler := NewAuthHandler(nil, "negocio-test", "segredo-test", "http://localhost:8080/auth/google/callback")
 	request := httptest.NewRequest(http.MethodGet, "/auth/google/login", nil)
 	response := httptest.NewRecorder()
 
@@ -40,7 +40,7 @@ func TestGoogleLoginRedirecionaParaGoogle(t *testing.T) {
 	if !strings.Contains(parsedLocation.Host, "google") {
 		t.Fatalf("host esperado do google, recebido %s", parsedLocation.Host)
 	}
-	if parsedLocation.Query().Get("client_id") != "cliente-test" {
+	if parsedLocation.Query().Get("client_id") != "negocio-test" {
 		t.Fatalf("client_id nao enviado para google")
 	}
 	if parsedLocation.Query().Get("state") == "" {
@@ -58,7 +58,7 @@ func TestGoogleLoginRedirecionaParaGoogle(t *testing.T) {
 
 func TestGoogleLoginNaoUsaSameSiteNoneSemHTTPS(t *testing.T) {
 	t.Setenv("OAUTH_STATE_SAMESITE", "none")
-	handler := NewAuthHandler(nil, "cliente-test", "segredo-test", "http://localhost:8080/auth/google/callback")
+	handler := NewAuthHandler(nil, "negocio-test", "segredo-test", "http://localhost:8080/auth/google/callback")
 	request := httptest.NewRequest(http.MethodGet, "/auth/google/login", nil)
 	response := httptest.NewRecorder()
 

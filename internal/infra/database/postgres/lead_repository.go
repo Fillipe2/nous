@@ -33,7 +33,7 @@ func (r *LeadRepository) Salvar(ctx context.Context, l *lead.Lead) error {
 	err := r.connection.Exec(ctx, stmts.SalvarLead, pgx.NamedArgs{
 		"id":                    l.Id,
 		"landingpage_id":        l.LandingPageId,
-		"cliente_id":            nilableStr(l.ClienteId),
+		"negocio_id":            nilableStr(l.NegocioId),
 		"nome":                  l.Nome,
 		"email":                 l.Email,
 		"telefone":              nilableStr(l.Telefone),
@@ -138,7 +138,7 @@ func (r *LeadRepository) AnonimizarExpirados(ctx context.Context, antesDe time.T
 func (r *LeadRepository) Listar(ctx context.Context, filtro lead.FiltroListagem) ([]*lead.Lead, int, error) {
 	offset := (filtro.Pagina - 1) * filtro.PorPagina
 
-	query := `SELECT l.id, l.landingpage_id, l.cliente_id, l.nome, l.email, l.telefone, l.whatsapp, l.mensagem,
+	query := `SELECT l.id, l.landingpage_id, l.negocio_id, l.nome, l.email, l.telefone, l.whatsapp, l.mensagem,
 		l.campos_personalizados, l.origem, l.ip, l.user_agent, l.referrer,
 		l.utm_source, l.utm_medium, l.utm_campaign, l.utm_content, l.utm_term,
 		l.consentimento, l.consentimento_em, l.politica_versao,
@@ -148,9 +148,9 @@ func (r *LeadRepository) Listar(ctx context.Context, filtro lead.FiltroListagem)
 	args := []any{}
 	argIdx := 1
 	query += " WHERE 1=1"
-	if filtro.ClienteId != "" {
-		query += fmt.Sprintf(" AND l.cliente_id=$%d", argIdx)
-		args = append(args, filtro.ClienteId)
+	if filtro.NegocioId != "" {
+		query += fmt.Sprintf(" AND l.negocio_id=$%d", argIdx)
+		args = append(args, filtro.NegocioId)
 		argIdx++
 	}
 	if filtro.LandingPageId != "" {

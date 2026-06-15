@@ -7,7 +7,7 @@ import (
 
 type FiltroListagem struct {
 	Id         string
-	ClienteId  string
+	NegocioId  string
 	Nome       string
 	Email      string
 	Role       string
@@ -25,8 +25,10 @@ type Repository interface {
 	BuscarPorID(ctx context.Context, id string) (*Usuario, error)
 	BuscarPorEmail(ctx context.Context, email string) (*Usuario, error)
 	Atualizar(ctx context.Context, u *Usuario) error
+	AtualizarUltimoLogin(ctx context.Context, id string, em time.Time) error
 	SoftDelete(ctx context.Context, id string) error
 	Listar(ctx context.Context, filtro FiltroListagem) ([]*Usuario, int, error)
+	ContarAdministradoresAtivos(ctx context.Context) (int, error)
 	SalvarAuth(ctx context.Context, auth *UsuarioAuth) error
 	BuscarAuthPorProvider(ctx context.Context, tipo, providerID string) (*UsuarioAuth, error)
 	SalvarRefreshToken(ctx context.Context, token *RefreshToken) error
@@ -37,4 +39,7 @@ type Repository interface {
 	SalvarResetSenhaToken(ctx context.Context, token *ResetSenhaToken) error
 	BuscarResetSenhaTokenPorHash(ctx context.Context, tokenHash string) (*ResetSenhaToken, error)
 	MarcarResetSenhaTokenUsado(ctx context.Context, tokenHash string, usadoEm time.Time) error
+	SalvarVerificacaoEmailToken(ctx context.Context, token *VerificacaoEmailToken) error
+	BuscarVerificacaoEmailTokenPorHash(ctx context.Context, tokenHash string) (*VerificacaoEmailToken, error)
+	MarcarVerificacaoEmailTokenUsado(ctx context.Context, tokenHash string, usadoEm time.Time) error
 }

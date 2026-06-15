@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"nous/internal/app/dto"
 	"nous/internal/domain/auditoria"
 
 	"github.com/go-chi/chi/v5"
@@ -44,11 +45,15 @@ func (h *AuditoriaHandler) ListarAuditoria(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	responderJSON(w, http.StatusOK, map[string]interface{}{
-		"dados":      auditorias,
-		"total":      total,
-		"pagina":     pagina,
-		"por_pagina": porPagina,
+	dados := make([]*dto.AuditoriaOutput, 0, len(auditorias))
+	for _, a := range auditorias {
+		dados = append(dados, mapearAuditoriaOutput(a))
+	}
+	responderJSON(w, http.StatusOK, dto.ListaAuditoriaOutput{
+		Dados:     dados,
+		Total:     total,
+		Pagina:    pagina,
+		PorPagina: porPagina,
 	})
 }
 
@@ -59,5 +64,23 @@ func (h *AuditoriaHandler) ObterAuditoria(w http.ResponseWriter, r *http.Request
 		responderErro(w, http.StatusNotFound, "registro nao encontrado")
 		return
 	}
-	responderJSON(w, http.StatusOK, a)
+	responderJSON(w, http.StatusOK, mapearAuditoriaOutput(a))
+}
+
+func mapearAuditoriaOutput(a *auditoria.Auditoria) *dto.AuditoriaOutput {
+	return &dto.AuditoriaOutput{
+		Id:              a.Id,
+		UsuarioId:       a.UsuarioId,
+		Acao:            a.Acao,
+		Entidade:        a.Entidade,
+		EntidadeId:      a.EntidadeId,
+		DadosAnteriores: a.DadosAnteriores,
+		DadosNovos:      a.DadosNovos,
+		IP:              a.IP,
+		UserAgent:       a.UserAgent,
+		StatusCode:      a.StatusCode,
+		TempoRespostaMs: a.TempoRespostaMs,
+		RequestId:       a.RequestId,
+		CriadoEm:        a.CriadoEm,
+	}
 }

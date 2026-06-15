@@ -12,21 +12,21 @@ Os **frontends** mantêm seus nomes de produto. Os **backends** recebem nomes fi
 |---|---|---|
 | **Nous** | Buildnix | νοῦς — intelecto divino que cria e ordena (Plotino) |
 | **Sophia** | Sbrain | σοφία — sabedoria divina acima de tudo |
-| **Observer** | — | O transcendente que tudo observa (homenagem a Galileu via Haggard) |
+| **Observer** | — | O transcendente que tudo observa |
 | **Logos** | LPs públicas + área logada | λόγος — o Verbo que se fez carne |
 | **Daemon** | — | δαίμων — executores invisíveis nos bastidores |
 | **Topos** | AcheiAqui | τόπος — o lugar onde pessoas e serviços se encontram |
 | **Pragma** | Worknix | πρᾶγμα — a ação prática, fazer acontecer |
 
 
-## 1. Posicionamento do buildnix
+## 1. Posicionamento do Nous
 
-O buildnix é **um dos produtos da Sognix** — não o núcleo. Sua responsabilidade
+O Nous é **um dos produtos da Sognix** — não o núcleo. Sua responsabilidade
 é o lado *builder/admin*: identidade do Operador, gestão de Negócios,
 templates, definição de landing pages, planos/billing, captura de leads de
 aquisição (Tipo A) e ponte para o Observer.
 
-O buildnix **não** é responsável por:
+O Nous **não** é responsável por:
 
 - Servir as landing pages publicamente.
 - Operação vertical (paciente/agenda/pagamento/processo).
@@ -40,7 +40,7 @@ Tudo isso é responsabilidade do **novo backend** (ver §3).
 
 ```
 ┌──────────────────┐       ┌─────────────────────┐      ┌──────────┐      ┌────────┐
-│  Frontend        │       │  BUILDNIX BACKEND   │      │ OBSERVER │      │ SBRAIN │
+│  Frontend        │       │  NOUS (backend)     │      │ OBSERVER │      │ SBRAIN │
 │  Buildnix        │◄─────►│  (admin do builder) │─────►│   bus    │─────►│  CRM   │
 │  (admin builder) │       │  identidade, planos │      └──────────┘      └────────┘
 └──────────────────┘       └─────────▲───────────┘
@@ -55,8 +55,8 @@ Tudo isso é responsabilidade do **novo backend** (ver §3).
                            └─────────────────────┘
 ```
 
-**Quem fala com o Observer:** apenas o buildnix. O novo backend reporta para o
-buildnix por API interna; o buildnix consolida e publica eventos canônicos no
+**Quem fala com o Observer:** apenas o Nous. O novo backend reporta para o
+Nous por API interna; o Nous consolida e publica eventos canônicos no
 Observer. Isso garante um único ponto de saída para o ecossistema.
 
 ## 3. Novo backend (a ser criado, em outro repositório)
@@ -76,7 +76,7 @@ runtime de LP).
     certificado médico, escala de disponibilidade.
   - `juridico/` (futuro) — cliente, processo, audiência, prazo.
   - novos módulos conforme novos verticais.
-- **Auth:** valida JWT emitido pelo buildnix. Buildnix exporá
+- **Auth:** valida JWT emitido pelo Nous. Nous exporá
   `/.well-known/jwks.json` quando o novo backend nascer.
 
 O **steeth-backend atual** vira referência viva durante a migração. Quando o
@@ -86,7 +86,7 @@ URL e o steeth é arquivado.
 ## 4. Identidade no ecossistema
 
 - **Operador** (Dr. João, Dra. Maria) — pessoa que contrata produtos Sognix.
-  Login único no buildnix; o novo backend valida o JWT.
+  Login único no Nous; o novo backend valida o JWT.
 - **Negócio** — entidade que tem CNPJ, LP e operação (Clínica Sorriso,
   Advocacia João). Um Operador pode ter N Negócios; cada Negócio tem uma
   `categoria` que define qual módulo vertical opera.
@@ -106,14 +106,14 @@ contratos com Operadores e nos Termos de Privacidade das LPs.
 | | **Lead Tipo A — Aquisição Sognix** | **Lead Tipo B — Captura do Operador** |
 |---|---|---|
 | Quem é | Dr. João, dono de clínica | Maria, paciente em potencial |
-| Onde mora | **buildnix** (`lead_aquisicao`) | **novo backend** (`Contato`) |
+| Onde mora | **Nous** (`lead_aquisicao`) | **novo backend** (`Contato`) |
 | Origem | LP institucional Sognix, anúncios | LP da Clínica Sorriso |
 | Quem vê | Time comercial Sognix | O próprio Operador |
 | Visão Sognix | Direta | Apenas agregada (via Observer/Sbrain), nunca PII individual |
 | Vira | Operador | Paciente/cliente do Operador |
 
-O `lead` que existe hoje em buildnix é Tipo B e **será migrado** para o novo
-backend. Até lá permanece em buildnix como contrato vivo.
+O `lead` que existe hoje em Nous é Tipo B e **será migrado** para o novo
+backend. Até lá permanece em Nous como contrato vivo.
 
 ## 6. Vias de monetização
 
@@ -121,7 +121,7 @@ Todas as cinco fazem parte da estratégia. Ordem do mais simples para o mais
 ambicioso:
 
 1. **SaaS por uso ao Operador.** Plano por volume de leads/LPs/módulos. Já
-   existe esqueleto em `plano`, `assinatura_cliente`, `uso_cliente_evento`.
+   existe esqueleto em `plano`, `assinatura_negocio`, `uso_negocio_evento`.
 2. **Marketplace B2B.** Vender o Operador qualificado para fornecedores. Usa
    `lead_aquisicao` enriquecido (cidade, porte, especialidade, necessidades).
    Operador é o titular dos dados, autoriza explicitamente. Modelo: assinatura
@@ -133,9 +133,9 @@ ambicioso:
    no-show, sugestões de timing. Usa apenas dados do próprio Negócio.
 5. **Inteligência de mercado anonimizada.** Relatórios de tendência sem PII.
 
-## 7. Plano para finalizar o buildnix
+## 7. Plano para finalizar o Nous
 
-Trabalho mínimo para fechar buildnix sem trancar nenhum caminho de receita.
+Trabalho mínimo para fechar Nous sem trancar nenhum caminho de receita.
 
 ### Fase 1 — Em andamento
 
@@ -166,11 +166,11 @@ Trabalho mínimo para fechar buildnix sem trancar nenhum caminho de receita.
      convertido_em_usuario_id`.
    - Endpoints: `POST /lead_aquisicao` (público), `GET /lead_aquisicao` (admin),
      `GET /lead_aquisicao/{id}` (admin), `PATCH /lead_aquisicao/{id}/funil` (admin).
-5. [x] **JWKS público em buildnix.** Endpoint `GET /.well-known/jwks.json`.
+5. [x] **JWKS público em Nous.** Endpoint `GET /.well-known/jwks.json`.
    Ativo quando `JWT_RSA_PRIVATE_KEY` está configurado (RS256). Sem a chave,
    retorna 503. Aceita PKCS8 e PKCS1.
 
-### Não fazer em buildnix (vai pro novo backend)
+### Não fazer em Nous (vai pro novo backend)
 
 - Pessoa global / Contato cross-Negócio.
 - Domínio operacional vertical (paciente, agendamento, processo).
@@ -184,12 +184,12 @@ Trabalho mínimo para fechar buildnix sem trancar nenhum caminho de receita.
 
 ### Onde se edita
 
-Buildnix é a **única fonte de verdade** para LP. Duas interfaces, mesmos dados:
+Nous é a **única fonte de verdade** para LP. Duas interfaces, mesmos dados:
 
 - **Buildnix admin** — todas as operações: criar, editar, publicar, despublicar,
   duplicar, exportar ZIP, trocar template, configurações de plano.
 - **Área logada da LP** — subconjunto básico: editar textos e cores.
-  Chama o buildnix diretamente com o JWT do Operador. Não passa pelo novo backend.
+  Chama o Nous diretamente com o JWT do Operador. Não passa pelo novo backend.
 
 Funcionalidades estruturais (trocar template, mudar tipo white-label↔customizável,
 limites de plano) ficam apenas no buildnix admin, onde há contexto de billing.
@@ -200,19 +200,19 @@ O novo backend **não participa** do fluxo de edição ou publicação de LP.
 
 ```
 Operador clica "Publicar"
-    → buildnix gera ZIP (reutiliza lógica do exportar)
-    → buildnix faz deploy do ZIP para hosting estático externo via API
-    → buildnix armazena url_publica + deploy_id + sha256 na LP
+    → Nous gera ZIP (reutiliza lógica do exportar)
+    → Nous faz deploy do ZIP para hosting estático externo via API
+    → Nous armazena url_publica + deploy_id + sha256 na LP
     → Observer recebe evento: { lp_id, exportacao_id, sha256, url_publica }
 ```
 
-Edições via área logada seguem o mesmo fluxo: salva no buildnix → re-publica → novo ZIP.
+Edições via área logada seguem o mesmo fluxo: salva no Nous → re-publica → novo ZIP.
 
 **Plataforma de hosting:** ainda não definida (Netlify, Vercel, Render, VPS própria).
 A integração fica atrás de uma interface (`hosting.Deployer`) configurada por env var,
 exatamente como o Observer. Quando a plataforma for escolhida, implementa-se só o adaptador.
 
-### O que falta implementar no buildnix
+### O que falta implementar no Nous
 
 - Interface `hosting.Deployer` no domínio (ou infra) com métodos `Deploy` e `Despublicar`.
 - `POST /landingpages/{id}/publicar` — gera ZIP e chama `Deployer.Deploy`.
@@ -231,16 +231,16 @@ exatamente como o Observer. Quando a plataforma for escolhida, implementa-se só
 
 ## 9. Glossário
 
-- **Operador** — usuário do buildnix que contrata produtos Sognix
+- **Operador** — usuário do Nous que contrata produtos Sognix
   (`internal/domain/usuario`).
-- **Negócio** — entidade contratante (CNPJ, LP, operação). Em buildnix está
-  modelado como `cliente` (legado) com sub-unidade `negocio`. Renomear no
-  futuro para evitar overload.
+- **Negócio** — entidade contratante (CNPJ, LP, operação). Em Nous está
+  modelado como `negocio` (renomeado de `cliente` para evitar overload), com
+  sub-unidade `unidade` (renomeada de `negocio`).
 - **Contato** — pessoa registrada por um Negócio (lead/paciente/cliente final).
-  No buildnix atual é `lead`; no novo backend será `contato` ligado a `pessoa`.
+  No Nous atual é `lead`; no novo backend será `contato` ligado a `pessoa`.
 - **Pessoa** (futuro) — entidade global do ser humano. Vive no novo backend.
 - **Lead Tipo A / Aquisição** (`lead_aquisicao`) — lead B2B do Sognix, capturado pelo
-  buildnix. Potencial Operador interessado em contratar produtos Sognix.
+  Nous. Potencial Operador interessado em contratar produtos Sognix.
 - **Lead Tipo B / Captura** — lead B2C do Operador, capturado pelo novo
   backend.
 - **Categoria** — discriminador de produto vertical (`dentista`, `advogado`,

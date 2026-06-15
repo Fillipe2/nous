@@ -1,11 +1,11 @@
 -- name: SalvarLead
-INSERT INTO lead (id, landingpage_id, cliente_id, nome, email, telefone, whatsapp, mensagem,
+INSERT INTO lead (id, landingpage_id, negocio_id, nome, email, telefone, whatsapp, mensagem,
     campos_personalizados, origem, ip, user_agent, referrer,
     utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     consentimento, consentimento_em, politica_versao,
     consentimento_marketing_parceiros, consentimento_versao_marketing,
     status, criado_em, atualizado_em)
-VALUES (@id, @landingpage_id, @cliente_id, @nome, @email, @telefone, @whatsapp, @mensagem,
+VALUES (@id, @landingpage_id, @negocio_id, @nome, @email, @telefone, @whatsapp, @mensagem,
     @campos_personalizados, @origem, @ip, @user_agent, @referrer,
     @utm_source, @utm_medium, @utm_campaign, @utm_content, @utm_term,
     @consentimento, @consentimento_em, @politica_versao,
@@ -13,7 +13,7 @@ VALUES (@id, @landingpage_id, @cliente_id, @nome, @email, @telefone, @whatsapp, 
     @status, @criado_em, @atualizado_em);
 
 -- name: BuscarLeadPorID
-SELECT id, landingpage_id, cliente_id, nome, email, telefone, whatsapp, mensagem,
+SELECT id, landingpage_id, negocio_id, nome, email, telefone, whatsapp, mensagem,
     campos_personalizados, origem, ip, user_agent, referrer,
     utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     consentimento, consentimento_em, politica_versao,
@@ -22,7 +22,7 @@ SELECT id, landingpage_id, cliente_id, nome, email, telefone, whatsapp, mensagem
 FROM lead WHERE id=@id;
 
 -- name: BuscarLeadDuplicado
-SELECT id, landingpage_id, cliente_id, nome, email, telefone, whatsapp, mensagem,
+SELECT id, landingpage_id, negocio_id, nome, email, telefone, whatsapp, mensagem,
     campos_personalizados, origem, ip, user_agent, referrer,
     utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     consentimento, consentimento_em, politica_versao,

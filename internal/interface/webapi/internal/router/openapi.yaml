@@ -1,20 +1,72 @@
 openapi: 3.0.3
 info:
-  title: Buildnix Backend API
-  version: 1.1.0
+  title: Nous API
+  version: 1.3.0
   description: |
-    API REST do Buildnix: construção, gestão, autosave, exportação de landing pages,
-    captura/gestão de leads e auditoria. O papel `admin` representa usuários internos
-    da Sognix com visão operacional global.
+    API REST do Nous, o backend do Buildnix: construção, gestão, autosave, exportação
+    de landing pages, captura/gestão de leads e auditoria. O papel `admin` representa
+    usuários internos da Sognix com visão operacional global.
+
+    ## Modelo de entidades e relacionamentos
+
+    Quem implementa o frontend deve entender estas entidades e como seus IDs se ligam:
+
+    - **Operador** (`UsuarioOutput`) — o usuário que faz login. Tem `role` (`usuario`/`admin`)
+      e status. Vincula-se a **N Negócios** pela tabela `usuario_negocio` (o vínculo é
+      criado automaticamente quando o próprio Operador cria um Negócio).
+    - **Negócio** (`NegocioOutput`) — a entidade contratante (clínica/escritório), com
+      CPF/CNPJ. **Antes chamava-se `cliente`.** É o agregador central: dono de Unidades,
+      Landing Pages, Templates próprios e Assinatura/Plano. A maioria dos recursos é
+      filtrada por `negocio_id`.
+    - **Unidade** (`UnidadeOutput`) — sub-unidade de um Negócio (ex.: filial). **Antes
+      chamava-se `negocio`.** Carrega `negocio_id` (dono) e pode ser referenciada
+      opcionalmente por uma Landing Page (`unidade_id`).
+    - **Categoria** (`CategoriaOutput`) — vertical (odonto, jurídico, …). Classifica
+      Negócios, Templates e Landing Pages. Gerenciada por admin.
+    - **Template** (`TemplateOutput`) — base de Landing Page. `origem=sognix` (oficial,
+      global, `negocio_id` nulo) ou `origem=negocio` (do próprio Negócio).
+    - **Landing Page** (`LandingPageOutput`) — pertence a um Negócio (`negocio_id`
+      obrigatório) e opcionalmente a uma Unidade/Categoria/Template. Gera **Exportações**.
+    - **Exportação** (`ExportacaoOutput`) — ZIP de uma Landing Page (`landingpage_id`),
+      com hash SHA-256, gerada por um Operador (`usuario_id`).
+    - **Lead Tipo B** (`LeadOutput`) — visitante capturado pela Landing Page pública.
+      Dados pessoais restritos a admin/Sognix.
+    - **Lead de Aquisição / Tipo A** (`LeadAquisicaoOutput`) — potencial Operador (funil
+      comercial B2B da Sognix).
+
+    ```text
+    Operador ──(usuario_negocio, N:N)── Negócio ──1:N── Unidade
+                                          │
+                                          ├──1:N── LandingPage ──1:N── Exportacao
+                                          │           └─ opcional → Unidade / Categoria / Template
+                                          ├──1:N── Template (origem=negocio)
+                                          └──1:N── Assinatura/Plano, métricas
+    LandingPage (pública) ──1:N── Lead (Tipo B)
+    ```
+
+    ## Cabeçalhos e fluxo de auth
+
+    - Endpoints autenticados usam `Authorization: Bearer <access_token>` (do `LoginOutput.token`).
+    - Quando o access token expira, troque o `refresh_token` em `POST /auth/refresh`
+      (rotação: o refresh anterior é revogado).
+    - `admin` (staff Sognix) tem visão global; `usuario` só enxerga os Negócios vinculados.
+
+    ## Concorrência
+
+    - **Otimista:** entidades editáveis têm `version`. Reenvie o `version` lido em
+      PUT/PATCH/autosave; versão obsoleta retorna **409** sem sobrescrever.
+    - **Pessimista (Landing Page):** `lock`/`unlock` com `locked_by`/`locked_at`,
+      expira em 5 min.
 
     **Eventos / mensageria**: a publicação para o Observer é opcional. Quando
     `OBSERVER_URL` não está configurado, eventos como `lead.capturado` ficam apenas no
-    outbox local. O Buildnix é totalmente funcional em modo standalone.
+    outbox local. O Nous é totalmente funcional em modo standalone.
 
     **Convenções**:
     - Identificadores são UUID em string.
     - Datas em ISO-8601 (`format: date-time`); filtros `data_inicio`/`data_fim` em `YYYY-MM-DD`.
     - Erros sempre retornam `application/json` no formato `Erro` (`erro`, `codigo`, `mensagem`, `request_id`).
+    - Listagens paginadas retornam `{ dados[], total, pagina, por_pagina }`.
     - Endpoints autenticados usam `Authorization: Bearer <jwt>`.
 servers:
   - url: /
@@ -24,25 +76,25 @@ tags:
     description: Login, refresh, logout, recuperação de senha e OAuth2 Google.
   - name: Usuarios
     description: Cadastro próprio, perfil autenticado e gestão administrativa.
-  - name: Clientes
+  - name: Negocios
     description: Empresas/contas que detêm landing pages. Auto-vinculação na criação.
   - name: Dashboard
     description: Resumos operacionais (visão usuário ou admin).
   - name: Opcoes
     description: Listagens auxiliares para combos/filtros do frontend.
-  - name: Negocios
-    description: Negócios vinculados a um cliente (segmentação interna).
+  - name: Unidades
+    description: Unidades vinculados a um negocio (segmentação interna).
   - name: Categorias
     description: Categorias de templates e landing pages.
   - name: Templates
-    description: Templates de origem Sognix ou subidos pelo cliente.
+    description: Templates de origem Sognix ou subidos pelo negocio.
   - name: LandingPages
     description: CRUD, autosave com versionamento otimista, lock pessimista e exportação.
   - name: Leads
     description: |
       Captura pública (formulário da LP) e gestão restrita ao admin/Sognix.
       Dados pessoais são tratados como ativo comercial e ficam fora do dashboard
-      do cliente comum. Inclui consentimento LGPD, UTMs e endpoints de anonimização.
+      do negocio comum. Inclui consentimento LGPD, UTMs e endpoints de anonimização.
   - name: Exportacoes
     description: Pacotes ZIP gerados a partir de landing pages.
   - name: LeadAquisicao
@@ -60,7 +112,7 @@ paths:
       summary: Chaves públicas para validação de tokens RS256
       description: |
         Retorna o conjunto de chaves públicas (JWKS) que permite ao novo backend
-        validar tokens JWT emitidos pelo buildnix quando `JWT_RSA_PRIVATE_KEY` está
+        validar tokens JWT emitidos pelo Nous quando `JWT_RSA_PRIVATE_KEY` está
         configurado (RS256). Sem a chave RSA configurada, retorna 503.
       responses:
         '200':
@@ -114,7 +166,7 @@ paths:
       tags: [Sistema]
       summary: Exibe a interface Swagger UI para testar a API
       description: |
-        Abre a documentação interativa da API. Use para explorar e testar endpoints sem precisar de cliente HTTP externo. Autenticação via botão **Authorize** (cole o `access_token` retornado pelo login).
+        Abre a documentação interativa da API. Use para explorar e testar endpoints sem precisar de negocio HTTP externo. Autenticação via botão **Authorize** (cole o `access_token` retornado pelo login).
       responses:
         '200':
           description: Página HTML do Swagger UI
@@ -127,7 +179,7 @@ paths:
       tags: [Sistema]
       summary: Retorna a especificação OpenAPI embarcada
       description: |
-        Retorna o arquivo `openapi.yaml` compilado dentro do binário. Útil para importar no Postman, Insomnia ou gerar SDKs de cliente.
+        Retorna o arquivo `openapi.yaml` compilado dentro do binário. Útil para importar no Postman, Insomnia ou gerar SDKs de negocio.
       responses:
         '200':
           description: Especificação YAML
@@ -137,6 +189,8 @@ paths:
       summary: Login tradicional
       description: |
         Autentica com `email` + `senha` e retorna `access_token` (JWT de curta duração) e `refresh_token` (opaco, longa duração). O `access_token` deve ser enviado como `Authorization: Bearer <token>` em todas as requisições autenticadas.
+
+        Protegido contra força bruta: rate limit por IP (pode retornar `429`) e bloqueio temporário por conta após sucessivas falhas (responde `401`, igual a credencial inválida, para não revelar o bloqueio).
       requestBody:
         required: true
         content:
@@ -154,6 +208,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /auth/refresh:
     post:
       tags: [Auth]
@@ -180,9 +236,9 @@ paths:
   /auth/logout:
     post:
       tags: [Auth]
-      summary: Logout local do cliente
+      summary: Logout local do negocio
       description: |
-        Revoga o `refresh_token` do cliente atual. O `access_token` não é invalidado (JWT stateless), mas expira naturalmente. Para logout em todos os dispositivos, revogue todos os tokens via gestão de usuário.
+        Revoga o `refresh_token` do negocio atual. O `access_token` não é invalidado (JWT stateless), mas expira naturalmente. Para logout em todos os dispositivos, revogue todos os tokens via gestão de usuário.
       responses:
         '200':
           description: Logout realizado
@@ -233,6 +289,53 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /auth/solicitar-verificacao-email:
+    post:
+      tags: [Auth]
+      summary: Solicita verificação de email
+      description: |
+        Gera um token de verificação para um usuário ativo e ainda não verificado. A resposta é sempre neutra (não revela se o email existe). Sem provedor de email configurado, o token só volta na resposta quando `EMAIL_VERIFICATION_RETURN_TOKEN=true` (uso em desenvolvimento/testes).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitarVerificacaoEmailInput'
+      responses:
+        '200':
+          description: Solicitação registrada (resposta neutra)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitarVerificacaoEmailOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/verificar-email:
+    post:
+      tags: [Auth]
+      summary: Confirma o email com token de uso único
+      description: Marca o email do usuário como verificado. Token inválido, usado ou expirado retorna 401.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificarEmailInput'
+      responses:
+        '200':
+          description: Email verificado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /auth/google/login:
     get:
       tags: [Auth]
@@ -275,19 +378,22 @@ paths:
         `/auth/google/login` no mesmo navegador.
 
         Valida `state` contra o cookie `oauth_state`, troca `code` por token Google
-        e retorna os tokens JWT do Buildnix.
+        e retorna os tokens JWT do Nous.
       parameters:
         - name: code
+          description: Código de autorização retornado pelo Google (OAuth2).
           in: query
           required: true
           schema:
             type: string
         - name: state
+          description: Token CSRF do fluxo OAuth2 (validado contra o cookie).
           in: query
           required: true
           schema:
             type: string
         - name: error
+          description: Erro retornado pelo Google quando o usuário nega o consentimento.
           in: query
           required: false
           schema:
@@ -310,7 +416,7 @@ paths:
       tags: [Usuarios]
       summary: Cria usuário comum
       description: |
-        Cria uma conta de usuário com papel `usuario`. Após criar, o usuário já pode fazer login via `POST /auth/login`. Para criar Operadores (clientes) use também `POST /clientes` após o login.
+        Cria uma conta de usuário com papel `usuario` (rota pública). O papel é sempre `usuario` — não é possível criar admin por aqui; a promoção é feita por um admin via `PATCH /usuarios/{id}/role`. Após criar, o usuário já pode fazer login via `POST /auth/login`.
       requestBody:
         required: true
         content:
@@ -320,8 +426,14 @@ paths:
       responses:
         '201':
           description: Usuário criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
     get:
       tags: [Usuarios]
       summary: Lista usuários, admin
@@ -331,22 +443,26 @@ paths:
         - bearerAuth: []
       parameters:
         - name: nome
+          description: Filtro parcial por nome (case-insensitive).
           in: query
           required: false
           schema:
             type: string
         - name: email
+          description: Filtro parcial por email.
           in: query
           required: false
           schema:
             type: string
         - name: role
+          description: 'Filtra por papel: usuario ou admin.'
           in: query
           required: false
           schema:
             type: string
             enum: [usuario, admin]
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
@@ -367,6 +483,7 @@ paths:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           required: false
           schema:
@@ -374,6 +491,7 @@ paths:
             enum: [nome, email, role, status, criado_em, atualizado_em]
             default: criado_em
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           required: false
           schema:
@@ -385,6 +503,18 @@ paths:
       responses:
         '200':
           description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UsuarioOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -394,12 +524,16 @@ paths:
       tags: [Usuarios]
       summary: Obtém o usuário autenticado
       description: |
-        Retorna os dados do usuário dono do `access_token` atual (nome, email, papel, clientes vinculados). Usado pelo frontend para montar o perfil e decidir o que exibir conforme o papel.
+        Retorna os dados do usuário dono do `access_token` atual (nome, email, papel, negocios vinculados). Usado pelo frontend para montar o perfil e decidir o que exibir conforme o papel.
       security:
         - bearerAuth: []
       responses:
         '200':
           description: Usuário autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioOutput'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /usuarios/me/senha:
@@ -446,6 +580,10 @@ paths:
       responses:
         '200':
           description: Usuário atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -472,155 +610,13 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /clientes:
-    get:
-      tags: [Clientes]
-      summary: Lista clientes, admin
+  /usuarios/{id}/role:
+    patch:
+      tags: [Usuarios]
+      summary: Promove ou rebaixa o papel de um usuário (admin)
       description: |
-        Lista todos os clientes (Operadores) do sistema. Exclusivo para `admin/Sognix`. Filtre por usuário vinculado, nome, email, status e período. Cada cliente pode ter múltiplos usuários e múltiplas landing pages.
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: usuario_id
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: nome
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: email
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [ativo, inativo, excluido]
-        - name: data_inicio
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: data_fim
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: ordenar_por
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [nome, email, status, criado_em, atualizado_em]
-            default: criado_em
-        - name: ordem
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: desc
-        - $ref: '#/components/parameters/Pagina'
-        - $ref: '#/components/parameters/PorPagina'
-      responses:
-        '200':
-          description: Lista de clientes
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-    post:
-      tags: [Clientes]
-      summary: Cria cliente vinculado ao usuário autenticado
-      description: |
-        Cria um novo cliente (Operador/empresa) e o vincula automaticamente ao usuário autenticado. Um usuário pode estar vinculado a múltiplos clientes. Use `GET /clientes/me` para listar os clientes do usuário logado.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CriarClienteInput'
-      responses:
-        '201':
-          description: Cliente criado
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /clientes/me:
-    get:
-      tags: [Clientes]
-      summary: Lista clientes vinculados ao usuário autenticado
-      description: |
-        Retorna apenas os clientes aos quais o usuário autenticado tem acesso. Admin vê todos via `GET /clientes`. Use este endpoint no onboarding para permitir que o usuário escolha com qual cliente deseja trabalhar.
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: nome
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: email
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [ativo, inativo, excluido]
-        - name: data_inicio
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: data_fim
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: ordenar_por
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [nome, email, status, criado_em, atualizado_em]
-            default: criado_em
-        - name: ordem
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: desc
-        - $ref: '#/components/parameters/Pagina'
-        - $ref: '#/components/parameters/PorPagina'
-      responses:
-        '200':
-          description: Lista básica de clientes vinculados
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /clientes/{id}:
-    put:
-      tags: [Clientes]
-      summary: Atualiza cliente, admin
-      description: |
-        Atualiza dados cadastrais do cliente (nome, email, plano, status). Exclusivo para `admin/Sognix`. Mudanças de plano refletem imediatamente nos limites de landing pages e funcionalidades do Operador.
+        Altera o papel (`role`) de um usuário entre `usuario` e `admin`. Exclusivo para `admin/Sognix`.
+        Há trava de segurança: não é possível rebaixar o último administrador ativo (retorna 409).
       security:
         - bearerAuth: []
       parameters:
@@ -630,10 +626,266 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AtualizarClienteInput'
+              $ref: '#/components/schemas/AlterarRoleInput'
       responses:
         '200':
-          description: Cliente atualizado
+          description: Papel alterado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /usuarios/{id}/status:
+    patch:
+      tags: [Usuarios]
+      summary: Ativa ou inativa um usuário (admin)
+      description: |
+        Define o status do usuário entre `ativo` e `inativo`. Exclusivo para `admin/Sognix`. A exclusão usa `DELETE /usuarios/{id}` (soft delete), não esta via. Não permite inativar o último administrador ativo (retorna 409).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterarStatusInput'
+      responses:
+        '200':
+          description: Status alterado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /negocios:
+    get:
+      tags: [Negocios]
+      summary: Lista negocios, admin
+      description: |
+        Lista todos os negocios (Operadores) do sistema. Exclusivo para `admin/Sognix`. Filtre por usuário vinculado, nome, email, status e período. Cada negocio pode ter múltiplos usuários e múltiplas landing pages.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: usuario_id
+          description: FK do Operador. Filtra pelo usuário vinculado.
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: nome
+          description: Filtro parcial por nome (case-insensitive).
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          description: Filtro parcial por email.
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, email, status, criado_em, atualizado_em]
+            default: criado_em
+        - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista de negocios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NegocioOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Negocios]
+      summary: Cria negocio vinculado ao usuário autenticado
+      description: |
+        Cria um novo negocio (Operador/empresa) e o vincula automaticamente ao usuário autenticado. Um usuário pode estar vinculado a múltiplos negocios. Use `GET /negocios/me` para listar os negocios do usuário logado.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarNegocioInput'
+      responses:
+        '201':
+          description: Negocio criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NegocioOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /negocios/me:
+    get:
+      tags: [Negocios]
+      summary: Lista negocios vinculados ao usuário autenticado
+      description: |
+        Retorna apenas os negocios aos quais o usuário autenticado tem acesso. Admin vê todos via `GET /negocios`. Use este endpoint no onboarding para permitir que o usuário escolha com qual negocio deseja trabalhar.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: nome
+          description: Filtro parcial por nome (case-insensitive).
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          description: Filtro parcial por email.
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ativo, inativo, excluido]
+        - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nome, email, status, criado_em, atualizado_em]
+            default: criado_em
+        - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/PorPagina'
+      responses:
+        '200':
+          description: Lista básica de negocios vinculados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NegocioBasicoOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /negocios/{id}:
+    put:
+      tags: [Negocios]
+      summary: Atualiza negocio, admin
+      description: |
+        Atualiza dados cadastrais do negocio (nome, email, plano, status). Exclusivo para `admin/Sognix`. Mudanças de plano refletem imediatamente nos limites de landing pages e funcionalidades do Operador.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarNegocioInput'
+      responses:
+        '200':
+          description: Negocio atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NegocioOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -645,17 +897,17 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
     delete:
-      tags: [Clientes]
-      summary: Exclui cliente com soft delete, admin
+      tags: [Negocios]
+      summary: Exclui negocio com soft delete, admin
       description: |
-        Marca o cliente como excluído (soft delete). Todos os dados são mantidos para auditoria. Landing pages, leads e exportações do cliente continuam acessíveis para o admin. Exclusivo para `admin/Sognix`.
+        Marca o negocio como excluído (soft delete). Todos os dados são mantidos para auditoria. Landing pages, leads e exportações do negocio continuam acessíveis para o admin. Exclusivo para `admin/Sognix`.
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
         '204':
-          description: Cliente excluído
+          description: Negocio excluído
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -665,14 +917,14 @@ paths:
       tags: [Dashboard]
       summary: Dashboard do usuário autenticado
       description: |
-        Admin recebe métricas globais e pode recortar por cliente, usuário, landing page, negócio, categoria, template e tipo. Usuário comum recebe métricas agregadas dos clientes vinculados ao seu usuário; filtros não expõem dados pessoais de leads.
+        Admin recebe métricas globais e pode recortar por negocio, usuário, landing page, unidade, categoria, template e tipo. Usuário comum recebe métricas agregadas dos negocios vinculados ao seu usuário; filtros não expõem dados pessoais de leads.
       security:
         - bearerAuth: []
       parameters:
-        - name: cliente_id
+        - name: negocio_id
           in: query
           required: false
-          description: Recorta métricas por cliente. Útil para o admin alternar entre visão global e cliente específico.
+          description: Recorta métricas por negocio. Útil para o admin alternar entre visão global e negocio específico.
           schema:
             type: string
         - name: usuario_id
@@ -687,10 +939,10 @@ paths:
           description: Recorta métricas por landing page.
           schema:
             type: string
-        - name: negocio_id
+        - name: unidade_id
           in: query
           required: false
-          description: Recorta métricas por negócio.
+          description: Recorta métricas por unidade.
           schema:
             type: string
         - name: categoria_id
@@ -741,11 +993,11 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /opcoes/clientes:
+  /opcoes/negocios:
     get:
       tags: [Opcoes]
-      summary: Lista opções de clientes para combos/filtros
-      description: Admin/Sognix vê todos os clientes. Usuário comum vê apenas clientes vinculados ao seu usuário.
+      summary: Lista opções de negocios para combos/filtros
+      description: Admin/Sognix vê todos os negocios. Usuário comum vê apenas negocios vinculados ao seu usuário.
       security:
         - bearerAuth: []
       parameters:
@@ -758,10 +1010,11 @@ paths:
         - name: usuario_id
           in: query
           required: false
-          description: Disponível para admin/Sognix filtrar clientes vinculados a um usuário.
+          description: Disponível para admin/Sognix filtrar negocios vinculados a um usuário.
           schema:
             type: string
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
@@ -771,7 +1024,7 @@ paths:
         - $ref: '#/components/parameters/PorPagina'
       responses:
         '200':
-          description: Opções de clientes
+          description: Opções de negocios
           content:
             application/json:
               schema:
@@ -783,7 +1036,7 @@ paths:
       tags: [Opcoes]
       summary: Lista opções de usuários para combos/filtros, admin
       description: |
-        Retorna lista simplificada `{id, label}` de usuários para popular selects de filtro no painel admin. Suporta busca por nome (`q`), email, cliente vinculado, papel e status. Exclusivo para `admin/Sognix`.
+        Retorna lista simplificada `{id, label}` de usuários para popular selects de filtro no painel admin. Suporta busca por nome (`q`), email, negocio vinculado, papel e status. Exclusivo para `admin/Sognix`.
       security:
         - bearerAuth: []
       parameters:
@@ -794,22 +1047,26 @@ paths:
           schema:
             type: string
         - name: email
+          description: Filtro parcial por email.
           in: query
           required: false
           schema:
             type: string
-        - name: cliente_id
+        - name: negocio_id
+          description: FK do Negócio dono. Filtra/escopo do recurso por Negócio.
           in: query
           required: false
           schema:
             type: string
         - name: role
+          description: 'Filtra por papel: usuario ou admin.'
           in: query
           required: false
           schema:
             type: string
             enum: [usuario, admin]
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
@@ -828,25 +1085,28 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /opcoes/negocios:
+  /opcoes/unidades:
     get:
       tags: [Opcoes]
-      summary: Lista opções de negócios para combos/filtros
-      description: Admin/Sognix vê todos; usuário comum vê apenas negócios de clientes vinculados.
+      summary: Lista opções de unidades para combos/filtros
+      description: Admin/Sognix vê todos; usuário comum vê apenas unidades de negocios vinculados.
       security:
         - bearerAuth: []
       parameters:
         - name: q
+          description: Busca textual livre (usada nos /opcoes/*).
           in: query
           required: false
           schema:
             type: string
-        - name: cliente_id
+        - name: negocio_id
+          description: FK do Negócio dono. Filtra/escopo do recurso por Negócio.
           in: query
           required: false
           schema:
             type: string
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
@@ -856,7 +1116,7 @@ paths:
         - $ref: '#/components/parameters/PorPagina'
       responses:
         '200':
-          description: Opções de negócios
+          description: Opções de unidades
           content:
             application/json:
               schema:
@@ -875,11 +1135,13 @@ paths:
         - bearerAuth: []
       parameters:
         - name: q
+          description: Busca textual livre (usada nos /opcoes/*).
           in: query
           required: false
           schema:
             type: string
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
@@ -901,38 +1163,44 @@ paths:
       tags: [Opcoes]
       summary: Lista opções de templates para combos/filtros
       description: |
-        Usuário comum deve informar cliente_id e recebe templates oficiais Sognix mais templates daquele cliente, respeitando o plano.
+        Usuário comum deve informar negocio_id e recebe templates oficiais Sognix mais templates daquele negocio, respeitando o plano.
       security:
         - bearerAuth: []
       parameters:
         - name: q
+          description: Busca textual livre (usada nos /opcoes/*).
           in: query
           required: false
           schema:
             type: string
-        - name: cliente_id
+        - name: negocio_id
+          description: FK do Negócio dono. Filtra/escopo do recurso por Negócio.
           in: query
           required: false
           schema:
             type: string
         - name: categoria_id
+          description: FK da Categoria (vertical).
           in: query
           required: false
           schema:
             type: string
         - name: tipo
+          description: Filtra por tipo (depende do recurso; ver enums em /opcoes/enums).
           in: query
           required: false
           schema:
             type: string
             enum: [white_label, base_customizavel]
         - name: origem
+          description: 'Filtra por origem do template: sognix (oficial) ou negocio (do Negócio).'
           in: query
           required: false
           schema:
             type: string
-            enum: [sognix, cliente]
+            enum: [sognix, negocio]
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
@@ -957,42 +1225,49 @@ paths:
     get:
       tags: [Opcoes]
       summary: Lista opções de landing pages para combos/filtros
-      description: Admin/Sognix vê todas; usuário comum vê apenas landing pages de clientes vinculados.
+      description: Admin/Sognix vê todas; usuário comum vê apenas landing pages de negocios vinculados.
       security:
         - bearerAuth: []
       parameters:
         - name: q
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: cliente_id
+          description: Busca textual livre (usada nos /opcoes/*).
           in: query
           required: false
           schema:
             type: string
         - name: negocio_id
+          description: FK do Negócio dono. Filtra/escopo do recurso por Negócio.
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: unidade_id
+          description: FK opcional da Unidade (sub-unidade do Negócio).
           in: query
           required: false
           schema:
             type: string
         - name: categoria_id
+          description: FK da Categoria (vertical).
           in: query
           required: false
           schema:
             type: string
         - name: template_id
+          description: FK do Template base.
           in: query
           required: false
           schema:
             type: string
         - name: tipo
+          description: Filtra por tipo (depende do recurso; ver enums em /opcoes/enums).
           in: query
           required: false
           schema:
             type: string
             enum: [white_label, customizavel]
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
@@ -1022,46 +1297,61 @@ paths:
       responses:
         '200':
           description: Grupos de opções estáticas
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Mapa de enums; cada chave (status, tipo, origem, ...) aponta para a lista de valores aceitos.
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /negocios:
+  /unidades:
     get:
-      tags: [Negocios]
-      summary: Lista negócios visíveis ao usuário
+      tags: [Unidades]
+      summary: Lista unidades visíveis ao usuário
       description: |
-        Lista negócios segmentados por cliente. Admin vê todos; usuário comum vê apenas negócios dos clientes vinculados. Negócios são subdivisões de um cliente (ex.: uma clínica com múltiplas unidades). Suporta filtro por cliente, nome e status.
+        Lista unidades segmentados por negocio. Admin vê todos; usuário comum vê apenas unidades dos negocios vinculados. Unidades são subdivisões de um negocio (ex.: uma clínica com múltiplas unidades). Suporta filtro por negocio, nome e status.
       security:
         - bearerAuth: []
       parameters:
-        - name: cliente_id
+        - name: negocio_id
+          description: FK do Negócio dono. Filtra/escopo do recurso por Negócio.
           in: query
           required: false
           schema:
             type: string
         - name: nome
+          description: Filtro parcial por nome (case-insensitive).
           in: query
           required: false
           schema:
             type: string
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
             type: string
             enum: [ativo, inativo, excluido]
         - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           required: false
           schema:
@@ -1069,6 +1359,7 @@ paths:
             enum: [nome, status, criado_em, atualizado_em]
             default: criado_em
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           required: false
           schema:
@@ -1079,16 +1370,28 @@ paths:
         - $ref: '#/components/parameters/PorPagina'
       responses:
         '200':
-          description: Lista de negócios
+          description: Lista de unidades
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UnidadeOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
-      tags: [Negocios]
-      summary: Cria negócio para cliente vinculado
+      tags: [Unidades]
+      summary: Cria unidade para negocio vinculado
       description: |
-        Cria um negócio vinculado a um cliente. O negócio representa uma unidade operacional (ex.: filial, marca) dentro do cliente. Usuário comum só pode criar negócios em clientes aos quais tem acesso.
+        Cria uma unidade vinculado a um negocio. A unidade representa uma unidade operacional (ex.: filial, marca) dentro do negocio. Usuário comum só pode criar unidades em negocios aos quais tem acesso.
       security:
         - bearerAuth: []
       requestBody:
@@ -1096,22 +1399,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CriarNegocioInput'
+              $ref: '#/components/schemas/CriarUnidadeInput'
       responses:
         '201':
-          description: Negócio criado
+          description: Unidade criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnidadeOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /negocios/{id}:
+  /unidades/{id}:
     put:
-      tags: [Negocios]
-      summary: Atualiza negócio do cliente vinculado
+      tags: [Unidades]
+      summary: Atualiza unidade do negocio vinculado
       description: |
-        Atualiza nome, descrição ou status de um negócio. Usuário comum só pode atualizar negócios dos clientes vinculados a ele.
+        Atualiza nome, descrição ou status de uma unidade. Usuário comum só pode atualizar unidades dos negocios vinculados a ele.
       security:
         - bearerAuth: []
       parameters:
@@ -1121,10 +1428,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AtualizarNegocioInput'
+              $ref: '#/components/schemas/AtualizarUnidadeInput'
       responses:
         '200':
-          description: Negócio atualizado
+          description: Unidade atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnidadeOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1136,17 +1447,17 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
     delete:
-      tags: [Negocios]
-      summary: Exclui negócio com soft delete
+      tags: [Unidades]
+      summary: Exclui unidade com soft delete
       description: |
-        Marca o negócio como excluído (soft delete). Landing pages vinculadas ao negócio continuam existindo mas ficam órfãs de negócio. Usuário comum só pode excluir negócios dos seus clientes.
+        Marca a unidade como excluído (soft delete). Landing pages vinculadas à unidade continuam existindo mas ficam órfãs de unidade. Usuário comum só pode excluir unidades dos seus negocios.
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
         '204':
-          description: Negócio excluído
+          description: Unidade excluído
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1161,29 +1472,34 @@ paths:
         - bearerAuth: []
       parameters:
         - name: nome
+          description: Filtro parcial por nome (case-insensitive).
           in: query
           required: false
           schema:
             type: string
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
             type: string
             enum: [ativo, inativo, excluido]
         - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           required: false
           schema:
@@ -1191,6 +1507,7 @@ paths:
             enum: [nome, status, criado_em, atualizado_em]
             default: nome
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           required: false
           schema:
@@ -1202,6 +1519,18 @@ paths:
       responses:
         '200':
           description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CategoriaOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
@@ -1220,6 +1549,10 @@ paths:
       responses:
         '201':
           description: Categoria criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoriaOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1245,6 +1578,10 @@ paths:
       responses:
         '200':
           description: Categoria atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoriaOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1276,57 +1613,65 @@ paths:
       tags: [Templates]
       summary: Lista templates
       description: |
-        Lista templates disponíveis. Admin vê todos (Sognix + todos os clientes). Usuário comum filtra por `cliente_id` e vê templates oficiais Sognix + templates do cliente informado, respeitando o plano contratado. Suporta filtro por categoria, tipo e origem.
+        Lista templates disponíveis. Admin vê todos (Sognix + todos os negocios). Usuário comum filtra por `negocio_id` e vê templates oficiais Sognix + templates do negocio informado, respeitando o plano contratado. Suporta filtro por categoria, tipo e origem.
       security:
         - bearerAuth: []
       parameters:
-        - name: cliente_id
+        - name: negocio_id
           in: query
           required: false
-          description: Admin/Sognix pode filtrar templates de um cliente; usuário comum deve informar o cliente vinculado.
+          description: Admin/Sognix pode filtrar templates de um negocio; usuário comum deve informar o negocio vinculado.
           schema:
             type: string
         - name: categoria_id
+          description: FK da Categoria (vertical).
           in: query
           required: false
           schema:
             type: string
         - name: tipo
+          description: Filtra por tipo (depende do recurso; ver enums em /opcoes/enums).
           in: query
           required: false
           schema:
             type: string
             enum: [white_label, base_customizavel]
         - name: origem
+          description: 'Filtra por origem do template: sognix (oficial) ou negocio (do Negócio).'
           in: query
           required: false
           schema:
             type: string
-            enum: [sognix, cliente]
+            enum: [sognix, negocio]
         - name: nome
+          description: Filtro parcial por nome (case-insensitive).
           in: query
           required: false
           schema:
             type: string
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
             type: string
             enum: [ativo, inativo, excluido]
         - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           required: false
           schema:
@@ -1334,6 +1679,7 @@ paths:
             enum: [nome, tipo, origem, status, criado_em, atualizado_em]
             default: nome
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           required: false
           schema:
@@ -1345,13 +1691,25 @@ paths:
       responses:
         '200':
           description: Lista de templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TemplateOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
       tags: [Templates]
       summary: Cadastra template pronto no banco
       description: |
-        Admin pode criar templates oficiais Sognix ou templates de cliente. Usuário comum só pode criar template do cliente ao qual tem acesso.
+        Admin pode criar templates oficiais Sognix ou templates de negocio. Usuário comum só pode criar template do negocio ao qual tem acesso.
       security:
         - bearerAuth: []
       requestBody:
@@ -1368,14 +1726,14 @@ paths:
                 `GET /templates/{id}/download`. Arquivos de texto (não-zip) precisam ser UTF-8
                 válido e seu conteúdo é salvo em `conteudo`.
               properties:
-                cliente_id:
+                negocio_id:
                   type: string
-                  description: Obrigatório quando origem=cliente.
+                  description: Obrigatório quando origem=negocio.
                 categoria_id:
                   type: string
                 origem:
                   type: string
-                  enum: [sognix, cliente]
+                  enum: [sognix, negocio]
                   default: sognix
                 tipo:
                   type: string
@@ -1395,6 +1753,10 @@ paths:
       responses:
         '201':
           description: Template criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1426,8 +1788,8 @@ paths:
       summary: Baixa o pacote ZIP do template
       description: |
         Faz o download do pacote `.zip` de um template white label. Templates oficiais Sognix
-        ficam disponíveis para qualquer usuário autenticado; templates de cliente exigem que o
-        usuário tenha acesso ao cliente dono. Retorna `404` se o template não possuir arquivo
+        ficam disponíveis para qualquer usuário autenticado; templates de negocio exigem que o
+        usuário tenha acesso ao negocio dono. Retorna `404` se o template não possuir arquivo
         binário (apenas conteúdo textual).
       security:
         - bearerAuth: []
@@ -1452,64 +1814,75 @@ paths:
       tags: [LandingPages]
       summary: Lista landing pages
       description: |
-        Lista landing pages com filtros por cliente, negócio, categoria, template, tipo e status. Admin vê todas; usuário comum vê apenas LPs dos clientes vinculados. Não retorna o campo `conteudo` (pesado) — use `GET /landingpages/{id}` para obter o conteúdo completo.
+        Lista landing pages com filtros por negocio, unidade, categoria, template, tipo e status. Admin vê todas; usuário comum vê apenas LPs dos negocios vinculados. Não retorna o campo `conteudo` (pesado) — use `GET /landingpages/{id}` para obter o conteúdo completo.
       security:
         - bearerAuth: []
       parameters:
-        - name: cliente_id
+        - name: negocio_id
+          description: FK do Negócio dono. Filtra/escopo do recurso por Negócio.
           in: query
           required: false
           schema:
             type: string
-        - name: negocio_id
+        - name: unidade_id
+          description: FK opcional da Unidade (sub-unidade do Negócio).
           in: query
           required: false
           schema:
             type: string
         - name: categoria_id
+          description: FK da Categoria (vertical).
           in: query
           required: false
           schema:
             type: string
         - name: template_id
+          description: FK do Template base.
           in: query
           required: false
           schema:
             type: string
         - name: nome
+          description: Filtro parcial por nome (case-insensitive).
           in: query
           required: false
           schema:
             type: string
         - name: tipo
+          description: Filtra por tipo (depende do recurso; ver enums em /opcoes/enums).
           in: query
           required: false
           schema:
             type: string
             enum: [white_label, customizavel]
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           required: false
           schema:
             type: string
         - name: is_draft
+          description: Quando true, retorna apenas rascunhos (não publicadas).
           in: query
           required: false
           schema:
             type: boolean
         - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           required: false
           schema:
@@ -1517,6 +1890,7 @@ paths:
             enum: [nome, tipo, status, criado_em, atualizado_em, last_autosave_em]
             default: criado_em
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           required: false
           schema:
@@ -1528,6 +1902,18 @@ paths:
       responses:
         '200':
           description: Lista de landing pages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LandingPageOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1536,7 +1922,7 @@ paths:
       tags: [LandingPages]
       summary: Cria landing page
       description: |
-        Cria uma nova landing page vinculada a um cliente. Se `template_id` for informado, o conteúdo inicial é copiado do template. Se `slug` for omitido, é gerado automaticamente a partir do nome. O limite de LPs por cliente é definido pelo plano contratado.
+        Cria uma nova landing page vinculada a um negocio. Se `template_id` for informado, o conteúdo inicial é copiado do template. Se `slug` for omitido, é gerado automaticamente a partir do nome. O limite de LPs por negocio é definido pelo plano contratado.
       security:
         - bearerAuth: []
       requestBody:
@@ -1548,6 +1934,10 @@ paths:
       responses:
         '201':
           description: Landing page criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandingPageOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1559,7 +1949,7 @@ paths:
       tags: [LandingPages]
       summary: Obtém landing page
       description: |
-        Retorna todos os campos da landing page, incluindo o `conteudo` (JSON do editor). Valida se o usuário tem acesso ao cliente dono da LP antes de retornar.
+        Retorna todos os campos da landing page, incluindo o `conteudo` (JSON do editor). Valida se o usuário tem acesso ao negocio dono da LP antes de retornar.
       security:
         - bearerAuth: []
       parameters:
@@ -1567,6 +1957,10 @@ paths:
       responses:
         '200':
           description: Landing page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandingPageOutput'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1591,6 +1985,10 @@ paths:
       responses:
         '200':
           description: Landing page atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandingPageOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1636,6 +2034,10 @@ paths:
       responses:
         '200':
           description: Autosave atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutosaveOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1657,6 +2059,10 @@ paths:
       responses:
         '200':
           description: Lock criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '409':
@@ -1674,6 +2080,10 @@ paths:
       responses:
         '200':
           description: Lock removido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemOutput'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /landingpages/{id}/exportar:
@@ -1700,6 +2110,10 @@ paths:
       responses:
         '201':
           description: Exportação salva
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportacaoOutput'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1818,55 +2232,66 @@ paths:
       tags: [Leads]
       summary: Lista leads (admin/Sognix)
       description: |
-        Usuário comum não acessa dados pessoais de leads. Admin pode filtrar por cliente, landing page, status, UTM e período.
+        Usuário comum não acessa dados pessoais de leads. Admin pode filtrar por negocio, landing page, status, UTM e período.
       security:
         - bearerAuth: []
       parameters:
-        - name: cliente_id
+        - name: negocio_id
+          description: FK do Negócio dono. Filtra/escopo do recurso por Negócio.
           in: query
           schema:
             type: string
         - name: landingpage_id
+          description: FK da Landing Page.
           in: query
           schema:
             type: string
         - name: nome
+          description: Filtro parcial por nome (case-insensitive).
           in: query
           schema:
             type: string
         - name: email
+          description: Filtro parcial por email.
           in: query
           schema:
             type: string
         - name: status
+          description: 'Filtra por status do recurso (ex.: ativo, inativo).'
           in: query
           schema:
             $ref: '#/components/schemas/LeadStatus'
         - name: utm_source
+          description: Filtra leads pela origem de campanha (UTM source).
           in: query
           schema:
             type: string
         - name: utm_campaign
+          description: Filtra leads pela campanha (UTM campaign).
           in: query
           schema:
             type: string
         - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
           in: query
           schema:
             type: string
             format: date
         - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
           in: query
           schema:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           schema:
             type: string
             enum: [nome, email, status, criado_em]
             default: criado_em
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           schema:
             type: string
@@ -2046,55 +2471,65 @@ paths:
         - bearerAuth: []
       parameters:
         - name: nome
+          description: Filtro parcial por nome (case-insensitive).
           in: query
           required: false
           schema:
             type: string
         - name: email
+          description: Filtro parcial por email.
           in: query
           required: false
           schema:
             type: string
         - name: status_funil
+          description: Filtra leads de aquisição pela etapa do funil comercial.
           in: query
           required: false
           schema:
             type: string
             enum: [novo, contatado, qualificado, negociacao, convertido, perdido]
         - name: porte
+          description: Filtra por porte do negócio.
           in: query
           required: false
           schema:
             type: string
             enum: [micro, pequeno, medio, grande]
         - name: cidade
+          description: Filtra por cidade.
           in: query
           required: false
           schema:
             type: string
         - name: estado
+          description: Filtra por estado (UF).
           in: query
           required: false
           schema:
             type: string
         - name: utm_campaign
+          description: Filtra leads pela campanha (UTM campaign).
           in: query
           required: false
           schema:
             type: string
         - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           required: false
           schema:
@@ -2102,6 +2537,7 @@ paths:
             enum: [nome, email, status_funil, criado_em]
             default: criado_em
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           required: false
           schema:
@@ -2180,11 +2616,11 @@ paths:
       tags: [Exportacoes]
       summary: Lista exportações, admin/Sognix global ou por landing page
       description: |
-        Lista exportações (pacotes ZIP) geradas a partir de landing pages. Admin vê todas ou pode filtrar por cliente/LP. Usuário comum deve informar `landingpage_id` de uma LP à qual tem acesso. Use `GET /exportacoes/{id}/download` para baixar o arquivo.
+        Lista exportações (pacotes ZIP) geradas a partir de landing pages. Admin vê todas ou pode filtrar por negocio/LP. Usuário comum deve informar `landingpage_id` de uma LP à qual tem acesso. Use `GET /exportacoes/{id}/download` para baixar o arquivo.
       security:
         - bearerAuth: []
       parameters:
-        - name: cliente_id
+        - name: negocio_id
           in: query
           required: false
           description: Filtro global disponível para admin/Sognix.
@@ -2197,28 +2633,33 @@ paths:
           schema:
             type: string
         - name: usuario_id
+          description: FK do Operador. Filtra pelo usuário vinculado.
           in: query
           required: false
           schema:
             type: string
         - name: nome_arquivo
+          description: Filtro parcial pelo nome do arquivo exportado.
           in: query
           required: false
           schema:
             type: string
         - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           required: false
           schema:
@@ -2226,6 +2667,7 @@ paths:
             enum: [nome_arquivo, tamanho_bytes, criado_em]
             default: criado_em
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           required: false
           schema:
@@ -2237,6 +2679,18 @@ paths:
       responses:
         '200':
           description: Lista de exportações
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExportacaoOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2272,53 +2726,62 @@ paths:
       tags: [Auditoria]
       summary: Lista auditoria, admin
       description: |
-        Lista eventos de auditoria registrados automaticamente pelo middleware para operações sensíveis (criação, atualização, exclusão, login, etc.). Exclusivo para `admin/Sognix`. Filtre por usuário, cliente, entidade, ação e período. Registros são imutáveis.
+        Lista eventos de auditoria registrados automaticamente pelo middleware para operações sensíveis (criação, atualização, exclusão, login, etc.). Exclusivo para `admin/Sognix`. Filtre por usuário, negocio, entidade, ação e período. Registros são imutáveis.
       security:
         - bearerAuth: []
       parameters:
         - name: usuario_id
+          description: FK do Operador. Filtra pelo usuário vinculado.
           in: query
           required: false
           schema:
             type: string
         - name: acao
+          description: 'Filtra auditoria pela ação (ex.: ''POST /negocios'').'
           in: query
           required: false
           schema:
             type: string
         - name: entidade
+          description: Filtra auditoria pela entidade afetada.
           in: query
           required: false
           schema:
             type: string
         - name: entidade_id
+          description: Filtra auditoria pelo ID da entidade afetada.
           in: query
           required: false
           schema:
             type: string
         - name: status_code
+          description: Filtra auditoria pelo HTTP status retornado.
           in: query
           required: false
           schema:
             type: integer
         - name: request_id
+          description: Filtra auditoria pelo identificador da requisição.
           in: query
           required: false
           schema:
             type: string
         - name: data_inicio
+          description: Início do período de criação (YYYY-MM-DD).
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: data_fim
+          description: Fim do período de criação (YYYY-MM-DD), inclusivo no dia inteiro.
           in: query
           required: false
           schema:
             type: string
             format: date
         - name: ordenar_por
+          description: 'Campo de ordenação (ex.: nome, criado_em).'
           in: query
           required: false
           schema:
@@ -2326,6 +2789,7 @@ paths:
             enum: [acao, entidade, status_code, tempo_resposta_ms, criado_em]
             default: criado_em
         - name: ordem
+          description: 'Direção da ordenação: asc ou desc (padrão desc).'
           in: query
           required: false
           schema:
@@ -2337,6 +2801,18 @@ paths:
       responses:
         '200':
           description: Lista de auditoria
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditoriaOutput'
+                  total: { type: integer }
+                  pagina: { type: integer }
+                  por_pagina: { type: integer }
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2354,6 +2830,10 @@ paths:
       responses:
         '200':
           description: Auditoria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditoriaOutput'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2371,12 +2851,15 @@ components:
       name: id
       in: path
       required: true
+      description: UUID do recurso na URL.
       schema:
         type: string
+        format: uuid
     Pagina:
       name: pagina
       in: query
       required: false
+      description: Página da listagem (1-based). Padrão 1.
       schema:
         type: integer
         minimum: 1
@@ -2385,6 +2868,7 @@ components:
       name: por_pagina
       in: query
       required: false
+      description: Itens por página (máx. 100). Padrão 20.
       schema:
         type: integer
         minimum: 1
@@ -2417,6 +2901,12 @@ components:
             $ref: '#/components/schemas/Erro'
     Conflict:
       description: Conflito de versão ou lock
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    TooManyRequests:
+      description: Limite de requisições excedido (rate limit). Veja o cabeçalho `Retry-After`.
       content:
         application/json:
           schema:
@@ -2458,7 +2948,7 @@ components:
       properties:
         usuario_id:
           type: string
-        clientes_vinculados:
+        negocios_vinculados:
           type: integer
         landingpages_criadas:
           type: integer
@@ -2471,13 +2961,13 @@ components:
     DashboardAdminOutput:
       type: object
       properties:
-        clientes_ativos:
+        negocios_ativos:
           type: integer
         usuarios_ativos:
           type: integer
         templates_sognix:
           type: integer
-        templates_clientes:
+        templates_negocios:
           type: integer
         landingpages_criadas:
           type: integer
@@ -2487,7 +2977,7 @@ components:
           type: integer
         exportacoes_geradas:
           type: integer
-        clientes_com_plano_customizavel:
+        negocios_com_plano_customizavel:
           type: integer
     OpcaoOutput:
       type: object
@@ -2504,7 +2994,7 @@ components:
           type: string
         origem:
           type: string
-        cliente_id:
+        negocio_id:
           type: string
         categoria_id:
           type: string
@@ -2542,14 +3032,163 @@ components:
       properties:
         token:
           type: string
+          description: 'Access token JWT de curta duração. Enviar em Authorization: Bearer <token>.'
         refresh_token:
           type: string
+          description: Refresh token opaco de longa duração. Usar em `POST /auth/refresh`.
         usuario:
-          type: object
-        clientes:
+          $ref: '#/components/schemas/UsuarioOutput'
+        negocios:
           type: array
+          description: Negócios (entidade contratante) vinculados a este Operador.
           items:
-            type: object
+            $ref: '#/components/schemas/NegocioBasicoOutput'
+    UsuarioOutput:
+      type: object
+      description: >-
+        Operador — o usuário que opera o Nous. Vincula-se a N Negócios pela tabela
+        `usuario_negocio`. `role=admin` é staff interno da Sognix com visão global.
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [usuario, admin] }
+        status: { type: string, enum: [ativo, inativo, excluido] }
+        email_verified: { type: boolean, description: true em login Google e no admin do seed. }
+        ultimo_login_em: { type: string, format: date-time, nullable: true }
+        criado_em: { type: string, format: date-time }
+        atualizado_em: { type: string, format: date-time }
+        version: { type: integer, description: Versão para controle otimista; reenvie em PUT/PATCH. }
+    NegocioOutput:
+      type: object
+      description: >-
+        Negócio — entidade contratante (clínica/escritório do Operador), com CPF/CNPJ.
+        Antes chamada `cliente`. Um Operador tem N Negócios; cada Negócio é dono de
+        Unidades, Landing Pages, Templates próprios e Assinatura/Plano.
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        email: { type: string, format: email }
+        telefone: { type: string }
+        whatsapp: { type: string }
+        documento: { type: string, description: 'CPF (11 dígitos) ou CNPJ (14, alfanumérico a partir de 2026), sem máscara. Opcional.' }
+        status: { type: string, enum: [ativo, inativo, excluido] }
+        criado_em: { type: string, format: date-time }
+        atualizado_em: { type: string, format: date-time }
+        version: { type: integer }
+    NegocioBasicoOutput:
+      type: object
+      description: Versão enxuta do Negócio retornada no login e em listagens do próprio Operador.
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        email: { type: string, format: email }
+        telefone: { type: string }
+        whatsapp: { type: string }
+        documento: { type: string }
+        status: { type: string, enum: [ativo, inativo, excluido] }
+    UnidadeOutput:
+      type: object
+      description: >-
+        Unidade — sub-unidade de um Negócio (ex.: filial/local). Antes chamada `negocio`.
+        Pertence a um Negócio e pode ser referenciada (opcionalmente) por Landing Pages.
+      properties:
+        id: { type: string, format: uuid }
+        negocio_id: { type: string, format: uuid, description: FK do Negócio dono (obrigatório). }
+        nome: { type: string }
+        status: { type: string, enum: [ativo, inativo, excluido] }
+        criado_em: { type: string, format: date-time }
+        atualizado_em: { type: string, format: date-time }
+        version: { type: integer }
+    CategoriaOutput:
+      type: object
+      description: 'Categoria/vertical (ex.: odonto, jurídico). Classifica Negócios, Templates e Landing Pages. Gerenciada por admin.'
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        status: { type: string, enum: [ativo, inativo, excluido] }
+        criado_em: { type: string, format: date-time }
+        atualizado_em: { type: string, format: date-time }
+        version: { type: integer }
+    TemplateOutput:
+      type: object
+      description: >-
+        Template de Landing Page. `origem=sognix` é oficial e global (negocio_id nulo);
+        `origem=negocio` pertence a um Negócio (negocio_id preenchido) e só é visível a ele.
+      properties:
+        id: { type: string, format: uuid }
+        negocio_id: { type: string, format: uuid, description: 'FK do Negócio dono; presente apenas quando origem=negocio.' }
+        categoria_id: { type: string, format: uuid }
+        tipo: { type: string, enum: [white_label, base_customizavel] }
+        origem: { type: string, enum: [sognix, negocio] }
+        nome: { type: string }
+        arquivo_url: { type: string }
+        conteudo: { type: string }
+        tem_arquivo: { type: boolean, description: true quando há pacote .zip binário associado. }
+        nome_arquivo: { type: string }
+        content_type: { type: string }
+        tamanho_bytes: { type: integer, format: int64 }
+        status: { type: string, enum: [ativo, inativo, excluido] }
+        criado_em: { type: string, format: date-time }
+        atualizado_em: { type: string, format: date-time }
+    LandingPageOutput:
+      type: object
+      description: >-
+        Landing Page de um Negócio. Concorrência: `version` (otimista) e lock pessimista
+        (`locked_by`/`locked_at`, expira em 5 min). Publicação preenche `url_publica`/`deploy_id`.
+      properties:
+        id: { type: string, format: uuid }
+        negocio_id: { type: string, format: uuid, description: FK do Negócio dono (obrigatório). }
+        unidade_id: { type: string, format: uuid, description: FK da Unidade (opcional). }
+        categoria_id: { type: string, format: uuid, description: FK da Categoria (opcional). }
+        template_id: { type: string, format: uuid, description: FK do Template base (opcional). }
+        tipo: { type: string, enum: [white_label, customizavel] }
+        nome: { type: string }
+        slug: { type: string }
+        conteudo: { type: string }
+        status: { type: string, enum: [rascunho, publicada, despublicada, excluida] }
+        is_draft: { type: boolean }
+        autosave_data: { type: object, nullable: true, description: Último rascunho salvo via autosave (JSON livre). }
+        last_autosave_em: { type: string, format: date-time, nullable: true }
+        locked_by: { type: string, format: uuid, nullable: true, description: Operador que detém o lock de edição. }
+        locked_at: { type: string, format: date-time, nullable: true }
+        url_publica: { type: string, nullable: true }
+        deploy_id: { type: string, nullable: true }
+        publicada_em: { type: string, format: date-time, nullable: true }
+        criado_em: { type: string, format: date-time }
+        atualizado_em: { type: string, format: date-time }
+        version: { type: integer }
+    AuditoriaOutput:
+      type: object
+      description: >-
+        Registro de auditoria de uma ação autenticada (somente admin). Contém apenas
+        metadados da requisição; `dados_novos` guarda método/path/request_id.
+      properties:
+        id: { type: string, format: uuid }
+        usuario_id: { type: string, format: uuid, nullable: true, description: Operador que executou a ação. }
+        acao: { type: string, description: 'Ex.: POST /negocios.' }
+        entidade: { type: string }
+        entidade_id: { type: string, nullable: true }
+        dados_anteriores: { type: object, nullable: true }
+        dados_novos: { type: object, nullable: true }
+        ip: { type: string }
+        user_agent: { type: string }
+        status_code: { type: integer }
+        tempo_resposta_ms: { type: integer }
+        request_id: { type: string }
+        criado_em: { type: string, format: date-time }
+    ExportacaoOutput:
+      type: object
+      description: Pacote ZIP exportado de uma Landing Page, armazenado no PostgreSQL com hash SHA-256.
+      properties:
+        id: { type: string, format: uuid }
+        landingpage_id: { type: string, format: uuid, description: FK da Landing Page exportada. }
+        usuario_id: { type: string, format: uuid, description: FK do Operador que gerou a exportação. }
+        nome_arquivo: { type: string }
+        content_type: { type: string }
+        tamanho_bytes: { type: integer, format: int64 }
+        hash: { type: string, description: SHA-256 do ZIP. }
+        criado_em: { type: string, format: date-time }
     CriarUsuarioInput:
       type: object
       required: [nome, email, senha]
@@ -2562,9 +3201,47 @@ components:
         senha:
           type: string
           format: password
+          minLength: 8
+          maxLength: 72
+          description: Mínimo de 8 caracteres (limite de 72 do bcrypt).
+    AlterarRoleInput:
+      type: object
+      required: [role]
+      properties:
         role:
           type: string
           enum: [usuario, admin]
+          description: Novo papel do usuário.
+    AlterarStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ativo, inativo]
+          description: Novo status do usuário. `excluido` não é aceito aqui (use DELETE).
+    SolicitarVerificacaoEmailInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    SolicitarVerificacaoEmailOutput:
+      type: object
+      required: [mensagem]
+      properties:
+        mensagem:
+          type: string
+        verificacao_token:
+          type: string
+          description: Retornado apenas quando EMAIL_VERIFICATION_RETURN_TOKEN=true.
+    VerificarEmailInput:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
     AtualizarUsuarioInput:
       type: object
       required: [version]
@@ -2587,6 +3264,9 @@ components:
         nova_senha:
           type: string
           format: password
+          minLength: 8
+          maxLength: 72
+          description: Mínimo de 8 caracteres (limite de 72 do bcrypt).
     EsqueciSenhaInput:
       type: object
       required: [email]
@@ -2612,7 +3292,10 @@ components:
         nova_senha:
           type: string
           format: password
-    CriarClienteInput:
+          minLength: 8
+          maxLength: 72
+          description: Mínimo de 8 caracteres (limite de 72 do bcrypt).
+    CriarNegocioInput:
       type: object
       required: [nome]
       properties:
@@ -2625,7 +3308,16 @@ components:
           type: string
         whatsapp:
           type: string
-    AtualizarClienteInput:
+        documento:
+          type: string
+          maxLength: 14
+          description: >-
+            CPF (11 dígitos) ou CNPJ (14 posições, alfanuméricas a partir de 2026)
+            do negócio. Opcional. Aceita com ou sem máscara; é normalizado para
+            apenas caracteres significativos em maiúsculas e validado pelo dígito
+            verificador.
+          example: "12345678000190"
+    AtualizarNegocioInput:
       type: object
       required: [version]
       properties:
@@ -2638,17 +3330,23 @@ components:
           type: string
         whatsapp:
           type: string
+        documento:
+          type: string
+          maxLength: 14
+          description: >-
+            CPF ou CNPJ do negócio (ver CriarNegocioInput). Validado quando informado.
+          example: "12345678000190"
         version:
           type: integer
-    CriarNegocioInput:
+    CriarUnidadeInput:
       type: object
-      required: [cliente_id, nome]
+      required: [negocio_id, nome]
       properties:
-        cliente_id:
+        negocio_id:
           type: string
         nome:
           type: string
-    AtualizarNegocioInput:
+    AtualizarUnidadeInput:
       type: object
       required: [version]
       properties:
@@ -2672,11 +3370,11 @@ components:
           type: integer
     CriarLandingPageInput:
       type: object
-      required: [cliente_id, nome]
+      required: [negocio_id, nome]
       properties:
-        cliente_id:
-          type: string
         negocio_id:
+          type: string
+        unidade_id:
           type: string
         categoria_id:
           type: string
@@ -2698,7 +3396,7 @@ components:
       type: object
       required: [version]
       properties:
-        negocio_id:
+        unidade_id:
           type: string
         categoria_id:
           type: string
@@ -2725,6 +3423,14 @@ components:
         autosave_data:
           type: object
           additionalProperties: true
+        version:
+          type: integer
+    AutosaveOutput:
+      type: object
+      description: Resultado do autosave; devolve a nova `version` para o próximo envio.
+      properties:
+        mensagem:
+          type: string
         version:
           type: integer
     LeadStatus:
@@ -2819,7 +3525,7 @@ components:
           type: string
         landingpage_nome:
           type: string
-        cliente_id:
+        negocio_id:
           type: string
         nome:
           type: string

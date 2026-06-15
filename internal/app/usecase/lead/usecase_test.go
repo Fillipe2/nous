@@ -88,7 +88,7 @@ func (f *landingPageFake) SoftDelete(context.Context, string) error             
 func (f *landingPageFake) Listar(context.Context, landingpage.FiltroListagem) ([]*landingpage.LandingPage, int, error) {
 	return nil, 0, nil
 }
-func (f *landingPageFake) ContarPorCliente(context.Context, string) (int, error) { return 0, nil }
+func (f *landingPageFake) ContarPorNegocio(context.Context, string) (int, error) { return 0, nil }
 func (f *landingPageFake) AtualizarAutosave(context.Context, string, []byte, int) (int, error) {
 	return 0, nil
 }
@@ -102,7 +102,7 @@ func (f *landingPageFake) AtualizarPublicacao(context.Context, string, string, s
 func (f *landingPageFake) AtualizarDespublicacao(context.Context, string) error { return nil }
 
 func lpPublicada() *landingPageFake {
-	return &landingPageFake{lp: &landingpage.LandingPage{Id: "lp-test", ClienteId: "cliente-1", Status: landingpage.StatusPublicada}}
+	return &landingPageFake{lp: &landingpage.LandingPage{Id: "lp-test", NegocioId: "negocio-1", Status: landingpage.StatusPublicada}}
 }
 
 func inputBase() dto.CapturarLeadInput {
@@ -162,7 +162,7 @@ func TestCapturarLeadRejeitaHoneypotPreenchido(t *testing.T) {
 
 func TestCapturarLeadRejeitaLandingPageNaoPublicada(t *testing.T) {
 	repository := &leadRepositoryFake{}
-	lpFake := &landingPageFake{lp: &landingpage.LandingPage{Id: "lp-test", ClienteId: "cliente-1", Status: landingpage.StatusRascunho}}
+	lpFake := &landingPageFake{lp: &landingpage.LandingPage{Id: "lp-test", NegocioId: "negocio-1", Status: landingpage.StatusRascunho}}
 	useCase := NewUseCase(repository, lpFake, &publisherFake{})
 
 	_, err := useCase.CapturarLead(context.Background(), inputBase(), "127.0.0.1", "test")
@@ -192,7 +192,7 @@ func TestCapturarLeadDeduplicaJanelaCurta(t *testing.T) {
 	}
 }
 
-func TestCapturarLeadEnriquecePayloadComUTMEClienteId(t *testing.T) {
+func TestCapturarLeadEnriquecePayloadComUTMENegocioId(t *testing.T) {
 	repository := &leadRepositoryFake{}
 	publisher := &publisherFake{}
 	useCase := NewUseCase(repository, lpPublicada(), publisher)
@@ -217,8 +217,8 @@ func TestCapturarLeadEnriquecePayloadComUTMEClienteId(t *testing.T) {
 			t.Fatalf("telefone nao foi normalizado para apenas digitos: %q", repository.salvo.Telefone)
 		}
 	}
-	if repository.salvo.ClienteId != "cliente-1" {
-		t.Fatalf("cliente_id deveria ser derivado da landingpage, recebido %q", repository.salvo.ClienteId)
+	if repository.salvo.NegocioId != "negocio-1" {
+		t.Fatalf("negocio_id deveria ser derivado da landingpage, recebido %q", repository.salvo.NegocioId)
 	}
 	if !repository.salvo.Consentimento || repository.salvo.ConsentimentoEm == nil {
 		t.Fatal("consentimento e timestamp deveriam estar preenchidos")
@@ -230,8 +230,8 @@ func TestCapturarLeadEnriquecePayloadComUTMEClienteId(t *testing.T) {
 	if payload == nil {
 		t.Fatal("payload nao deveria ser nil")
 	}
-	if payload["cliente_id"] != "cliente-1" {
-		t.Fatalf("payload sem cliente_id correto: %+v", payload)
+	if payload["negocio_id"] != "negocio-1" {
+		t.Fatalf("payload sem negocio_id correto: %+v", payload)
 	}
 	if payload["consentimento"] != true {
 		t.Fatalf("payload sem consentimento: %+v", payload)

@@ -6,8 +6,8 @@ import (
 
 	"nous/internal/app/dto"
 	uclp "nous/internal/app/usecase/landingpage"
-	"nous/internal/domain/cliente"
 	"nous/internal/domain/landingpage"
+	"nous/internal/domain/negocio"
 	"nous/internal/interface/webapi/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -30,7 +30,7 @@ func (h *LandingPageHandler) CriarLandingPage(w http.ResponseWriter, r *http.Req
 	}
 
 	output, err := h.useCase.CriarLandingPage(r.Context(), input, claims.UsuarioId, claims.Role)
-	if errors.Is(err, landingpage.ErrNaoAutorizado) || errors.Is(err, cliente.ErrNaoAutorizado) || errors.Is(err, landingpage.ErrPlanoNaoPermite) {
+	if errors.Is(err, landingpage.ErrNaoAutorizado) || errors.Is(err, negocio.ErrNaoAutorizado) || errors.Is(err, landingpage.ErrPlanoNaoPermite) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
 		return
 	}
@@ -59,8 +59,8 @@ func (h *LandingPageHandler) ListarLandingPages(w http.ResponseWriter, r *http.R
 		return
 	}
 	filtro := landingpage.FiltroListagem{
-		ClienteId:   r.URL.Query().Get("cliente_id"),
 		NegocioId:   r.URL.Query().Get("negocio_id"),
+		UnidadeId:   r.URL.Query().Get("unidade_id"),
 		CategoriaId: r.URL.Query().Get("categoria_id"),
 		TemplateId:  r.URL.Query().Get("template_id"),
 		Tipo:        r.URL.Query().Get("tipo"),
@@ -76,7 +76,7 @@ func (h *LandingPageHandler) ListarLandingPages(w http.ResponseWriter, r *http.R
 	}
 
 	output, err := h.useCase.ListarLandingPages(r.Context(), filtro, claims.UsuarioId, claims.Role)
-	if errors.Is(err, landingpage.ErrNaoAutorizado) || errors.Is(err, cliente.ErrNaoAutorizado) {
+	if errors.Is(err, landingpage.ErrNaoAutorizado) || errors.Is(err, negocio.ErrNaoAutorizado) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
 		return
 	}

@@ -1,8 +1,8 @@
-# Arquitetura Buildnix Backend
+# Arquitetura Nous
 
 ## Visão Geral
 
-Buildnix é o backend de criação, edição, exportação e gestão de landing pages whitelabel da Sognix. Ele deve subir sozinho como produto comercializável e ativar integrações externas somente por configuração.
+Nous é o backend de criação, edição, exportação e gestão de landing pages whitelabel da Sognix. Ele deve subir sozinho como produto comercializável e ativar integrações externas somente por configuração.
 
 ## Camadas
 
@@ -21,7 +21,7 @@ Interface -> App -> Domain <- Infra
 
 A API principal fica em `internal/interface/webapi`, iniciada por `cmd/webapi/main.go`.
 
-Não existe entrypoint `webhook`, `worker` ou `cli` enquanto o domínio não exigir esse fluxo. O Buildnix recebe leads por rota pública HTTP e envia eventos para o Observer de forma opcional.
+Não existe entrypoint `webhook`, `worker` ou `cli` enquanto o domínio não exigir esse fluxo. O Nous recebe leads por rota pública HTTP e envia eventos para o Observer de forma opcional.
 
 OpenAPI:
 
@@ -69,8 +69,8 @@ Controle otimista:
 Entidades protegidas por `version`:
 
 - `usuario`
-- `cliente`
 - `negocio`
+- `unidade`
 - `categoria`
 - `landingpage`
 - autosave de `landingpage`
@@ -108,9 +108,9 @@ Eventos enviados ao Observer usam envelope versionado:
   "event_id": "uuid",
   "event_type": "lead.capturado",
   "schema_version": 1,
-  "source": "buildnix",
+  "source": "nous",
   "occurred_at": "2026-05-01T12:00:00Z",
-  "idempotency_key": "buildnix:lead:uuid",
+  "idempotency_key": "nous:lead:uuid",
   "payload": {}
 }
 ```
@@ -119,7 +119,7 @@ Sem `OBSERVER_URL`, o produto opera standalone. Com `OBSERVER_URL`, os eventos s
 
 ## Leads
 
-Leads são dados comerciais da Sognix/admin. Cliente comum não recebe lista nominal nem métricas de leads no dashboard.
+Leads são dados comerciais da Sognix/admin. Usuário comum não recebe lista nominal nem métricas de leads no dashboard.
 
 Compartilhamento, venda ou repasse de lead deve virar fluxo próprio com consentimento/base legal, contrato e trilha de auditoria.
 
@@ -140,17 +140,17 @@ Landing pages possuem `tipo`:
 - `white_label`: criação baseada em template pronto cadastrado no banco.
 - `customizavel`: criação livre ou iniciada a partir de template, com edição de layout via `conteudo` e `autosave_data`.
 
-Templates também possuem `origem`, `cliente_id`, `tipo` e `conteudo` persistido no PostgreSQL:
+Templates também possuem `origem`, `negocio_id`, `tipo` e `conteudo` persistido no PostgreSQL:
 
-- `origem=sognix`, `cliente_id=NULL`: template oficial criado pela Sognix e disponível globalmente conforme o plano.
-- `origem=cliente`, `cliente_id=<id>`: template criado ou salvo por um cliente, visível apenas para usuários vinculados a esse cliente e admin.
+- `origem=sognix`, `negocio_id=NULL`: template oficial criado pela Sognix e disponível globalmente conforme o plano.
+- `origem=negocio`, `negocio_id=<id>`: template criado ou salvo por um negocio, visível apenas para usuários vinculados a esse negocio e admin.
 
-- `white_label`: pode ser escolhido por clientes white label e usado como base por clientes customizáveis.
-- `base_customizavel`: apenas para clientes com plano customizável.
+- `white_label`: pode ser escolhido por negocios white label e usado como base por negocios customizáveis.
+- `base_customizavel`: apenas para negocios com plano customizável.
 
-A tela de criação/edição de LP deve consultar `GET /templates?cliente_id={cliente_id}`. O backend combina templates oficiais Sognix e templates próprios do cliente, filtrando `base_customizavel` quando o plano ativo não permitir customização.
+A tela de criação/edição de LP deve consultar `GET /templates?negocio_id={negocio_id}`. O backend combina templates oficiais Sognix e templates próprios do negocio, filtrando `base_customizavel` quando o plano ativo não permitir customização.
 
-A regra comercial é aplicada no use case de landing page. Para criar ou manter uma LP `customizavel`, o cliente precisa ter assinatura ativa cujo `plano.limites` contenha:
+A regra comercial é aplicada no use case de landing page. Para criar ou manter uma LP `customizavel`, o negocio precisa ter assinatura ativa cujo `plano.limites` contenha:
 
 ```json
 {
@@ -163,7 +163,7 @@ Planos sem essa chave, ou com valor `false`, ficam restritos ao fluxo `white_lab
 ## Auditoria, Cobrança e BI
 
 - `auditoria`: trilha local para segurança, LGPD e investigação.
-- `uso_cliente_evento`: eventos append-only de uso faturável.
+- `uso_negocio_evento`: eventos append-only de uso faturável.
 - `faturamento_mensal`: fechamento mensal por competência.
 - `bi_metrica_diaria`: agregações para visão Sognix/admin, sem pesar tabelas transacionais.
 

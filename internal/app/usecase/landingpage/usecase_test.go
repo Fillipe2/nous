@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"nous/internal/app/dto"
-	"nous/internal/domain/cliente"
 	"nous/internal/domain/evento"
 	domain "nous/internal/domain/landingpage"
+	"nous/internal/domain/negocio"
 	"nous/internal/domain/plano"
 	"nous/internal/domain/template"
 )
@@ -17,7 +17,7 @@ import (
 type landingPageRepositoryFake struct {
 	landingPage       *domain.LandingPage
 	salva             *domain.LandingPage
-	totalPorCliente   int
+	totalPorNegocio   int
 	contarChamadas    int
 	autosaveChamadas  int
 	atualizarLockPara *string
@@ -41,9 +41,9 @@ func (r *landingPageRepositoryFake) SoftDelete(context.Context, string) error   
 func (r *landingPageRepositoryFake) Listar(context.Context, domain.FiltroListagem) ([]*domain.LandingPage, int, error) {
 	return nil, 0, nil
 }
-func (r *landingPageRepositoryFake) ContarPorCliente(context.Context, string) (int, error) {
+func (r *landingPageRepositoryFake) ContarPorNegocio(context.Context, string) (int, error) {
 	r.contarChamadas++
-	return r.totalPorCliente, nil
+	return r.totalPorNegocio, nil
 }
 func (r *landingPageRepositoryFake) AtualizarAutosave(context.Context, string, []byte, int) (int, error) {
 	r.autosaveChamadas++
@@ -63,33 +63,33 @@ func (r *landingPageRepositoryFake) AtualizarDespublicacao(context.Context, stri
 	return nil
 }
 
-type clienteRepositoryFake struct{ err error }
+type negocioRepositoryFake struct{ err error }
 
-func (r *clienteRepositoryFake) Salvar(context.Context, *cliente.Cliente) error { return nil }
-func (r *clienteRepositoryFake) SalvarComVinculo(context.Context, *cliente.Cliente, *cliente.UsuarioCliente) error {
+func (r *negocioRepositoryFake) Salvar(context.Context, *negocio.Negocio) error { return nil }
+func (r *negocioRepositoryFake) SalvarComVinculo(context.Context, *negocio.Negocio, *negocio.UsuarioNegocio) error {
 	return nil
 }
-func (r *clienteRepositoryFake) BuscarPorID(context.Context, string) (*cliente.Cliente, error) {
-	return nil, cliente.ErrNaoEncontrado
+func (r *negocioRepositoryFake) BuscarPorID(context.Context, string) (*negocio.Negocio, error) {
+	return nil, negocio.ErrNaoEncontrado
 }
-func (r *clienteRepositoryFake) Atualizar(context.Context, *cliente.Cliente) error { return nil }
-func (r *clienteRepositoryFake) SoftDelete(context.Context, string) error          { return nil }
-func (r *clienteRepositoryFake) Listar(context.Context, cliente.FiltroListagem) ([]*cliente.Cliente, int, error) {
+func (r *negocioRepositoryFake) Atualizar(context.Context, *negocio.Negocio) error { return nil }
+func (r *negocioRepositoryFake) SoftDelete(context.Context, string) error          { return nil }
+func (r *negocioRepositoryFake) Listar(context.Context, negocio.FiltroListagem) ([]*negocio.Negocio, int, error) {
 	return nil, 0, nil
 }
-func (r *clienteRepositoryFake) VincularUsuario(context.Context, *cliente.UsuarioCliente) error {
+func (r *negocioRepositoryFake) VincularUsuario(context.Context, *negocio.UsuarioNegocio) error {
 	return nil
 }
-func (r *clienteRepositoryFake) ListarPorUsuario(context.Context, string) ([]*cliente.Cliente, error) {
+func (r *negocioRepositoryFake) ListarPorUsuario(context.Context, string) ([]*negocio.Negocio, error) {
 	return nil, nil
 }
-func (r *clienteRepositoryFake) VerificarAcessoUsuario(context.Context, string, string) error {
+func (r *negocioRepositoryFake) VerificarAcessoUsuario(context.Context, string, string) error {
 	return r.err
 }
 
 type planoRepositoryFake struct{ plano *plano.Plano }
 
-func (r *planoRepositoryFake) BuscarPlanoAtivoPorCliente(context.Context, string) (*plano.Plano, error) {
+func (r *planoRepositoryFake) BuscarPlanoAtivoPorNegocio(context.Context, string) (*plano.Plano, error) {
 	if r.plano == nil {
 		return nil, plano.ErrAssinaturaAtivaNaoEncontrada
 	}
@@ -115,16 +115,16 @@ type publisherFake struct{}
 func (publisherFake) Publicar(context.Context, evento.Evento) error { return nil }
 
 func TestCriarLandingPageCustomizavelRespeitaLimiteDoPlano(t *testing.T) {
-	repository := &landingPageRepositoryFake{totalPorCliente: 1}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{Limites: plano.Limites{LandingPagesCustomizaveis: true, MaxLandingPages: 1}}}, &templateRepositoryFake{}, nil, nil)
+	repository := &landingPageRepositoryFake{totalPorNegocio: 1}
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{Limites: plano.Limites{LandingPagesCustomizaveis: true, MaxLandingPages: 1}}}, &templateRepositoryFake{}, nil, nil)
 
-	_, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{ClienteId: "cliente-1", Nome: "LP", Tipo: string(domain.TipoCustomizavel), Conteudo: "html"}, "usuario-1", "usuario")
+	_, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{NegocioId: "negocio-1", Nome: "LP", Tipo: string(domain.TipoCustomizavel), Conteudo: "html"}, "usuario-1", "usuario")
 
 	if !errors.Is(err, domain.ErrPlanoNaoPermite) {
 		t.Fatalf("erro esperado de limite de plano, recebido %v", err)
 	}
 	if repository.contarChamadas != 1 {
-		t.Fatalf("limite deveria usar ContarPorCliente uma vez, chamadas=%d", repository.contarChamadas)
+		t.Fatalf("limite deveria usar ContarPorNegocio uma vez, chamadas=%d", repository.contarChamadas)
 	}
 	if repository.salva != nil {
 		t.Fatal("landing page acima do limite nao deveria ser salva")
@@ -133,9 +133,9 @@ func TestCriarLandingPageCustomizavelRespeitaLimiteDoPlano(t *testing.T) {
 
 func TestCriarLandingPageWhiteLabelExigeTemplate(t *testing.T) {
 	repository := &landingPageRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{}}, &templateRepositoryFake{}, nil, nil)
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{}}, &templateRepositoryFake{}, nil, nil)
 
-	_, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{ClienteId: "cliente-1", Nome: "LP", Tipo: string(domain.TipoWhiteLabel)}, "usuario-1", "usuario")
+	_, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{NegocioId: "negocio-1", Nome: "LP", Tipo: string(domain.TipoWhiteLabel)}, "usuario-1", "usuario")
 
 	if !errors.Is(err, domain.ErrTemplateObrigatorio) {
 		t.Fatalf("erro esperado de template obrigatorio, recebido %v", err)
@@ -147,9 +147,9 @@ func TestCriarLandingPageWhiteLabelExigeTemplate(t *testing.T) {
 
 func TestCriarLandingPageWhiteLabelUsaTemplateInicial(t *testing.T) {
 	repository := &landingPageRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{}}, &templateRepositoryFake{template: &template.Template{Id: "template-1", ClienteId: "cliente-1", CategoriaId: "categoria-1", Tipo: template.TipoWhiteLabel, Origem: template.OrigemCliente, Conteudo: "html-template"}}, nil, nil)
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, publisherFake{}, &planoRepositoryFake{plano: &plano.Plano{}}, &templateRepositoryFake{template: &template.Template{Id: "template-1", NegocioId: "negocio-1", CategoriaId: "categoria-1", Tipo: template.TipoWhiteLabel, Origem: template.OrigemNegocio, Conteudo: "html-template"}}, nil, nil)
 
-	output, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{ClienteId: "cliente-1", Nome: "LP", Tipo: string(domain.TipoWhiteLabel), TemplateId: "template-1"}, "usuario-1", "usuario")
+	output, err := useCase.CriarLandingPage(context.Background(), dto.CriarLandingPageInput{NegocioId: "negocio-1", Nome: "LP", Tipo: string(domain.TipoWhiteLabel), TemplateId: "template-1"}, "usuario-1", "usuario")
 
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
@@ -163,8 +163,8 @@ func TestCriarLandingPageWhiteLabelUsaTemplateInicial(t *testing.T) {
 }
 
 func TestAutosaveRecusaLandingPageWhiteLabel(t *testing.T) {
-	repository := &landingPageRepositoryFake{landingPage: &domain.LandingPage{Id: "lp-1", ClienteId: "cliente-1", Tipo: domain.TipoWhiteLabel, Version: 1}}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{}, &templateRepositoryFake{}, nil, nil)
+	repository := &landingPageRepositoryFake{landingPage: &domain.LandingPage{Id: "lp-1", NegocioId: "negocio-1", Tipo: domain.TipoWhiteLabel, Version: 1}}
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, publisherFake{}, &planoRepositoryFake{}, &templateRepositoryFake{}, nil, nil)
 
 	_, err := useCase.Autosave(context.Background(), "lp-1", "usuario-1", "usuario", dto.AutosaveInput{AutosaveData: []byte(`{"a":1}`), Version: 1})
 
@@ -179,8 +179,8 @@ func TestAutosaveRecusaLandingPageWhiteLabel(t *testing.T) {
 func TestBloquearEdicaoRespeitaLockAtivoDeOutroUsuario(t *testing.T) {
 	outroUsuario := "usuario-2"
 	lockedAt := time.Now()
-	repository := &landingPageRepositoryFake{landingPage: &domain.LandingPage{Id: "lp-1", ClienteId: "cliente-1", Tipo: domain.TipoCustomizavel, LockedBy: &outroUsuario, LockedAt: &lockedAt}}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, publisherFake{}, &planoRepositoryFake{}, &templateRepositoryFake{}, nil, nil)
+	repository := &landingPageRepositoryFake{landingPage: &domain.LandingPage{Id: "lp-1", NegocioId: "negocio-1", Tipo: domain.TipoCustomizavel, LockedBy: &outroUsuario, LockedAt: &lockedAt}}
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, publisherFake{}, &planoRepositoryFake{}, &templateRepositoryFake{}, nil, nil)
 
 	_, err := useCase.BloquearEdicao(context.Background(), "lp-1", "usuario-1", "usuario")
 

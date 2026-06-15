@@ -11,17 +11,17 @@ func (c *Container) initRepositories() error {
 	if err != nil {
 		return fmt.Errorf("usuario repository: %w", err)
 	}
-	clienteRepository, err := postgres.NewClienteRepository(c.Database)
+	negocioRepository, err := postgres.NewNegocioRepository(c.Database)
 	if err != nil {
-		return fmt.Errorf("cliente repository: %w", err)
+		return fmt.Errorf("negocio repository: %w", err)
 	}
 	dashboardRepository, err := postgres.NewDashboardRepository(c.Database)
 	if err != nil {
 		return fmt.Errorf("dashboard repository: %w", err)
 	}
-	negocioRepository, err := postgres.NewNegocioRepository(c.Database)
+	unidadeRepository, err := postgres.NewUnidadeRepository(c.Database)
 	if err != nil {
-		return fmt.Errorf("negocio repository: %w", err)
+		return fmt.Errorf("unidade repository: %w", err)
 	}
 	categoriaRepository, err := postgres.NewCategoriaRepository(c.Database)
 	if err != nil {
@@ -61,9 +61,9 @@ func (c *Container) initRepositories() error {
 	}
 
 	c.UsuarioRepository = usuarioRepository
-	c.ClienteRepository = clienteRepository
-	c.DashboardRepository = dashboardRepository
 	c.NegocioRepository = negocioRepository
+	c.DashboardRepository = dashboardRepository
+	c.UnidadeRepository = unidadeRepository
 	c.CategoriaRepository = categoriaRepository
 	c.TemplateRepository = templateRepository
 	c.LandingPageRepository = landingPageRepository

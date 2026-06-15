@@ -35,9 +35,9 @@ func main() {
 	servidor, err := (&webapi.Server{
 		AuthUseCase:        container.AuthUseCase,
 		UsuarioUseCase:     container.UsuarioUseCase,
-		ClienteUseCase:     container.ClienteUseCase,
-		DashboardUseCase:   container.DashboardUseCase,
 		NegocioUseCase:     container.NegocioUseCase,
+		DashboardUseCase:   container.DashboardUseCase,
+		UnidadeUseCase:     container.UnidadeUseCase,
 		CategoriaUseCase:   container.CategoriaUseCase,
 		TemplateUseCase:    container.TemplateUseCase,
 		LandingPageUseCase: container.LandingPageUseCase,

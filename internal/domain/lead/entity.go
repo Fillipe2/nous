@@ -54,7 +54,7 @@ func (u UTM) Vazio() bool {
 type Lead struct {
 	Id                   string
 	LandingPageId        string
-	ClienteId            string
+	NegocioId            string
 	Nome                 string
 	Email                string
 	Telefone             string

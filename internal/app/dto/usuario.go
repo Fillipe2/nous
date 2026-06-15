@@ -6,7 +6,6 @@ type CriarUsuarioInput struct {
 	Nome  string `json:"nome"`
 	Email string `json:"email"`
 	Senha string `json:"senha"`
-	Role  string `json:"role,omitempty"`
 }
 
 type AtualizarUsuarioInput struct {
@@ -20,15 +19,25 @@ type AlterarSenhaInput struct {
 	NovaSenha  string `json:"nova_senha"`
 }
 
+type AlterarRoleInput struct {
+	Role string `json:"role"`
+}
+
+type AlterarStatusInput struct {
+	Status string `json:"status"`
+}
+
 type UsuarioOutput struct {
-	Id           string    `json:"id"`
-	Nome         string    `json:"nome"`
-	Email        string    `json:"email"`
-	Role         string    `json:"role"`
-	Status       string    `json:"status"`
-	CriadoEm     time.Time `json:"criado_em"`
-	AtualizadoEm time.Time `json:"atualizado_em"`
-	Version      int       `json:"version"`
+	Id            string     `json:"id"`
+	Nome          string     `json:"nome"`
+	Email         string     `json:"email"`
+	Role          string     `json:"role"`
+	Status        string     `json:"status"`
+	EmailVerified bool       `json:"email_verified"`
+	UltimoLoginEm *time.Time `json:"ultimo_login_em,omitempty"`
+	CriadoEm      time.Time  `json:"criado_em"`
+	AtualizadoEm  time.Time  `json:"atualizado_em"`
+	Version       int        `json:"version"`
 }
 
 type ListaUsuariosOutput struct {

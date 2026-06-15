@@ -10,7 +10,7 @@ import (
 
 	"nous/internal/app/dto"
 	uctemplate "nous/internal/app/usecase/template"
-	"nous/internal/domain/cliente"
+	"nous/internal/domain/negocio"
 	"nous/internal/domain/template"
 	"nous/internal/interface/webapi/internal/middleware"
 
@@ -32,7 +32,7 @@ func (h *TemplateHandler) UploadTemplate(w http.ResponseWriter, r *http.Request)
 	}
 
 	categoriaId := r.FormValue("categoria_id")
-	clienteId := r.FormValue("cliente_id")
+	negocioId := r.FormValue("negocio_id")
 	nome := r.FormValue("nome")
 	if nome == "" {
 		responderErro(w, http.StatusBadRequest, "nome e obrigatorio")
@@ -82,7 +82,7 @@ func (h *TemplateHandler) UploadTemplate(w http.ResponseWriter, r *http.Request)
 	}
 
 	output, err := h.useCase.CriarTemplate(r.Context(), dto.CriarTemplateInput{
-		ClienteId:    clienteId,
+		NegocioId:    negocioId,
 		CategoriaId:  categoriaId,
 		Tipo:         r.FormValue("tipo"),
 		Origem:       r.FormValue("origem"),
@@ -93,7 +93,7 @@ func (h *TemplateHandler) UploadTemplate(w http.ResponseWriter, r *http.Request)
 		ContentType:  contentType,
 		TamanhoBytes: tamanhoBytes,
 	}, claims.UsuarioId, claims.Role)
-	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, template.ErrPlanoNaoPermite) || errors.Is(err, cliente.ErrNaoAutorizado) {
+	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, template.ErrPlanoNaoPermite) || errors.Is(err, negocio.ErrNaoAutorizado) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
 		return
 	}
@@ -107,7 +107,7 @@ func (h *TemplateHandler) UploadTemplate(w http.ResponseWriter, r *http.Request)
 
 func (h *TemplateHandler) ListarTemplates(w http.ResponseWriter, r *http.Request) {
 	categoriaId := r.URL.Query().Get("categoria_id")
-	clienteId := r.URL.Query().Get("cliente_id")
+	negocioId := r.URL.Query().Get("negocio_id")
 	tipo := r.URL.Query().Get("tipo")
 	origem := r.URL.Query().Get("origem")
 	pagina, porPagina := paginacao(r)
@@ -119,7 +119,7 @@ func (h *TemplateHandler) ListarTemplates(w http.ResponseWriter, r *http.Request
 	}
 
 	output, err := h.useCase.ListarTemplates(r.Context(), template.FiltroListagem{
-		ClienteId:   clienteId,
+		NegocioId:   negocioId,
 		CategoriaId: categoriaId,
 		Tipo:        tipo,
 		Origem:      origem,
@@ -132,11 +132,11 @@ func (h *TemplateHandler) ListarTemplates(w http.ResponseWriter, r *http.Request
 		OrdenarPor:  r.URL.Query().Get("ordenar_por"),
 		Ordem:       r.URL.Query().Get("ordem"),
 	}, claims.UsuarioId, claims.Role)
-	if errors.Is(err, template.ErrClienteObrigatorio) {
+	if errors.Is(err, template.ErrNegocioObrigatorio) {
 		responderErro(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, cliente.ErrNaoAutorizado) {
+	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, negocio.ErrNaoAutorizado) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
 		return
 	}
@@ -156,7 +156,7 @@ func (h *TemplateHandler) BaixarTemplate(w http.ResponseWriter, r *http.Request)
 		responderErro(w, http.StatusNotFound, "template nao encontrado")
 		return
 	}
-	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, cliente.ErrNaoAutorizado) {
+	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, negocio.ErrNaoAutorizado) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
 		return
 	}

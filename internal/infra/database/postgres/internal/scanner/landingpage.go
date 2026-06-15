@@ -10,14 +10,14 @@ import (
 )
 
 // LandingPage escaneia uma row do banco para a entidade de domínio LandingPage.
-// Espera as colunas na ordem: id, cliente_id, negocio_id, categoria_id, template_id, tipo,
+// Espera as colunas na ordem: id, negocio_id, unidade_id, categoria_id, template_id, tipo,
 // nome, conteudo, status, is_draft, autosave_data, last_autosave_em, locked_by, locked_at,
 // criado_em, atualizado_em, version, slug, url_publica, deploy_id, publicada_em.
 func LandingPage(row pgx.Row) (*landingpage.LandingPage, error) {
 	var (
 		id             string
-		clienteID      string
-		negocioID      *string
+		negocioID      string
+		unidadeID      *string
 		categoriaID    *string
 		templateID     *string
 		tipo           string
@@ -38,7 +38,7 @@ func LandingPage(row pgx.Row) (*landingpage.LandingPage, error) {
 		publicadaEm    *time.Time
 	)
 	if err := row.Scan(
-		&id, &clienteID, &negocioID, &categoriaID, &templateID,
+		&id, &negocioID, &unidadeID, &categoriaID, &templateID,
 		&tipo, &nome, &conteudo, &status, &isDraft, &autosaveData,
 		&lastAutosaveEm, &lockedBy, &lockedAt,
 		&criadoEm, &atualizadoEm, &version,
@@ -48,7 +48,7 @@ func LandingPage(row pgx.Row) (*landingpage.LandingPage, error) {
 	}
 	lp := &landingpage.LandingPage{
 		Id:             id,
-		ClienteId:      clienteID,
+		NegocioId:      negocioID,
 		Tipo:           landingpage.Tipo(tipo),
 		Nome:           nome,
 		Status:         landingpage.Status(status),
@@ -64,8 +64,8 @@ func LandingPage(row pgx.Row) (*landingpage.LandingPage, error) {
 		AtualizadoEm:   atualizadoEm,
 		Version:        version,
 	}
-	if negocioID != nil {
-		lp.NegocioId = *negocioID
+	if unidadeID != nil {
+		lp.UnidadeId = *unidadeID
 	}
 	if categoriaID != nil {
 		lp.CategoriaId = *categoriaID

@@ -259,7 +259,7 @@ func limparBucketsExpirados(agora time.Time) {
 
 func classeRota(r *http.Request) string {
 	path := r.URL.Path
-	if r.Method == http.MethodPost && (path == "/auth/login" || path == "/auth/refresh" || path == "/auth/esqueci-senha" || path == "/auth/redefinir-senha" || path == "/usuarios" || path == "/leads") {
+	if r.Method == http.MethodPost && (path == "/auth/login" || path == "/auth/refresh" || path == "/auth/esqueci-senha" || path == "/auth/redefinir-senha" || path == "/auth/solicitar-verificacao-email" || path == "/auth/verificar-email" || path == "/usuarios" || path == "/leads") {
 		return path
 	}
 	if strings.HasPrefix(path, "/auth/google") {
@@ -268,7 +268,7 @@ func classeRota(r *http.Request) string {
 	return ""
 }
 
-// ClienteIP resolve o IP do cliente de forma resistente a spoofing.
+// ClienteIP resolve o IP do cliente HTTP de forma resistente a spoofing.
 //
 // Por padrão (TRUSTED_PROXY_COUNT=0) o cabeçalho X-Forwarded-For é ignorado e
 // usa-se apenas o endereço da conexão (RemoteAddr), pois o XFF pode ser forjado

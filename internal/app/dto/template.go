@@ -4,7 +4,7 @@ import "time"
 
 type TemplateOutput struct {
 	Id           string    `json:"id"`
-	ClienteId    string    `json:"cliente_id,omitempty"`
+	NegocioId    string    `json:"negocio_id,omitempty"`
 	CategoriaId  string    `json:"categoria_id"`
 	Tipo         string    `json:"tipo"`
 	Origem       string    `json:"origem"`
@@ -21,7 +21,7 @@ type TemplateOutput struct {
 }
 
 type CriarTemplateInput struct {
-	ClienteId    string
+	NegocioId    string
 	CategoriaId  string
 	Tipo         string
 	Origem       string

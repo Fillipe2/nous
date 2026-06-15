@@ -23,6 +23,9 @@ func (u *UseCase) CriarUsuario(ctx context.Context, input dto.CriarUsuarioInput)
 	if input.Nome == "" || input.Email == "" || input.Senha == "" {
 		return nil, fmt.Errorf("nome, email e senha sao obrigatorios")
 	}
+	if err := domain.ValidarSenha(input.Senha); err != nil {
+		return nil, err
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Senha), bcrypt.DefaultCost)
 	if err != nil {
@@ -71,8 +74,10 @@ func (u *UseCase) AtualizarUsuario(ctx context.Context, id string, input dto.Atu
 	if input.Nome != "" {
 		us.Nome = input.Nome
 	}
-	if input.Email != "" {
+	if input.Email != "" && input.Email != us.Email {
 		us.Email = input.Email
+		// E-mail alterado deixa de ser verificado até nova confirmação.
+		us.EmailVerified = false
 	}
 	us.AtualizadoEm = time.Now()
 	us.Version++
@@ -87,6 +92,9 @@ func (u *UseCase) AtualizarUsuario(ctx context.Context, id string, input dto.Atu
 func (u *UseCase) AlterarSenha(ctx context.Context, id string, input dto.AlterarSenhaInput) error {
 	if input.SenhaAtual == "" || input.NovaSenha == "" {
 		return fmt.Errorf("senha atual e nova senha sao obrigatorias")
+	}
+	if err := domain.ValidarSenha(input.NovaSenha); err != nil {
+		return err
 	}
 
 	us, err := u.repository.BuscarPorID(ctx, id)
@@ -109,6 +117,76 @@ func (u *UseCase) AlterarSenha(ctx context.Context, id string, input dto.Alterar
 		return fmt.Errorf("alterar senha salvar: %w", err)
 	}
 	return nil
+}
+
+// AlterarRole promove ou rebaixa um usuário (ação restrita a admin). Impede
+// rebaixar o último administrador ativo, evitando lockout do sistema.
+func (u *UseCase) AlterarRole(ctx context.Context, id string, novoRole string) (*dto.UsuarioOutput, error) {
+	role := domain.Role(novoRole)
+	if !domain.RoleValida(role) {
+		return nil, domain.ErrRoleInvalida
+	}
+
+	us, err := u.repository.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("alterar role: %w", err)
+	}
+	if us.Role == role {
+		return mapearUsuarioOutput(us), nil
+	}
+
+	if us.Role == domain.RoleAdmin && role != domain.RoleAdmin {
+		total, err := u.repository.ContarAdministradoresAtivos(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("alterar role contar admins: %w", err)
+		}
+		if total <= 1 {
+			return nil, domain.ErrUltimoAdmin
+		}
+	}
+
+	us.Role = role
+	us.AtualizadoEm = time.Now()
+	us.Version++
+	if err := u.repository.Atualizar(ctx, us); err != nil {
+		return nil, fmt.Errorf("alterar role salvar: %w", err)
+	}
+	return mapearUsuarioOutput(us), nil
+}
+
+// AlterarStatus ativa ou inativa um usuário (ação restrita a admin). A exclusão
+// é feita pelo soft delete dedicado. Impede inativar o último admin ativo.
+func (u *UseCase) AlterarStatus(ctx context.Context, id string, novoStatus string) (*dto.UsuarioOutput, error) {
+	status := domain.Status(novoStatus)
+	if !domain.StatusGerenciavelValido(status) {
+		return nil, domain.ErrStatusInvalido
+	}
+
+	us, err := u.repository.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("alterar status: %w", err)
+	}
+	if us.Status == status {
+		return mapearUsuarioOutput(us), nil
+	}
+
+	if us.Role == domain.RoleAdmin && us.Status == domain.StatusAtivo && status != domain.StatusAtivo {
+		total, err := u.repository.ContarAdministradoresAtivos(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("alterar status contar admins: %w", err)
+		}
+		if total <= 1 {
+			return nil, domain.ErrUltimoAdmin
+		}
+	}
+
+	us.Status = status
+	us.AtualizadoEm = time.Now()
+	us.Version++
+	if err := u.repository.Atualizar(ctx, us); err != nil {
+		return nil, fmt.Errorf("alterar status salvar: %w", err)
+	}
+	return mapearUsuarioOutput(us), nil
 }
 
 func (u *UseCase) ExcluirUsuario(ctx context.Context, id string) error {
@@ -139,13 +217,15 @@ func (u *UseCase) ListarUsuarios(ctx context.Context, filtro domain.FiltroListag
 
 func mapearUsuarioOutput(us *domain.Usuario) *dto.UsuarioOutput {
 	return &dto.UsuarioOutput{
-		Id:           us.Id,
-		Nome:         us.Nome,
-		Email:        us.Email,
-		Role:         string(us.Role),
-		Status:       string(us.Status),
-		CriadoEm:     us.CriadoEm,
-		AtualizadoEm: us.AtualizadoEm,
-		Version:      us.Version,
+		Id:            us.Id,
+		Nome:          us.Nome,
+		Email:         us.Email,
+		Role:          string(us.Role),
+		Status:        string(us.Status),
+		EmailVerified: us.EmailVerified,
+		UltimoLoginEm: us.UltimoLoginEm,
+		CriadoEm:      us.CriadoEm,
+		AtualizadoEm:  us.AtualizadoEm,
+		Version:       us.Version,
 	}
 }

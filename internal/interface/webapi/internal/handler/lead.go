@@ -71,7 +71,7 @@ func (h *LeadHandler) ListarLeads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filtro := lead.FiltroListagem{
-		ClienteId:     r.URL.Query().Get("cliente_id"),
+		NegocioId:     r.URL.Query().Get("negocio_id"),
 		LandingPageId: r.URL.Query().Get("landingpage_id"),
 		Nome:          r.URL.Query().Get("nome"),
 		Email:         r.URL.Query().Get("email"),

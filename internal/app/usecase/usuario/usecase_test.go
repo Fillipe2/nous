@@ -13,12 +13,18 @@ import (
 )
 
 type usuarioRepositoryFake struct {
-	usuario    *domain.Usuario
-	atualizado *domain.Usuario
-	salvo      *domain.Usuario
+	usuario      *domain.Usuario
+	atualizado   *domain.Usuario
+	salvo        *domain.Usuario
+	adminsAtivos int
+	salvarErr    error
+	atualizarErr error
 }
 
 func (r *usuarioRepositoryFake) Salvar(_ context.Context, u *domain.Usuario) error {
+	if r.salvarErr != nil {
+		return r.salvarErr
+	}
 	u.Id = "usuario-novo"
 	r.salvo = u
 	return nil
@@ -36,8 +42,19 @@ func (r *usuarioRepositoryFake) BuscarPorEmail(context.Context, string) (*domain
 }
 
 func (r *usuarioRepositoryFake) Atualizar(_ context.Context, u *domain.Usuario) error {
+	if r.atualizarErr != nil {
+		return r.atualizarErr
+	}
 	r.atualizado = u
 	return nil
+}
+
+func (r *usuarioRepositoryFake) AtualizarUltimoLogin(context.Context, string, time.Time) error {
+	return nil
+}
+
+func (r *usuarioRepositoryFake) ContarAdministradoresAtivos(context.Context) (int, error) {
+	return r.adminsAtivos, nil
 }
 
 func (r *usuarioRepositoryFake) SoftDelete(context.Context, string) error { return nil }
@@ -68,6 +85,15 @@ func (r *usuarioRepositoryFake) BuscarResetSenhaTokenPorHash(context.Context, st
 	return nil, domain.ErrNaoEncontrado
 }
 func (r *usuarioRepositoryFake) MarcarResetSenhaTokenUsado(context.Context, string, time.Time) error {
+	return nil
+}
+func (r *usuarioRepositoryFake) SalvarVerificacaoEmailToken(context.Context, *domain.VerificacaoEmailToken) error {
+	return nil
+}
+func (r *usuarioRepositoryFake) BuscarVerificacaoEmailTokenPorHash(context.Context, string) (*domain.VerificacaoEmailToken, error) {
+	return nil, domain.ErrNaoEncontrado
+}
+func (r *usuarioRepositoryFake) MarcarVerificacaoEmailTokenUsado(context.Context, string, time.Time) error {
 	return nil
 }
 
@@ -130,13 +156,13 @@ func TestAlterarSenhaValidaAtualERehashNova(t *testing.T) {
 	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "usuario-1", SenhaHash: string(senhaAntiga), Role: domain.RoleUsuario, Status: domain.StatusAtivo, Version: 3}}
 	useCase := NewUseCase(repository)
 
-	if err := useCase.AlterarSenha(context.Background(), "usuario-1", dto.AlterarSenhaInput{SenhaAtual: "antiga", NovaSenha: "nova"}); err != nil {
+	if err := useCase.AlterarSenha(context.Background(), "usuario-1", dto.AlterarSenhaInput{SenhaAtual: "antiga", NovaSenha: "nova-senha-segura"}); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	if repository.atualizado == nil || repository.atualizado.Version != 4 {
 		t.Fatalf("usuario atualizado inesperado: %+v", repository.atualizado)
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(repository.atualizado.SenhaHash), []byte("nova")); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(repository.atualizado.SenhaHash), []byte("nova-senha-segura")); err != nil {
 		t.Fatalf("hash atualizado nao corresponde a senha nova: %v", err)
 	}
 }
@@ -149,12 +175,117 @@ func TestAlterarSenhaRecusaSenhaAtualInvalida(t *testing.T) {
 	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "usuario-1", SenhaHash: string(senhaAntiga), Version: 3}}
 	useCase := NewUseCase(repository)
 
-	err = useCase.AlterarSenha(context.Background(), "usuario-1", dto.AlterarSenhaInput{SenhaAtual: "errada", NovaSenha: "nova"})
+	err = useCase.AlterarSenha(context.Background(), "usuario-1", dto.AlterarSenhaInput{SenhaAtual: "errada", NovaSenha: "nova-senha-segura"})
 
 	if !errors.Is(err, domain.ErrNaoAutorizado) {
 		t.Fatalf("erro esperado ErrNaoAutorizado, recebido %v", err)
 	}
 	if repository.atualizado != nil {
 		t.Fatal("senha nao deveria ser atualizada com senha atual invalida")
+	}
+}
+
+func TestCriarUsuarioEmailDuplicado(t *testing.T) {
+	repository := &usuarioRepositoryFake{salvarErr: domain.ErrEmailDuplicado}
+	useCase := NewUseCase(repository)
+
+	_, err := useCase.CriarUsuario(context.Background(), dto.CriarUsuarioInput{Nome: "Maria", Email: "m@x.com", Senha: "uma-senha-segura"})
+	if !errors.Is(err, domain.ErrEmailDuplicado) {
+		t.Fatalf("esperava ErrEmailDuplicado, recebeu %v", err)
+	}
+}
+
+func TestAlterarRolePromove(t *testing.T) {
+	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "u1", Role: domain.RoleUsuario, Status: domain.StatusAtivo, Version: 2}}
+	useCase := NewUseCase(repository)
+
+	out, err := useCase.AlterarRole(context.Background(), "u1", "admin")
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if out.Role != "admin" {
+		t.Fatalf("esperava role admin, recebeu %s", out.Role)
+	}
+	if repository.atualizado == nil || repository.atualizado.Version != 3 {
+		t.Fatalf("atualizacao inesperada: %+v", repository.atualizado)
+	}
+}
+
+func TestAlterarRoleRoleInvalida(t *testing.T) {
+	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "u1", Role: domain.RoleUsuario, Status: domain.StatusAtivo, Version: 1}}
+	useCase := NewUseCase(repository)
+
+	_, err := useCase.AlterarRole(context.Background(), "u1", "superuser")
+	if !errors.Is(err, domain.ErrRoleInvalida) {
+		t.Fatalf("esperava ErrRoleInvalida, recebeu %v", err)
+	}
+}
+
+func TestAlterarRoleBloqueiaUltimoAdmin(t *testing.T) {
+	repository := &usuarioRepositoryFake{
+		usuario:      &domain.Usuario{Id: "u1", Role: domain.RoleAdmin, Status: domain.StatusAtivo, Version: 1},
+		adminsAtivos: 1,
+	}
+	useCase := NewUseCase(repository)
+
+	_, err := useCase.AlterarRole(context.Background(), "u1", "usuario")
+	if !errors.Is(err, domain.ErrUltimoAdmin) {
+		t.Fatalf("esperava ErrUltimoAdmin, recebeu %v", err)
+	}
+	if repository.atualizado != nil {
+		t.Fatal("nao deveria rebaixar o ultimo admin")
+	}
+}
+
+func TestAlterarRoleRebaixaComOutrosAdmins(t *testing.T) {
+	repository := &usuarioRepositoryFake{
+		usuario:      &domain.Usuario{Id: "u1", Role: domain.RoleAdmin, Status: domain.StatusAtivo, Version: 1},
+		adminsAtivos: 2,
+	}
+	useCase := NewUseCase(repository)
+
+	out, err := useCase.AlterarRole(context.Background(), "u1", "usuario")
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if out.Role != "usuario" {
+		t.Fatalf("esperava role usuario, recebeu %s", out.Role)
+	}
+}
+
+func TestAlterarStatusInativa(t *testing.T) {
+	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "u1", Role: domain.RoleUsuario, Status: domain.StatusAtivo, Version: 1}}
+	useCase := NewUseCase(repository)
+
+	out, err := useCase.AlterarStatus(context.Background(), "u1", "inativo")
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if out.Status != "inativo" || repository.atualizado == nil {
+		t.Fatalf("status nao atualizado: %+v", out)
+	}
+}
+
+func TestAlterarStatusInvalidoRejeitaExcluido(t *testing.T) {
+	repository := &usuarioRepositoryFake{usuario: &domain.Usuario{Id: "u1", Status: domain.StatusAtivo, Version: 1}}
+	useCase := NewUseCase(repository)
+
+	if _, err := useCase.AlterarStatus(context.Background(), "u1", "excluido"); !errors.Is(err, domain.ErrStatusInvalido) {
+		t.Fatalf("esperava ErrStatusInvalido, recebeu %v", err)
+	}
+}
+
+func TestAlterarStatusBloqueiaInativarUltimoAdmin(t *testing.T) {
+	repository := &usuarioRepositoryFake{
+		usuario:      &domain.Usuario{Id: "u1", Role: domain.RoleAdmin, Status: domain.StatusAtivo, Version: 1},
+		adminsAtivos: 1,
+	}
+	useCase := NewUseCase(repository)
+
+	if _, err := useCase.AlterarStatus(context.Background(), "u1", "inativo"); !errors.Is(err, domain.ErrUltimoAdmin) {
+		t.Fatalf("esperava ErrUltimoAdmin, recebeu %v", err)
+	}
+	if repository.atualizado != nil {
+		t.Fatal("nao deveria inativar o ultimo admin")
 	}
 }

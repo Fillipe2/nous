@@ -6,8 +6,8 @@ import (
 )
 
 type FiltroListagem struct {
-	ClienteId   string
 	NegocioId   string
+	UnidadeId   string
 	CategoriaId string
 	TemplateId  string
 	Tipo        string
@@ -29,7 +29,7 @@ type Repository interface {
 	Atualizar(ctx context.Context, lp *LandingPage) error
 	SoftDelete(ctx context.Context, id string) error
 	Listar(ctx context.Context, filtro FiltroListagem) ([]*LandingPage, int, error)
-	ContarPorCliente(ctx context.Context, clienteId string) (int, error)
+	ContarPorNegocio(ctx context.Context, negocioId string) (int, error)
 	AtualizarAutosave(ctx context.Context, id string, dados []byte, version int) (int, error)
 	AtualizarLock(ctx context.Context, id string, usuarioId *string) error
 	VerificarAcessoUsuario(ctx context.Context, landingPageId, usuarioId string) error

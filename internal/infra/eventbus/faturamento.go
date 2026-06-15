@@ -46,18 +46,18 @@ func (p *FaturamentoPublisher) registrarUso(ev evento.Evento) {
 	}
 
 	dimensoes := dimensoesParaEvento(ev)
-	if err := p.bi.IncrementarMetrica(ctx, uso.ClienteId, time.Now().UTC(), ev.EventType, 1, dimensoes); err != nil {
+	if err := p.bi.IncrementarMetrica(ctx, uso.NegocioId, time.Now().UTC(), ev.EventType, 1, dimensoes); err != nil {
 		log.Printf("[faturamento] bi metrica evento=%s: %v", ev.EventType, err)
 	}
 }
 
-// usoParaEvento mapeia um evento de domínio para um UsoClienteEvento,
-// extraindo cliente_id e entidade do payload quando disponíveis.
-func usoParaEvento(ev evento.Evento) *faturamento.UsoClienteEvento {
+// usoParaEvento mapeia um evento de domínio para um UsoNegocioEvento,
+// extraindo negocio_id e entidade do payload quando disponíveis.
+func usoParaEvento(ev evento.Evento) *faturamento.UsoNegocioEvento {
 	switch ev.EventType {
 	case "landingpage.criada", "landingpage.publicada", "landingpage.exportada":
-		return &faturamento.UsoClienteEvento{
-			ClienteId:  strPayload(ev.Payload, "cliente_id"),
+		return &faturamento.UsoNegocioEvento{
+			NegocioId:  strPayload(ev.Payload, "negocio_id"),
 			EntidadeId: strPayload(ev.Payload, "landingpage_id"),
 			Entidade:   "landingpage",
 			Tipo:       ev.EventType,
@@ -66,8 +66,8 @@ func usoParaEvento(ev evento.Evento) *faturamento.UsoClienteEvento {
 			OcorridoEm: ev.OccurredAt,
 		}
 	case "lead.capturado":
-		return &faturamento.UsoClienteEvento{
-			ClienteId:  strPayload(ev.Payload, "cliente_id"),
+		return &faturamento.UsoNegocioEvento{
+			NegocioId:  strPayload(ev.Payload, "negocio_id"),
 			EntidadeId: strPayload(ev.Payload, "lead_id"),
 			Entidade:   "lead",
 			Tipo:       ev.EventType,
@@ -76,8 +76,8 @@ func usoParaEvento(ev evento.Evento) *faturamento.UsoClienteEvento {
 			OcorridoEm: ev.OccurredAt,
 		}
 	case "lead_aquisicao.registrado":
-		return &faturamento.UsoClienteEvento{
-			ClienteId:  "",
+		return &faturamento.UsoNegocioEvento{
+			NegocioId:  "",
 			EntidadeId: strPayload(ev.Payload, "lead_aquisicao_id"),
 			Entidade:   "lead_aquisicao",
 			Tipo:       ev.EventType,

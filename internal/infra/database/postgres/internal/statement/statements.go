@@ -20,8 +20,10 @@ type Statements struct {
 	BuscarUsuarioPorID                   string
 	BuscarUsuarioPorEmail                string
 	AtualizarUsuario                     string
+	AtualizarUltimoLoginUsuario          string
 	SoftDeleteUsuario                    string
 	ContarUsuarios                       string
+	ContarAdministradoresAtivos          string
 	ListarUsuarios                       string
 	SalvarUsuarioAuth                    string
 	BuscarUsuarioAuthPorProvider         string
@@ -34,8 +36,12 @@ type Statements struct {
 	BuscarUsuarioResetSenhaTokenPorHash  string
 	MarcarUsuarioResetSenhaTokenUsado    string
 
+	SalvarUsuarioVerificacaoEmailToken        string
+	BuscarUsuarioVerificacaoEmailTokenPorHash string
+	MarcarUsuarioVerificacaoEmailTokenUsado   string
+
 	// plano
-	BuscarPlanoAtivoPorCliente string
+	BuscarPlanoAtivoPorNegocio string
 
 	// categoria
 	SalvarCategoria      string
@@ -45,24 +51,24 @@ type Statements struct {
 	ContarCategorias     string
 	ListarCategorias     string
 
-	// cliente
-	SalvarCliente            string
-	BuscarClientePorID       string
-	AtualizarCliente         string
-	SoftDeleteCliente        string
-	ContarClientes           string
-	ListarClientes           string
-	VincularUsuarioCliente   string
-	ListarClientesPorUsuario string
-	VerificarAcessoCliente   string
-
 	// negocio
 	SalvarNegocio            string
 	BuscarNegocioPorID       string
 	AtualizarNegocio         string
 	SoftDeleteNegocio        string
-	ContarNegociosPorCliente string
-	ListarNegociosPorCliente string
+	ContarNegocios           string
+	ListarNegocios           string
+	VincularUsuarioNegocio   string
+	ListarNegociosPorUsuario string
+	VerificarAcessoNegocio   string
+
+	// unidade
+	SalvarUnidade            string
+	BuscarUnidadePorID       string
+	AtualizarUnidade         string
+	SoftDeleteUnidade        string
+	ContarUnidadesPorNegocio string
+	ListarUnidadesPorNegocio string
 
 	// template
 	SalvarTemplate              string
@@ -74,16 +80,16 @@ type Statements struct {
 	ListarTemplatesPorCategoria string
 
 	// landingpage
-	SalvarLandingPage               string
-	BuscarLandingPagePorID          string
-	AtualizarLandingPage            string
-	SoftDeleteLandingPage           string
-	AtualizarAutosaveLandingPage    string
-	BloquearLandingPage             string
-	DesbloquearLandingPage          string
-	VerificarAcessoLandingPage      string
-	ContarLandingPagesPorCliente    string
-	AtualizarPublicacaoLandingPage  string
+	SalvarLandingPage                 string
+	BuscarLandingPagePorID            string
+	AtualizarLandingPage              string
+	SoftDeleteLandingPage             string
+	AtualizarAutosaveLandingPage      string
+	BloquearLandingPage               string
+	DesbloquearLandingPage            string
+	VerificarAcessoLandingPage        string
+	ContarLandingPagesPorNegocio      string
+	AtualizarPublicacaoLandingPage    string
 	AtualizarDespublicacaoLandingPage string
 
 	// lead
@@ -107,7 +113,7 @@ type Statements struct {
 	BuscarMaisRecenteExportacaoPorLandingPage string
 
 	// dashboard
-	ObterResumoDashboardCliente            string
+	ObterResumoDashboardNegocio            string
 	ObterLandingPageMaisUtilizadaDashboard string
 	ObterResumoDashboardAdmin              string
 
@@ -122,12 +128,12 @@ type Statements struct {
 	BuscarEventosOutboxPendentes string
 
 	// faturamento / uso / BI
-	RegistrarUsoClienteEvento          string
+	RegistrarUsoNegocioEvento            string
 	ObterFaturamentoMensalPorCompetencia string
-	CriarFaturamentoMensal             string
-	AdicionarUsoFaturamentoMensal      string
-	FecharFaturamentoMensal            string
-	IncrementarBiMetricaDiaria         string
+	CriarFaturamentoMensal               string
+	AdicionarUsoFaturamentoMensal        string
+	FecharFaturamentoMensal              string
+	IncrementarBiMetricaDiaria           string
 }
 
 var stmts Statements

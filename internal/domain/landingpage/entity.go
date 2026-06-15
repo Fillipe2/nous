@@ -32,8 +32,8 @@ const (
 
 type LandingPage struct {
 	Id             string
-	ClienteId      string
 	NegocioId      string
+	UnidadeId      string
 	CategoriaId    string
 	TemplateId     string
 	Tipo           Tipo

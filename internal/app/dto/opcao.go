@@ -7,7 +7,7 @@ type OpcaoOutput struct {
 	Status      string `json:"status,omitempty"`
 	Tipo        string `json:"tipo,omitempty"`
 	Origem      string `json:"origem,omitempty"`
-	ClienteId   string `json:"cliente_id,omitempty"`
+	NegocioId   string `json:"negocio_id,omitempty"`
 	CategoriaId string `json:"categoria_id,omitempty"`
 }
 

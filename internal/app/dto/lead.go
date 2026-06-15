@@ -41,7 +41,7 @@ type LeadOutput struct {
 	Id                   string          `json:"id"`
 	LandingPageId        string          `json:"landingpage_id"`
 	LandingPageNome      string          `json:"landingpage_nome,omitempty"`
-	ClienteId            string          `json:"cliente_id,omitempty"`
+	NegocioId            string          `json:"negocio_id,omitempty"`
 	Nome                 string          `json:"nome"`
 	Email                string          `json:"email"`
 	Telefone             string          `json:"telefone"`

@@ -90,7 +90,7 @@ func (u *UseCase) CapturarLead(ctx context.Context, input dto.CapturarLeadInput,
 
 	l := &domain.Lead{
 		LandingPageId:        input.LandingPageId,
-		ClienteId:            lp.ClienteId,
+		NegocioId:            lp.NegocioId,
 		Nome:                 input.Nome,
 		Email:                input.Email,
 		Telefone:             input.Telefone,
@@ -127,7 +127,7 @@ func (u *UseCase) publicarEvento(ctx context.Context, l *domain.Lead) {
 		"lead_id":        l.Id,
 		"origem_id":      l.LandingPageId,
 		"landingpage_id": l.LandingPageId,
-		"cliente_id":     l.ClienteId,
+		"negocio_id":     l.NegocioId,
 		"nome":           l.Nome,
 		"email":          l.Email,
 		"telefone":       l.Telefone,
@@ -282,7 +282,7 @@ func mapearLeadOutput(l *domain.Lead) *dto.LeadOutput {
 	out := &dto.LeadOutput{
 		Id:                   l.Id,
 		LandingPageId:        l.LandingPageId,
-		ClienteId:            l.ClienteId,
+		NegocioId:            l.NegocioId,
 		Nome:                 l.Nome,
 		Email:                l.Email,
 		Telefone:             l.Telefone,

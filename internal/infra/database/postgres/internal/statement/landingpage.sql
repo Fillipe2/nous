@@ -1,11 +1,11 @@
 -- name: SalvarLandingPage
-INSERT INTO landingpage (id, cliente_id, negocio_id, categoria_id, template_id, tipo, nome, slug, conteudo,
+INSERT INTO landingpage (id, negocio_id, unidade_id, categoria_id, template_id, tipo, nome, slug, conteudo,
     status, is_draft, autosave_data, criado_em, atualizado_em, version)
-VALUES (@id, @cliente_id, @negocio_id, @categoria_id, @template_id, @tipo, @nome, @slug, @conteudo,
+VALUES (@id, @negocio_id, @unidade_id, @categoria_id, @template_id, @tipo, @nome, @slug, @conteudo,
     @status, @is_draft, @autosave_data::jsonb, @criado_em, @atualizado_em, @version);
 
 -- name: BuscarLandingPagePorID
-SELECT id, cliente_id, negocio_id, categoria_id, template_id, tipo,
+SELECT id, negocio_id, unidade_id, categoria_id, template_id, tipo,
     nome, conteudo, status, is_draft, autosave_data,
     last_autosave_em, locked_by, locked_at, criado_em, atualizado_em, version,
     slug, url_publica, deploy_id, publicada_em
@@ -13,7 +13,7 @@ FROM landingpage WHERE id=@id AND status != 'excluida';
 
 -- name: AtualizarLandingPage
 UPDATE landingpage
-SET negocio_id=@negocio_id, categoria_id=@categoria_id, template_id=@template_id, tipo=@tipo,
+SET unidade_id=@unidade_id, categoria_id=@categoria_id, template_id=@template_id, tipo=@tipo,
     nome=@nome, slug=@slug, conteudo=@conteudo, status=@status, is_draft=@is_draft,
     atualizado_em=@atualizado_em, version=@version
 WHERE id=@id AND version=@version_anterior;
@@ -39,14 +39,14 @@ UPDATE landingpage SET locked_by=NULL, locked_at=NULL WHERE id=@id;
 -- name: VerificarAcessoLandingPage
 SELECT EXISTS (
     SELECT 1 FROM landingpage lp
-    JOIN usuario_cliente uc ON uc.cliente_id = lp.cliente_id
+    JOIN usuario_negocio uc ON uc.negocio_id = lp.negocio_id
     WHERE lp.id = @id AND uc.usuario_id = @usuario_id AND lp.status != 'excluida'
 ) AS acesso;
 
--- name: ContarLandingPagesPorCliente
+-- name: ContarLandingPagesPorNegocio
 SELECT COUNT(*)
 FROM landingpage
-WHERE cliente_id = @cliente_id AND status != 'excluida';
+WHERE negocio_id = @negocio_id AND status != 'excluida';
 
 -- name: AtualizarPublicacaoLandingPage
 UPDATE landingpage

@@ -5,10 +5,10 @@ import (
 	"time"
 )
 
-// UsoClienteEvento registra uma unidade de consumo mensurável por cliente.
-type UsoClienteEvento struct {
+// UsoNegocioEvento registra uma unidade de consumo mensurável por negocio.
+type UsoNegocioEvento struct {
 	Id                   string
-	ClienteId            string
+	NegocioId            string
 	UsuarioId            string
 	Entidade             string
 	EntidadeId           string
@@ -20,10 +20,10 @@ type UsoClienteEvento struct {
 	OcorridoEm           time.Time
 }
 
-// FaturamentoMensal representa o consolidado financeiro de um cliente em uma competência.
+// FaturamentoMensal representa o consolidado financeiro de um negocio em uma competência.
 type FaturamentoMensal struct {
 	Id                   string
-	ClienteId            string
+	NegocioId            string
 	AssinaturaId         string
 	Competencia          time.Time
 	ValorMensalCentavos  int
@@ -33,10 +33,10 @@ type FaturamentoMensal struct {
 	FechadoEm            *time.Time
 }
 
-// BiMetricaDiaria armazena uma métrica agregada por cliente/dia.
+// BiMetricaDiaria armazena uma métrica agregada por negocio/dia.
 type BiMetricaDiaria struct {
 	Id           string
-	ClienteId    string
+	NegocioId    string
 	Data         time.Time
 	Metrica      string
 	Valor        float64

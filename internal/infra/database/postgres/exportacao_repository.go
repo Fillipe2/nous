@@ -77,13 +77,13 @@ func (r *ExportacaoRepository) Listar(ctx context.Context, filtro exportacao.Fil
 	query := `SELECT e.id, e.landingpage_id, e.usuario_id, e.nome_arquivo, e.content_type, e.tamanho_bytes, ''::bytea AS arquivo, e.hash, e.criado_em FROM exportacao e`
 	args := []any{}
 	argIdx := 1
-	if filtro.ClienteId != "" {
+	if filtro.NegocioId != "" {
 		query += " INNER JOIN landingpage lp ON lp.id=e.landingpage_id"
 	}
 	query += " WHERE 1=1"
-	if filtro.ClienteId != "" {
-		query += fmt.Sprintf(" AND lp.cliente_id=$%d", argIdx)
-		args = append(args, filtro.ClienteId)
+	if filtro.NegocioId != "" {
+		query += fmt.Sprintf(" AND lp.negocio_id=$%d", argIdx)
+		args = append(args, filtro.NegocioId)
 		argIdx++
 	}
 	if filtro.LandingPageId != "" {

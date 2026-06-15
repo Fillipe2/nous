@@ -5,17 +5,17 @@ import (
 	"fmt"
 
 	"nous/internal/app/dto"
-	"nous/internal/domain/cliente"
 	domain "nous/internal/domain/dashboard"
+	"nous/internal/domain/negocio"
 )
 
 type UseCase struct {
 	repository        domain.Repository
-	clienteRepository cliente.Repository
+	negocioRepository negocio.Repository
 }
 
-func NewUseCase(repository domain.Repository, clienteRepository cliente.Repository) *UseCase {
-	return &UseCase{repository: repository, clienteRepository: clienteRepository}
+func NewUseCase(repository domain.Repository, negocioRepository negocio.Repository) *UseCase {
+	return &UseCase{repository: repository, negocioRepository: negocioRepository}
 }
 
 func (u *UseCase) ObterDashboard(ctx context.Context, filtro domain.FiltroPeriodo, usuarioId, role string) (any, error) {
@@ -34,48 +34,48 @@ func (u *UseCase) ObterDashboardUsuario(ctx context.Context, usuarioId string, f
 	return mapearDashboardUsuarioOutput(resumo), nil
 }
 
-func (u *UseCase) ObterDashboardCliente(ctx context.Context, clienteId string, filtro domain.FiltroPeriodo, usuarioId, role string) (*dto.DashboardClienteOutput, error) {
-	if clienteId == "" {
-		return nil, domain.ErrClienteObrigatorio
+func (u *UseCase) ObterDashboardNegocio(ctx context.Context, negocioId string, filtro domain.FiltroPeriodo, usuarioId, role string) (*dto.DashboardNegocioOutput, error) {
+	if negocioId == "" {
+		return nil, domain.ErrNegocioObrigatorio
 	}
 	if role != "admin" {
-		if err := u.clienteRepository.VerificarAcessoUsuario(ctx, clienteId, usuarioId); err != nil {
-			return nil, fmt.Errorf("dashboard acesso cliente: %w", err)
+		if err := u.negocioRepository.VerificarAcessoUsuario(ctx, negocioId, usuarioId); err != nil {
+			return nil, fmt.Errorf("dashboard acesso negocio: %w", err)
 		}
 	}
 
-	resumo, err := u.repository.ObterResumoCliente(ctx, clienteId, filtro)
+	resumo, err := u.repository.ObterResumoNegocio(ctx, negocioId, filtro)
 	if err != nil {
-		return nil, fmt.Errorf("obter dashboard cliente: %w", err)
+		return nil, fmt.Errorf("obter dashboard negocio: %w", err)
 	}
 
-	return mapearDashboardClienteOutput(resumo), nil
+	return mapearDashboardNegocioOutput(resumo), nil
 }
 
 func (u *UseCase) ObterDashboardAdmin(ctx context.Context, filtro domain.FiltroPeriodo, role string) (*dto.DashboardAdminOutput, error) {
 	if role != "admin" {
-		return nil, cliente.ErrNaoAutorizado
+		return nil, negocio.ErrNaoAutorizado
 	}
 	resumo, err := u.repository.ObterResumoAdmin(ctx, filtro)
 	if err != nil {
 		return nil, fmt.Errorf("obter dashboard admin: %w", err)
 	}
 	return &dto.DashboardAdminOutput{
-		ClientesAtivos:         resumo.ClientesAtivos,
+		NegociosAtivos:         resumo.NegociosAtivos,
 		UsuariosAtivos:         resumo.UsuariosAtivos,
 		TemplatesSognix:        resumo.TemplatesSognix,
-		TemplatesClientes:      resumo.TemplatesClientes,
+		TemplatesNegocios:      resumo.TemplatesNegocios,
 		LandingPagesCriadas:    resumo.LandingPagesCriadas,
 		LandingPagesOnline:     resumo.LandingPagesOnline,
 		LeadsCapturados:        resumo.LeadsCapturados,
 		ExportacoesGeradas:     resumo.ExportacoesGeradas,
-		ClientesComPlanoCustom: resumo.ClientesComPlanoCustom,
+		NegociosComPlanoCustom: resumo.NegociosComPlanoCustom,
 	}, nil
 }
 
-func mapearDashboardClienteOutput(resumo *domain.ResumoCliente) *dto.DashboardClienteOutput {
-	output := &dto.DashboardClienteOutput{
-		ClienteId:           resumo.ClienteId,
+func mapearDashboardNegocioOutput(resumo *domain.ResumoNegocio) *dto.DashboardNegocioOutput {
+	output := &dto.DashboardNegocioOutput{
+		NegocioId:           resumo.NegocioId,
 		UsuariosVinculados:  resumo.UsuariosVinculados,
 		LandingPagesCriadas: resumo.LandingPagesCriadas,
 		LandingPagesOnline:  resumo.LandingPagesOnline,
@@ -94,7 +94,7 @@ func mapearDashboardClienteOutput(resumo *domain.ResumoCliente) *dto.DashboardCl
 func mapearDashboardUsuarioOutput(resumo *domain.ResumoUsuario) *dto.DashboardUsuarioOutput {
 	output := &dto.DashboardUsuarioOutput{
 		UsuarioId:           resumo.UsuarioId,
-		ClientesVinculados:  resumo.ClientesVinculados,
+		NegociosVinculados:  resumo.NegociosVinculados,
 		LandingPagesCriadas: resumo.LandingPagesCriadas,
 		LandingPagesOnline:  resumo.LandingPagesOnline,
 		ExportacoesGeradas:  resumo.ExportacoesGeradas,

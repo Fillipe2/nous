@@ -6,7 +6,7 @@ import (
 )
 
 type FiltroListagem struct {
-	ClienteId     string
+	NegocioId     string
 	LandingPageId string
 	Nome          string
 	Email         string

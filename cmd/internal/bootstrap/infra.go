@@ -36,6 +36,9 @@ func (c *Container) initInfra(ctx context.Context) error {
 	if cfg.ResetPasswordReturnToken {
 		log.Printf("AVISO: RESET_PASSWORD_RETURN_TOKEN=true retorna token de redefinicao na resposta HTTP; use apenas em desenvolvimento/testes")
 	}
+	if cfg.EmailVerificationReturnToken {
+		log.Printf("AVISO: EMAIL_VERIFICATION_RETURN_TOKEN=true retorna token de verificacao na resposta HTTP; use apenas em desenvolvimento/testes")
+	}
 
 	database, err := postgres.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {

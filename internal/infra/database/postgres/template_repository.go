@@ -36,7 +36,7 @@ func (r *TemplateRepository) Salvar(ctx context.Context, t *template.Template) e
 	stmts := statement.Get()
 	err := r.connection.Exec(ctx, stmts.SalvarTemplate, pgx.NamedArgs{
 		"id":            t.Id,
-		"cliente_id":    nilableStr(t.ClienteId),
+		"negocio_id":    nilableStr(t.NegocioId),
 		"categoria_id":  nilableStr(t.CategoriaId),
 		"tipo":          string(t.Tipo),
 		"origem":        string(t.Origem),
@@ -85,13 +85,13 @@ func (r *TemplateRepository) SoftDelete(ctx context.Context, id string) error {
 
 func (r *TemplateRepository) Listar(ctx context.Context, filtro template.FiltroListagem) ([]*template.Template, int, error) {
 	offset := (filtro.Pagina - 1) * filtro.PorPagina
-	query := `SELECT id, cliente_id, categoria_id, tipo, origem, nome, arquivo_url, conteudo, ''::bytea AS arquivo, nome_arquivo, content_type, tamanho_bytes, status, criado_em, atualizado_em, version FROM template WHERE status != 'excluido'`
+	query := `SELECT id, negocio_id, categoria_id, tipo, origem, nome, arquivo_url, conteudo, ''::bytea AS arquivo, nome_arquivo, content_type, tamanho_bytes, status, criado_em, atualizado_em, version FROM template WHERE status != 'excluido'`
 	args := []any{}
 	argIdx := 1
 
-	if filtro.ClienteId != "" {
-		query += fmt.Sprintf(" AND (origem='sognix' OR cliente_id=$%d)", argIdx)
-		args = append(args, filtro.ClienteId)
+	if filtro.NegocioId != "" {
+		query += fmt.Sprintf(" AND (origem='sognix' OR negocio_id=$%d)", argIdx)
+		args = append(args, filtro.NegocioId)
 		argIdx++
 	}
 	if filtro.CategoriaId != "" {

@@ -3,7 +3,7 @@ package exportacao
 import "context"
 
 type FiltroListagem struct {
-	ClienteId     string
+	NegocioId     string
 	LandingPageId string
 	UsuarioId     string
 	NomeArquivo   string

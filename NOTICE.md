@@ -1,6 +1,6 @@
 # Aviso de Propriedade e Confidencialidade
 
-Buildnix Backend e seus respectivos códigos-fonte, documentação, modelos de dados, regras de negócio, fluxos, integrações, configurações e artefatos técnicos são propriedade da Sognix.
+Nous Backend e seus respectivos códigos-fonte, documentação, modelos de dados, regras de negócio, fluxos, integrações, configurações e artefatos técnicos são propriedade da Sognix.
 
 Este repositório é privado e contém informação confidencial. O acesso é permitido apenas a pessoas, fornecedores e parceiros expressamente autorizados pela Sognix, exclusivamente para desenvolvimento, manutenção, operação, auditoria ou suporte dos produtos Sognix.
 

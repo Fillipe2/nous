@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"nous/internal/app/dto"
-	"nous/internal/domain/cliente"
+	"nous/internal/domain/negocio"
 	"nous/internal/domain/plano"
 	domain "nous/internal/domain/template"
 )
@@ -36,36 +36,36 @@ func (r *templateRepositoryFake) BuscarPorID(context.Context, string) (*domain.T
 func (r *templateRepositoryFake) SoftDelete(context.Context, string) error { return nil }
 func (r *templateRepositoryFake) Listar(_ context.Context, filtro domain.FiltroListagem) ([]*domain.Template, int, error) {
 	r.filtro = filtro
-	return []*domain.Template{{Id: "template-1", Nome: "Template", Origem: domain.OrigemCliente, Tipo: domain.TipoWhiteLabel}}, 1, nil
+	return []*domain.Template{{Id: "template-1", Nome: "Template", Origem: domain.OrigemNegocio, Tipo: domain.TipoWhiteLabel}}, 1, nil
 }
 
-type clienteRepositoryFake struct{ err error }
+type negocioRepositoryFake struct{ err error }
 
-func (r *clienteRepositoryFake) Salvar(context.Context, *cliente.Cliente) error { return nil }
-func (r *clienteRepositoryFake) SalvarComVinculo(context.Context, *cliente.Cliente, *cliente.UsuarioCliente) error {
+func (r *negocioRepositoryFake) Salvar(context.Context, *negocio.Negocio) error { return nil }
+func (r *negocioRepositoryFake) SalvarComVinculo(context.Context, *negocio.Negocio, *negocio.UsuarioNegocio) error {
 	return nil
 }
-func (r *clienteRepositoryFake) BuscarPorID(context.Context, string) (*cliente.Cliente, error) {
-	return nil, cliente.ErrNaoEncontrado
+func (r *negocioRepositoryFake) BuscarPorID(context.Context, string) (*negocio.Negocio, error) {
+	return nil, negocio.ErrNaoEncontrado
 }
-func (r *clienteRepositoryFake) Atualizar(context.Context, *cliente.Cliente) error { return nil }
-func (r *clienteRepositoryFake) SoftDelete(context.Context, string) error          { return nil }
-func (r *clienteRepositoryFake) Listar(context.Context, cliente.FiltroListagem) ([]*cliente.Cliente, int, error) {
+func (r *negocioRepositoryFake) Atualizar(context.Context, *negocio.Negocio) error { return nil }
+func (r *negocioRepositoryFake) SoftDelete(context.Context, string) error          { return nil }
+func (r *negocioRepositoryFake) Listar(context.Context, negocio.FiltroListagem) ([]*negocio.Negocio, int, error) {
 	return nil, 0, nil
 }
-func (r *clienteRepositoryFake) VincularUsuario(context.Context, *cliente.UsuarioCliente) error {
+func (r *negocioRepositoryFake) VincularUsuario(context.Context, *negocio.UsuarioNegocio) error {
 	return nil
 }
-func (r *clienteRepositoryFake) ListarPorUsuario(context.Context, string) ([]*cliente.Cliente, error) {
+func (r *negocioRepositoryFake) ListarPorUsuario(context.Context, string) ([]*negocio.Negocio, error) {
 	return nil, nil
 }
-func (r *clienteRepositoryFake) VerificarAcessoUsuario(context.Context, string, string) error {
+func (r *negocioRepositoryFake) VerificarAcessoUsuario(context.Context, string, string) error {
 	return r.err
 }
 
 type planoRepositoryFake struct{ plano *plano.Plano }
 
-func (r *planoRepositoryFake) BuscarPlanoAtivoPorCliente(context.Context, string) (*plano.Plano, error) {
+func (r *planoRepositoryFake) BuscarPlanoAtivoPorNegocio(context.Context, string) (*plano.Plano, error) {
 	if r.plano == nil {
 		return nil, plano.ErrAssinaturaAtivaNaoEncontrada
 	}
@@ -74,7 +74,7 @@ func (r *planoRepositoryFake) BuscarPlanoAtivoPorCliente(context.Context, string
 
 func TestCriarTemplateSognixExigeAdmin(t *testing.T) {
 	repository := &templateRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &planoRepositoryFake{})
 
 	_, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{Origem: string(domain.OrigemSognix), Nome: "Template", Conteudo: "html"}, "usuario-1", "usuario")
 
@@ -86,11 +86,11 @@ func TestCriarTemplateSognixExigeAdmin(t *testing.T) {
 	}
 }
 
-func TestCriarTemplateClienteBaseCustomizavelExigePlano(t *testing.T) {
+func TestCriarTemplateNegocioBaseCustomizavelExigePlano(t *testing.T) {
 	repository := &templateRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{plano: &plano.Plano{Limites: plano.Limites{LandingPagesCustomizaveis: false}}})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &planoRepositoryFake{plano: &plano.Plano{Limites: plano.Limites{LandingPagesCustomizaveis: false}}})
 
-	_, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{ClienteId: "cliente-1", Origem: string(domain.OrigemCliente), Tipo: string(domain.TipoBaseCustomizavel), Nome: "Template", Conteudo: "html"}, "usuario-1", "usuario")
+	_, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{NegocioId: "negocio-1", Origem: string(domain.OrigemNegocio), Tipo: string(domain.TipoBaseCustomizavel), Nome: "Template", Conteudo: "html"}, "usuario-1", "usuario")
 
 	if !errors.Is(err, domain.ErrPlanoNaoPermite) {
 		t.Fatalf("erro esperado de plano, recebido %v", err)
@@ -100,23 +100,23 @@ func TestCriarTemplateClienteBaseCustomizavelExigePlano(t *testing.T) {
 	}
 }
 
-func TestCriarTemplateClienteBaseCustomizavelPermitido(t *testing.T) {
+func TestCriarTemplateNegocioBaseCustomizavelPermitido(t *testing.T) {
 	repository := &templateRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{plano: &plano.Plano{Limites: plano.Limites{LandingPagesCustomizaveis: true}}})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &planoRepositoryFake{plano: &plano.Plano{Limites: plano.Limites{LandingPagesCustomizaveis: true}}})
 
-	output, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{ClienteId: "cliente-1", Origem: string(domain.OrigemCliente), Tipo: string(domain.TipoBaseCustomizavel), Nome: "Template", Conteudo: "html"}, "usuario-1", "usuario")
+	output, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{NegocioId: "negocio-1", Origem: string(domain.OrigemNegocio), Tipo: string(domain.TipoBaseCustomizavel), Nome: "Template", Conteudo: "html"}, "usuario-1", "usuario")
 
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
-	if output.Id != "template-1" || output.Tipo != string(domain.TipoBaseCustomizavel) || repository.salvo.ClienteId != "cliente-1" {
+	if output.Id != "template-1" || output.Tipo != string(domain.TipoBaseCustomizavel) || repository.salvo.NegocioId != "negocio-1" {
 		t.Fatalf("template salvo inesperado: output=%+v salvo=%+v", output, repository.salvo)
 	}
 }
 
 func TestCriarTemplateAceitaArquivoSemConteudo(t *testing.T) {
 	repository := &templateRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &planoRepositoryFake{})
 
 	output, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{
 		Origem:       string(domain.OrigemSognix),
@@ -140,7 +140,7 @@ func TestCriarTemplateAceitaArquivoSemConteudo(t *testing.T) {
 
 func TestCriarTemplateExigeConteudoOuArquivo(t *testing.T) {
 	repository := &templateRepositoryFake{}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &planoRepositoryFake{})
 
 	_, err := useCase.CriarTemplate(context.Background(), dto.CriarTemplateInput{
 		Origem: string(domain.OrigemSognix),
@@ -163,7 +163,7 @@ func TestBaixarTemplateSognixRetornaBytes(t *testing.T) {
 		NomeArquivo:  "site.zip",
 		TamanhoBytes: 9,
 	}}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &planoRepositoryFake{})
 
 	dados, meta, err := useCase.BaixarTemplate(context.Background(), "template-1", "usuario-1", "usuario")
 	if err != nil {
@@ -174,18 +174,18 @@ func TestBaixarTemplateSognixRetornaBytes(t *testing.T) {
 	}
 }
 
-func TestBaixarTemplateClienteExigeAcesso(t *testing.T) {
+func TestBaixarTemplateNegocioExigeAcesso(t *testing.T) {
 	repository := &templateRepositoryFake{buscado: &domain.Template{
 		Id:        "template-1",
-		Origem:    domain.OrigemCliente,
-		ClienteId: "cliente-1",
+		Origem:    domain.OrigemNegocio,
+		NegocioId: "negocio-1",
 		Arquivo:   []byte("zip-bytes"),
 	}}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{err: cliente.ErrNaoEncontrado}, &planoRepositoryFake{})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{err: negocio.ErrNaoEncontrado}, &planoRepositoryFake{})
 
 	_, _, err := useCase.BaixarTemplate(context.Background(), "template-1", "usuario-1", "usuario")
 	if err == nil {
-		t.Fatal("esperado erro de acesso ao baixar template de outro cliente")
+		t.Fatal("esperado erro de acesso ao baixar template de outro negocio")
 	}
 }
 
@@ -195,7 +195,7 @@ func TestBaixarTemplateSemArquivo(t *testing.T) {
 		Origem:   domain.OrigemSognix,
 		Conteudo: "<html></html>",
 	}}
-	useCase := NewUseCase(repository, &clienteRepositoryFake{}, &planoRepositoryFake{})
+	useCase := NewUseCase(repository, &negocioRepositoryFake{}, &planoRepositoryFake{})
 
 	_, _, err := useCase.BaixarTemplate(context.Background(), "template-1", "admin-1", "admin")
 	if !errors.Is(err, domain.ErrSemArquivo) {
@@ -203,12 +203,12 @@ func TestBaixarTemplateSemArquivo(t *testing.T) {
 	}
 }
 
-func TestListarTemplatesUsuarioExigeCliente(t *testing.T) {
-	useCase := NewUseCase(&templateRepositoryFake{}, &clienteRepositoryFake{}, &planoRepositoryFake{})
+func TestListarTemplatesUsuarioExigeNegocio(t *testing.T) {
+	useCase := NewUseCase(&templateRepositoryFake{}, &negocioRepositoryFake{}, &planoRepositoryFake{})
 
 	_, err := useCase.ListarTemplates(context.Background(), domain.FiltroListagem{}, "usuario-1", "usuario")
 
-	if !errors.Is(err, domain.ErrClienteObrigatorio) {
-		t.Fatalf("erro esperado cliente obrigatorio, recebido %v", err)
+	if !errors.Is(err, domain.ErrNegocioObrigatorio) {
+		t.Fatalf("erro esperado negocio obrigatorio, recebido %v", err)
 	}
 }

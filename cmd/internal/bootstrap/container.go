@@ -8,26 +8,26 @@ import (
 
 	ucauth "nous/internal/app/usecase/auth"
 	uccategoria "nous/internal/app/usecase/categoria"
-	uccliente "nous/internal/app/usecase/cliente"
+	ucnegocio "nous/internal/app/usecase/negocio"
 	ucdashboard "nous/internal/app/usecase/dashboard"
 	ucexportacao "nous/internal/app/usecase/exportacao"
 	uclandingpage "nous/internal/app/usecase/landingpage"
 	uclead "nous/internal/app/usecase/lead"
-	ucnegocio "nous/internal/app/usecase/negocio"
+	ucunidade "nous/internal/app/usecase/unidade"
 	ucfaturamento "nous/internal/app/usecase/faturamento"
 	ucleadaquisicao "nous/internal/app/usecase/lead_aquisicao"
 	uctemplate "nous/internal/app/usecase/template"
 	ucusuario "nous/internal/app/usecase/usuario"
 	"nous/internal/domain/auditoria"
 	"nous/internal/domain/categoria"
-	"nous/internal/domain/cliente"
+	"nous/internal/domain/negocio"
 	"nous/internal/domain/dashboard"
 	"nous/internal/domain/evento"
 	"nous/internal/domain/exportacao"
 	"nous/internal/domain/faturamento"
 	"nous/internal/domain/landingpage"
 	"nous/internal/domain/lead"
-	"nous/internal/domain/negocio"
+	"nous/internal/domain/unidade"
 	"nous/internal/domain/plano"
 	domainleadaquisicao "nous/internal/domain/lead_aquisicao"
 	"nous/internal/domain/template"
@@ -50,9 +50,9 @@ type Container struct {
 
 	// Repositories
 	UsuarioRepository     usuario.Repository
-	ClienteRepository     cliente.Repository
-	DashboardRepository   dashboard.Repository
 	NegocioRepository     negocio.Repository
+	DashboardRepository   dashboard.Repository
+	UnidadeRepository     unidade.Repository
 	CategoriaRepository   categoria.Repository
 	TemplateRepository    template.Repository
 	LandingPageRepository landingpage.Repository
@@ -69,9 +69,9 @@ type Container struct {
 	// App/Use cases
 	AuthUseCase        *ucauth.UseCase
 	UsuarioUseCase     *ucusuario.UseCase
-	ClienteUseCase     *uccliente.UseCase
-	DashboardUseCase   *ucdashboard.UseCase
 	NegocioUseCase     *ucnegocio.UseCase
+	DashboardUseCase   *ucdashboard.UseCase
+	UnidadeUseCase     *ucunidade.UseCase
 	CategoriaUseCase   *uccategoria.UseCase
 	TemplateUseCase    *uctemplate.UseCase
 	LandingPageUseCase *uclandingpage.UseCase

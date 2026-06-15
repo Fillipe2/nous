@@ -8,8 +8,8 @@ func TestLoadStatements(t *testing.T) {
 	}
 
 	loaded := Get()
-	if loaded.AtualizarCliente == "" {
-		t.Fatal("AtualizarCliente nao foi carregado")
+	if loaded.AtualizarNegocio == "" {
+		t.Fatal("AtualizarNegocio nao foi carregado")
 	}
 	if loaded.AtualizarLandingPage == "" {
 		t.Fatal("AtualizarLandingPage nao foi carregado")

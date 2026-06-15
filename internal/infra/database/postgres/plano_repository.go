@@ -22,9 +22,9 @@ func NewPlanoRepository(connection *Postgres) (*PlanoRepository, error) {
 	return &PlanoRepository{connection: connection}, nil
 }
 
-func (r *PlanoRepository) BuscarPlanoAtivoPorCliente(ctx context.Context, clienteId string) (*plano.Plano, error) {
+func (r *PlanoRepository) BuscarPlanoAtivoPorNegocio(ctx context.Context, negocioId string) (*plano.Plano, error) {
 	stmts := statement.Get()
-	row := r.connection.QueryRow(ctx, stmts.BuscarPlanoAtivoPorCliente, pgx.NamedArgs{"cliente_id": clienteId})
+	row := r.connection.QueryRow(ctx, stmts.BuscarPlanoAtivoPorNegocio, pgx.NamedArgs{"negocio_id": negocioId})
 
 	var (
 		p            plano.Plano
@@ -35,7 +35,7 @@ func (r *PlanoRepository) BuscarPlanoAtivoPorCliente(ctx context.Context, client
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, plano.ErrAssinaturaAtivaNaoEncontrada
 		}
-		return nil, fmt.Errorf("buscar plano ativo por cliente: %w", err)
+		return nil, fmt.Errorf("buscar plano ativo por negocio: %w", err)
 	}
 	if descricao != nil {
 		p.Descricao = *descricao

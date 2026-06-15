@@ -9,7 +9,7 @@ type LoginOutput struct {
 	Token        string                 `json:"token"`
 	RefreshToken string                 `json:"refresh_token"`
 	Usuario      interface{}            `json:"usuario"`
-	Clientes     []*ClienteBasicoOutput `json:"clientes,omitempty"`
+	Negocios     []*NegocioBasicoOutput `json:"negocios,omitempty"`
 }
 
 type RefreshTokenInput struct {
@@ -32,4 +32,17 @@ type EsqueciSenhaOutput struct {
 type RedefinirSenhaInput struct {
 	Token     string `json:"token"`
 	NovaSenha string `json:"nova_senha"`
+}
+
+type SolicitarVerificacaoEmailInput struct {
+	Email string `json:"email"`
+}
+
+type SolicitarVerificacaoEmailOutput struct {
+	Mensagem         string `json:"mensagem"`
+	VerificacaoToken string `json:"verificacao_token,omitempty"`
+}
+
+type VerificarEmailInput struct {
+	Token string `json:"token"`
 }

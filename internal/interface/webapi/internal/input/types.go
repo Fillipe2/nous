@@ -9,11 +9,11 @@ type (
 	RefreshToken           = dto.RefreshTokenInput
 	CriarUsuario           = dto.CriarUsuarioInput
 	AtualizarUsuario       = dto.AtualizarUsuarioInput
-	CriarCliente           = dto.CriarClienteInput
-	AtualizarCliente       = dto.AtualizarClienteInput
-	VincularUsuarioCliente = dto.VincularUsuarioClienteInput
 	CriarNegocio           = dto.CriarNegocioInput
 	AtualizarNegocio       = dto.AtualizarNegocioInput
+	VincularUsuarioNegocio = dto.VincularUsuarioNegocioInput
+	CriarUnidade           = dto.CriarUnidadeInput
+	AtualizarUnidade       = dto.AtualizarUnidadeInput
 	CriarCategoria         = dto.CriarCategoriaInput
 	AtualizarCategoria     = dto.AtualizarCategoriaInput
 	CriarLandingPage       = dto.CriarLandingPageInput

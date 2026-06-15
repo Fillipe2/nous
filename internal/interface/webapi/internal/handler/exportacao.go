@@ -88,7 +88,7 @@ func (h *ExportacaoHandler) ListarExportacoes(w http.ResponseWriter, r *http.Req
 	}
 
 	output, err := h.useCase.ListarExportacoes(r.Context(), exportacao.FiltroListagem{
-		ClienteId:     r.URL.Query().Get("cliente_id"),
+		NegocioId:     r.URL.Query().Get("negocio_id"),
 		LandingPageId: r.URL.Query().Get("landingpage_id"),
 		UsuarioId:     r.URL.Query().Get("usuario_id"),
 		NomeArquivo:   r.URL.Query().Get("nome_arquivo"),

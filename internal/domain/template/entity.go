@@ -8,7 +8,7 @@ import (
 var (
 	ErrNaoEncontrado      = errors.New("template nao encontrado")
 	ErrOrigemInvalida     = errors.New("origem do template invalida")
-	ErrClienteObrigatorio = errors.New("cliente_id obrigatorio para template do cliente")
+	ErrNegocioObrigatorio = errors.New("negocio_id obrigatorio para template do negocio")
 	ErrNaoAutorizado      = errors.New("acesso nao autorizado ao template")
 	ErrPlanoNaoPermite    = errors.New("plano nao permite este tipo de template")
 	ErrSemArquivo         = errors.New("template nao possui arquivo para download")
@@ -24,7 +24,7 @@ const (
 
 type Template struct {
 	Id           string
-	ClienteId    string
+	NegocioId    string
 	CategoriaId  string
 	Tipo         Tipo
 	Origem       Origem
@@ -51,15 +51,15 @@ type Origem string
 
 const (
 	OrigemSognix  Origem = "sognix"
-	OrigemCliente Origem = "cliente"
+	OrigemNegocio Origem = "negocio"
 )
 
 func NormalizarOrigem(valor string) (Origem, error) {
 	switch Origem(valor) {
 	case "", OrigemSognix:
 		return OrigemSognix, nil
-	case OrigemCliente:
-		return OrigemCliente, nil
+	case OrigemNegocio:
+		return OrigemNegocio, nil
 	default:
 		return "", ErrOrigemInvalida
 	}

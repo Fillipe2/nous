@@ -1,8 +1,8 @@
-# Convenções Buildnix
+# Convenções Nous
 
 ## Idioma
 
-O código do Buildnix usa português nos nomes de domínio, funções, mensagens e documentação, preservando termos técnicos inevitáveis de bibliotecas e protocolo.
+O código do Nous usa português nos nomes de domínio, funções, mensagens e documentação, preservando termos técnicos inevitáveis de bibliotecas e protocolo.
 
 Evite misturar inglês e português no mesmo identificador ou mensagem.
 
@@ -44,7 +44,7 @@ Regras:
 - Nomear queries com `-- name: NomeQuery`.
 - Usar parâmetros nomeados `@param_name` e `pgx.NamedArgs`.
 - Scanners ficam em `internal/infra/database/postgres/internal/scanner/`.
-- Repositórios devem declarar assertiva de interface, por exemplo: `var _ cliente.Repository = (*ClienteRepository)(nil)`.
+- Repositórios devem declarar assertiva de interface, por exemplo: `var _ negocio.Repository = (*NegocioRepository)(nil)`.
 - Não usar `sqlc`.
 - Não colocar SQL transacional como string hardcoded no repositório quando puder virar statement nomeado.
 
@@ -67,7 +67,7 @@ Regras:
 Binários devem ir para `bin/`:
 
 ```bash
-go build -o bin/buildnix-backend-webapi ./cmd/webapi
+go build -o bin/nous-webapi ./cmd/webapi
 ```
 
 Não compilar com caminho de arquivo como `go build ./cmd/webapi/main.go`.
@@ -91,7 +91,7 @@ Testes de contrato devem cobrir OpenAPI e rotas críticas. Testes de carga devem
 ## Proibições Técnicas
 
 - Não criar novo entrypoint (`webhook`, `worker`, `cli`) sem necessidade real do domínio.
-- Não acoplar Buildnix diretamente ao banco de outro produto.
+- Não acoplar Nous diretamente ao banco de outro produto.
 - Não expor leads para usuário comum.
 - Não quebrar operação standalone quando Observer estiver vazio.
 - Não salvar segredos reais em arquivos versionados.

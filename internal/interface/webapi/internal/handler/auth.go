@@ -204,6 +204,10 @@ func (h *AuthHandler) RedefinirSenha(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.useCase.RedefinirSenha(r.Context(), input); err != nil {
+		if errors.Is(err, usuario.ErrSenhaFraca) {
+			responderErro(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if errors.Is(err, usuario.ErrNaoAutorizado) || errors.Is(err, usuario.ErrNaoEncontrado) {
 			responderErro(w, http.StatusUnauthorized, "token invalido ou expirado")
 			return
@@ -212,6 +216,37 @@ func (h *AuthHandler) RedefinirSenha(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "senha redefinida com sucesso"})
+}
+
+func (h *AuthHandler) SolicitarVerificacaoEmail(w http.ResponseWriter, r *http.Request) {
+	var input dto.SolicitarVerificacaoEmailInput
+	if err := decodificarJSON(r, &input); err != nil {
+		responderErro(w, http.StatusBadRequest, "payload invalido")
+		return
+	}
+	output, err := h.useCase.SolicitarVerificacaoEmail(r.Context(), input)
+	if err != nil {
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+	responderJSON(w, http.StatusOK, output)
+}
+
+func (h *AuthHandler) VerificarEmail(w http.ResponseWriter, r *http.Request) {
+	var input dto.VerificarEmailInput
+	if err := decodificarJSON(r, &input); err != nil {
+		responderErro(w, http.StatusBadRequest, "payload invalido")
+		return
+	}
+	if err := h.useCase.VerificarEmail(r.Context(), input); err != nil {
+		if errors.Is(err, usuario.ErrNaoAutorizado) {
+			responderErro(w, http.StatusUnauthorized, "token invalido ou expirado")
+			return
+		}
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+	responderJSON(w, http.StatusOK, map[string]string{"mensagem": "email verificado com sucesso"})
 }
 
 func (h *AuthHandler) googleConfigurado() bool {

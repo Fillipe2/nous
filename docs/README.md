@@ -1,6 +1,6 @@
-# Documentação Buildnix Backend
+# Documentação Nous
 
-Esta pasta concentra a documentação funcional, técnica e operacional do Buildnix.
+Esta pasta concentra a documentação funcional, técnica e operacional do Nous.
 
 - [ARQUITETURA.md](ARQUITETURA.md): arquitetura, banco, concorrência, alto fluxo e integração com o ecossistema Sognix.
 - [API.md](API.md): endpoints, contratos importantes, respostas de erro e limites HTTP.

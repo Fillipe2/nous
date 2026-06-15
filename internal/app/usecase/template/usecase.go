@@ -8,19 +8,19 @@ import (
 	"time"
 
 	"nous/internal/app/dto"
-	"nous/internal/domain/cliente"
+	"nous/internal/domain/negocio"
 	"nous/internal/domain/plano"
 	domain "nous/internal/domain/template"
 )
 
 type UseCase struct {
 	repository        domain.Repository
-	clienteRepository cliente.Repository
+	negocioRepository negocio.Repository
 	planoRepository   plano.Repository
 }
 
-func NewUseCase(repository domain.Repository, clienteRepository cliente.Repository, planoRepository plano.Repository) *UseCase {
-	return &UseCase{repository: repository, clienteRepository: clienteRepository, planoRepository: planoRepository}
+func NewUseCase(repository domain.Repository, negocioRepository negocio.Repository, planoRepository plano.Repository) *UseCase {
+	return &UseCase{repository: repository, negocioRepository: negocioRepository, planoRepository: planoRepository}
 }
 
 func (u *UseCase) CriarTemplate(ctx context.Context, input dto.CriarTemplateInput, usuarioId, role string) (*dto.TemplateOutput, error) {
@@ -35,32 +35,32 @@ func (u *UseCase) CriarTemplate(ctx context.Context, input dto.CriarTemplateInpu
 	if err != nil {
 		return nil, err
 	}
-	if input.Origem == "" && input.ClienteId != "" {
-		origem = domain.OrigemCliente
+	if input.Origem == "" && input.NegocioId != "" {
+		origem = domain.OrigemNegocio
 	}
 	tipo := domain.NormalizarTipo(input.Tipo)
-	clienteId := strings.TrimSpace(input.ClienteId)
+	negocioId := strings.TrimSpace(input.NegocioId)
 
 	if origem == domain.OrigemSognix {
 		if role != "admin" {
 			return nil, domain.ErrNaoAutorizado
 		}
-		clienteId = ""
+		negocioId = ""
 	}
-	if origem == domain.OrigemCliente {
-		if clienteId == "" {
-			return nil, domain.ErrClienteObrigatorio
+	if origem == domain.OrigemNegocio {
+		if negocioId == "" {
+			return nil, domain.ErrNegocioObrigatorio
 		}
-		if err := u.verificarAcessoCliente(ctx, clienteId, usuarioId, role); err != nil {
+		if err := u.verificarAcessoNegocio(ctx, negocioId, usuarioId, role); err != nil {
 			return nil, err
 		}
-		if tipo == domain.TipoBaseCustomizavel && !u.clientePermiteCustomizavel(ctx, clienteId) {
+		if tipo == domain.TipoBaseCustomizavel && !u.negocioPermiteCustomizavel(ctx, negocioId) {
 			return nil, domain.ErrPlanoNaoPermite
 		}
 	}
 
 	t := &domain.Template{
-		ClienteId:    clienteId,
+		NegocioId:    negocioId,
 		CategoriaId:  input.CategoriaId,
 		Tipo:         tipo,
 		Origem:       origem,
@@ -94,14 +94,14 @@ func (u *UseCase) ObterTemplate(ctx context.Context, id string) (*dto.TemplateOu
 
 // BaixarTemplate retorna os bytes do pacote (ZIP) de um template e seus metadados.
 // Templates oficiais Sognix ficam disponíveis para qualquer usuário autenticado;
-// templates de cliente exigem que o usuário tenha acesso ao cliente dono.
+// templates de negocio exigem que o usuário tenha acesso ao negocio dono.
 func (u *UseCase) BaixarTemplate(ctx context.Context, id, usuarioId, role string) ([]byte, *dto.TemplateOutput, error) {
 	t, err := u.repository.BuscarPorID(ctx, id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("baixar template: %w", err)
 	}
-	if t.Origem == domain.OrigemCliente && t.ClienteId != "" {
-		if err := u.verificarAcessoCliente(ctx, t.ClienteId, usuarioId, role); err != nil {
+	if t.Origem == domain.OrigemNegocio && t.NegocioId != "" {
+		if err := u.verificarAcessoNegocio(ctx, t.NegocioId, usuarioId, role); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -120,15 +120,15 @@ func (u *UseCase) ExcluirTemplate(ctx context.Context, id string) error {
 
 func (u *UseCase) ListarTemplates(ctx context.Context, filtro domain.FiltroListagem, usuarioId, role string) (*dto.ListaTemplatesOutput, error) {
 	if role != "admin" {
-		if filtro.ClienteId == "" {
-			return nil, domain.ErrClienteObrigatorio
+		if filtro.NegocioId == "" {
+			return nil, domain.ErrNegocioObrigatorio
 		}
-		if err := u.verificarAcessoCliente(ctx, filtro.ClienteId, usuarioId, role); err != nil {
+		if err := u.verificarAcessoNegocio(ctx, filtro.NegocioId, usuarioId, role); err != nil {
 			return nil, err
 		}
 	}
 
-	filtro.PermitirBaseCustomizavel = filtro.ClienteId == "" || u.clientePermiteCustomizavel(ctx, filtro.ClienteId)
+	filtro.PermitirBaseCustomizavel = filtro.NegocioId == "" || u.negocioPermiteCustomizavel(ctx, filtro.NegocioId)
 	templates, total, err := u.repository.Listar(ctx, filtro)
 	if err != nil {
 		return nil, fmt.Errorf("listar templates: %w", err)
@@ -147,24 +147,24 @@ func (u *UseCase) ListarTemplates(ctx context.Context, filtro domain.FiltroLista
 	}, nil
 }
 
-func (u *UseCase) verificarAcessoCliente(ctx context.Context, clienteId, usuarioId, role string) error {
+func (u *UseCase) verificarAcessoNegocio(ctx context.Context, negocioId, usuarioId, role string) error {
 	if role == "admin" {
 		return nil
 	}
-	if u.clienteRepository == nil {
+	if u.negocioRepository == nil {
 		return domain.ErrNaoAutorizado
 	}
-	if err := u.clienteRepository.VerificarAcessoUsuario(ctx, clienteId, usuarioId); err != nil {
-		return fmt.Errorf("acesso cliente: %w", err)
+	if err := u.negocioRepository.VerificarAcessoUsuario(ctx, negocioId, usuarioId); err != nil {
+		return fmt.Errorf("acesso negocio: %w", err)
 	}
 	return nil
 }
 
-func (u *UseCase) clientePermiteCustomizavel(ctx context.Context, clienteId string) bool {
-	if clienteId == "" || u.planoRepository == nil {
+func (u *UseCase) negocioPermiteCustomizavel(ctx context.Context, negocioId string) bool {
+	if negocioId == "" || u.planoRepository == nil {
 		return false
 	}
-	planoAtivo, err := u.planoRepository.BuscarPlanoAtivoPorCliente(ctx, clienteId)
+	planoAtivo, err := u.planoRepository.BuscarPlanoAtivoPorNegocio(ctx, negocioId)
 	if errors.Is(err, plano.ErrAssinaturaAtivaNaoEncontrada) {
 		return false
 	}
@@ -174,7 +174,7 @@ func (u *UseCase) clientePermiteCustomizavel(ctx context.Context, clienteId stri
 func mapearTemplateOutput(t *domain.Template) *dto.TemplateOutput {
 	return &dto.TemplateOutput{
 		Id:           t.Id,
-		ClienteId:    t.ClienteId,
+		NegocioId:    t.NegocioId,
 		CategoriaId:  t.CategoriaId,
 		Tipo:         string(t.Tipo),
 		Origem:       string(t.Origem),

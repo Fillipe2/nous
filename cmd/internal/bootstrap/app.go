@@ -3,12 +3,12 @@ package bootstrap
 import (
 	ucauth "nous/internal/app/usecase/auth"
 	uccategoria "nous/internal/app/usecase/categoria"
-	uccliente "nous/internal/app/usecase/cliente"
+	ucnegocio "nous/internal/app/usecase/negocio"
 	ucdashboard "nous/internal/app/usecase/dashboard"
 	ucexportacao "nous/internal/app/usecase/exportacao"
 	uclandingpage "nous/internal/app/usecase/landingpage"
 	uclead "nous/internal/app/usecase/lead"
-	ucnegocio "nous/internal/app/usecase/negocio"
+	ucunidade "nous/internal/app/usecase/unidade"
 	ucfaturamento "nous/internal/app/usecase/faturamento"
 	ucleadaquisicao "nous/internal/app/usecase/lead_aquisicao"
 	uctemplate "nous/internal/app/usecase/template"
@@ -25,14 +25,14 @@ func (c *Container) initApp() error {
 		c.Deployer = noop.New()
 	}
 
-	c.AuthUseCase = ucauth.NewUseCase(c.UsuarioRepository, c.ClienteRepository, c.JWTServico)
+	c.AuthUseCase = ucauth.NewUseCase(c.UsuarioRepository, c.NegocioRepository, c.JWTServico)
 	c.UsuarioUseCase = ucusuario.NewUseCase(c.UsuarioRepository)
-	c.ClienteUseCase = uccliente.NewUseCase(c.ClienteRepository)
-	c.DashboardUseCase = ucdashboard.NewUseCase(c.DashboardRepository, c.ClienteRepository)
-	c.NegocioUseCase = ucnegocio.NewUseCase(c.NegocioRepository, c.ClienteRepository)
+	c.NegocioUseCase = ucnegocio.NewUseCase(c.NegocioRepository)
+	c.DashboardUseCase = ucdashboard.NewUseCase(c.DashboardRepository, c.NegocioRepository)
+	c.UnidadeUseCase = ucunidade.NewUseCase(c.UnidadeRepository, c.NegocioRepository)
 	c.CategoriaUseCase = uccategoria.NewUseCase(c.CategoriaRepository)
-	c.TemplateUseCase = uctemplate.NewUseCase(c.TemplateRepository, c.ClienteRepository, c.PlanoRepository)
-	c.LandingPageUseCase = uclandingpage.NewUseCase(c.LandingPageRepository, c.ClienteRepository, c.Publisher, c.PlanoRepository, c.TemplateRepository, c.Deployer, c.ExportacaoRepository)
+	c.TemplateUseCase = uctemplate.NewUseCase(c.TemplateRepository, c.NegocioRepository, c.PlanoRepository)
+	c.LandingPageUseCase = uclandingpage.NewUseCase(c.LandingPageRepository, c.NegocioRepository, c.Publisher, c.PlanoRepository, c.TemplateRepository, c.Deployer, c.ExportacaoRepository)
 	c.LeadUseCase = uclead.NewUseCase(c.LeadRepository, c.LandingPageRepository, c.Publisher)
 	c.LeadAquisicaoUseCase = ucleadaquisicao.NewUseCase(c.LeadAquisicaoRepository, c.Publisher)
 	c.FaturamentoUseCase = ucfaturamento.NewUseCase(c.UsoRepository, c.FaturamentoRepository, c.BiRepository)

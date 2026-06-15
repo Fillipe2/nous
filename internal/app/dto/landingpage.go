@@ -6,8 +6,8 @@ import (
 )
 
 type CriarLandingPageInput struct {
-	ClienteId   string `json:"cliente_id"`
-	NegocioId   string `json:"negocio_id,omitempty"`
+	NegocioId   string `json:"negocio_id"`
+	UnidadeId   string `json:"unidade_id,omitempty"`
 	CategoriaId string `json:"categoria_id,omitempty"`
 	TemplateId  string `json:"template_id,omitempty"`
 	Tipo        string `json:"tipo,omitempty"`
@@ -17,7 +17,7 @@ type CriarLandingPageInput struct {
 }
 
 type AtualizarLandingPageInput struct {
-	NegocioId   string `json:"negocio_id,omitempty"`
+	UnidadeId   string `json:"unidade_id,omitempty"`
 	CategoriaId string `json:"categoria_id,omitempty"`
 	TemplateId  string `json:"template_id,omitempty"`
 	Tipo        string `json:"tipo,omitempty"`
@@ -40,8 +40,8 @@ type AutosaveOutput struct {
 
 type LandingPageOutput struct {
 	Id             string          `json:"id"`
-	ClienteId      string          `json:"cliente_id"`
 	NegocioId      string          `json:"negocio_id"`
+	UnidadeId      string          `json:"unidade_id"`
 	CategoriaId    string          `json:"categoria_id"`
 	TemplateId     string          `json:"template_id"`
 	Tipo           string          `json:"tipo"`

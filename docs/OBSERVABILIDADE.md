@@ -1,6 +1,6 @@
-# Observabilidade Buildnix Backend
+# Observabilidade Nous
 
-Este runbook define os sinais mínimos para acompanhar o Buildnix Backend em produção. A stack pode ser CloudWatch, Grafana/Prometheus, Datadog ou equivalente; os painéis abaixo são independentes do fornecedor.
+Este runbook define os sinais mínimos para acompanhar o Nous em produção. A stack pode ser CloudWatch, Grafana/Prometheus, Datadog ou equivalente; os painéis abaixo são independentes do fornecedor.
 
 ## Dashboards mínimos
 

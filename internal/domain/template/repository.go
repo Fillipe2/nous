@@ -3,7 +3,7 @@ package template
 import "context"
 
 type FiltroListagem struct {
-	ClienteId                string
+	NegocioId                string
 	CategoriaId              string
 	Tipo                     string
 	Origem                   string

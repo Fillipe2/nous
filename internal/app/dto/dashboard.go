@@ -1,7 +1,7 @@
 package dto
 
-type DashboardClienteOutput struct {
-	ClienteId            string                      `json:"cliente_id"`
+type DashboardNegocioOutput struct {
+	NegocioId            string                      `json:"negocio_id"`
 	UsuariosVinculados   int                         `json:"usuarios_vinculados"`
 	LandingPagesCriadas  int                         `json:"landingpages_criadas"`
 	LandingPagesOnline   int                         `json:"landingpages_online"`
@@ -11,7 +11,7 @@ type DashboardClienteOutput struct {
 
 type DashboardUsuarioOutput struct {
 	UsuarioId            string                      `json:"usuario_id"`
-	ClientesVinculados   int                         `json:"clientes_vinculados"`
+	NegociosVinculados   int                         `json:"negocios_vinculados"`
 	LandingPagesCriadas  int                         `json:"landingpages_criadas"`
 	LandingPagesOnline   int                         `json:"landingpages_online"`
 	ExportacoesGeradas   int                         `json:"exportacoes_geradas"`
@@ -25,13 +25,13 @@ type LandingPageUtilizadaOutput struct {
 }
 
 type DashboardAdminOutput struct {
-	ClientesAtivos         int `json:"clientes_ativos"`
+	NegociosAtivos         int `json:"negocios_ativos"`
 	UsuariosAtivos         int `json:"usuarios_ativos"`
 	TemplatesSognix        int `json:"templates_sognix"`
-	TemplatesClientes      int `json:"templates_clientes"`
+	TemplatesNegocios      int `json:"templates_negocios"`
 	LandingPagesCriadas    int `json:"landingpages_criadas"`
 	LandingPagesOnline     int `json:"landingpages_online"`
 	LeadsCapturados        int `json:"leads_capturados"`
 	ExportacoesGeradas     int `json:"exportacoes_geradas"`
-	ClientesComPlanoCustom int `json:"clientes_com_plano_customizavel"`
+	NegociosComPlanoCustom int `json:"negocios_com_plano_customizavel"`
 }

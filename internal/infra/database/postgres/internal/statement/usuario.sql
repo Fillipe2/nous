@@ -1,20 +1,23 @@
 -- name: SalvarUsuario
-INSERT INTO usuario (id, nome, email, senha_hash, role, status, criado_em, atualizado_em, version)
-VALUES (@id, @nome, @email, @senha_hash, @role, @status, @criado_em, @atualizado_em, @version);
+INSERT INTO usuario (id, nome, email, senha_hash, role, status, email_verified, criado_em, atualizado_em, version)
+VALUES (@id, @nome, @email, @senha_hash, @role, @status, @email_verified, @criado_em, @atualizado_em, @version);
 
 -- name: BuscarUsuarioPorID
-SELECT id, nome, email, senha_hash, role, status, criado_em, atualizado_em, version
+SELECT id, nome, email, senha_hash, role, status, criado_em, atualizado_em, version, email_verified, ultimo_login_em
 FROM usuario WHERE id = @id AND status != 'excluido';
 
 -- name: BuscarUsuarioPorEmail
-SELECT id, nome, email, senha_hash, role, status, criado_em, atualizado_em, version
-FROM usuario WHERE email = @email;
+SELECT id, nome, email, senha_hash, role, status, criado_em, atualizado_em, version, email_verified, ultimo_login_em
+FROM usuario WHERE email = @email AND status != 'excluido';
 
 -- name: AtualizarUsuario
 UPDATE usuario
-SET nome=@nome, email=@email, senha_hash=@senha_hash, role=@role, status=@status,
+SET nome=@nome, email=@email, senha_hash=@senha_hash, role=@role, status=@status, email_verified=@email_verified,
     atualizado_em=@atualizado_em, version=@version
 WHERE id=@id AND version=@version_anterior;
+
+-- name: AtualizarUltimoLoginUsuario
+UPDATE usuario SET ultimo_login_em=@ultimo_login_em WHERE id=@id;
 
 -- name: SoftDeleteUsuario
 UPDATE usuario SET status='excluido', atualizado_em=@atualizado_em WHERE id=@id;
@@ -22,8 +25,11 @@ UPDATE usuario SET status='excluido', atualizado_em=@atualizado_em WHERE id=@id;
 -- name: ContarUsuarios
 SELECT COUNT(*) FROM usuario WHERE status != 'excluido';
 
+-- name: ContarAdministradoresAtivos
+SELECT COUNT(*) FROM usuario WHERE role='admin' AND status='ativo';
+
 -- name: ListarUsuarios
-SELECT id, nome, email, senha_hash, role, status, criado_em, atualizado_em, version
+SELECT id, nome, email, senha_hash, role, status, criado_em, atualizado_em, version, email_verified, ultimo_login_em
 FROM usuario WHERE status != 'excluido'
 ORDER BY criado_em DESC LIMIT @limit OFFSET @offset;
 
@@ -70,5 +76,19 @@ WHERE token_hash=@token_hash;
 
 -- name: MarcarUsuarioResetSenhaTokenUsado
 UPDATE usuario_reset_senha_token
+SET usado_em=@usado_em
+WHERE token_hash=@token_hash AND usado_em IS NULL;
+
+-- name: SalvarUsuarioVerificacaoEmailToken
+INSERT INTO usuario_verificacao_email_token (id, usuario_id, token_hash, expires_at, criado_em)
+VALUES (@id, @usuario_id, @token_hash, @expires_at, @criado_em);
+
+-- name: BuscarUsuarioVerificacaoEmailTokenPorHash
+SELECT id, usuario_id, token_hash, expires_at, usado_em, criado_em
+FROM usuario_verificacao_email_token
+WHERE token_hash=@token_hash;
+
+-- name: MarcarUsuarioVerificacaoEmailTokenUsado
+UPDATE usuario_verificacao_email_token
 SET usado_em=@usado_em
 WHERE token_hash=@token_hash AND usado_em IS NULL;

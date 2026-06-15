@@ -15,13 +15,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"nous/internal/domain/categoria"
-	"nous/internal/domain/cliente"
 	"nous/internal/domain/dashboard"
 	"nous/internal/domain/exportacao"
 	"nous/internal/domain/landingpage"
 	"nous/internal/domain/lead"
 	"nous/internal/domain/negocio"
 	"nous/internal/domain/template"
+	"nous/internal/domain/unidade"
 	"nous/internal/domain/usuario"
 )
 
@@ -33,17 +33,17 @@ func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {
 	if err != nil {
 		t.Fatalf("criar usuario repo: %v", err)
 	}
-	clienteRepo, err := NewClienteRepository(db)
+	negocioRepo, err := NewNegocioRepository(db)
 	if err != nil {
-		t.Fatalf("criar cliente repo: %v", err)
+		t.Fatalf("criar negocio repo: %v", err)
 	}
 	categoriaRepo, err := NewCategoriaRepository(db)
 	if err != nil {
 		t.Fatalf("criar categoria repo: %v", err)
 	}
-	negocioRepo, err := NewNegocioRepository(db)
+	unidadeRepo, err := NewUnidadeRepository(db)
 	if err != nil {
-		t.Fatalf("criar negocio repo: %v", err)
+		t.Fatalf("criar unidade repo: %v", err)
 	}
 	templateRepo, err := NewTemplateRepository(db)
 	if err != nil {
@@ -79,15 +79,15 @@ func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {
 		t.Fatalf("usuario persistido inesperado: %+v", usuarioPersistido)
 	}
 
-	cl := &cliente.Cliente{Nome: "Cliente Integracao", Email: "cliente@sognix.test", Status: cliente.StatusAtivo, CriadoEm: agora, AtualizadoEm: agora, Version: 1}
-	if err := clienteRepo.Salvar(ctx, cl); err != nil {
-		t.Fatalf("salvar cliente: %v", err)
+	cl := &negocio.Negocio{Nome: "Negocio Integracao", Email: "negocio@sognix.test", Status: negocio.StatusAtivo, CriadoEm: agora, AtualizadoEm: agora, Version: 1}
+	if err := negocioRepo.Salvar(ctx, cl); err != nil {
+		t.Fatalf("salvar negocio: %v", err)
 	}
-	if err := clienteRepo.VincularUsuario(ctx, &cliente.UsuarioCliente{UsuarioId: us.Id, ClienteId: cl.Id, CriadoEm: agora}); err != nil {
-		t.Fatalf("vincular usuario cliente: %v", err)
+	if err := negocioRepo.VincularUsuario(ctx, &negocio.UsuarioNegocio{UsuarioId: us.Id, NegocioId: cl.Id, CriadoEm: agora}); err != nil {
+		t.Fatalf("vincular usuario negocio: %v", err)
 	}
-	if err := clienteRepo.VerificarAcessoUsuario(ctx, cl.Id, us.Id); err != nil {
-		t.Fatalf("verificar acesso cliente: %v", err)
+	if err := negocioRepo.VerificarAcessoUsuario(ctx, cl.Id, us.Id); err != nil {
+		t.Fatalf("verificar acesso negocio: %v", err)
 	}
 
 	cat := &categoria.Categoria{Nome: "Categoria Integracao", Status: categoria.StatusAtivo, CriadoEm: agora, AtualizadoEm: agora, Version: 1}
@@ -95,16 +95,16 @@ func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {
 		t.Fatalf("salvar categoria: %v", err)
 	}
 
-	neg := &negocio.Negocio{ClienteId: cl.Id, Nome: "Negocio Integracao", Status: negocio.StatusAtivo, CriadoEm: agora, AtualizadoEm: agora, Version: 1}
-	if err := negocioRepo.Salvar(ctx, neg); err != nil {
-		t.Fatalf("salvar negocio: %v", err)
+	neg := &unidade.Unidade{NegocioId: cl.Id, Nome: "Unidade Integracao", Status: unidade.StatusAtivo, CriadoEm: agora, AtualizadoEm: agora, Version: 1}
+	if err := unidadeRepo.Salvar(ctx, neg); err != nil {
+		t.Fatalf("salvar unidade: %v", err)
 	}
 
-	tpl := &template.Template{ClienteId: cl.Id, CategoriaId: cat.Id, Tipo: template.TipoWhiteLabel, Origem: template.OrigemCliente, Nome: "Template Integracao", Conteudo: "<html></html>", Status: template.StatusAtivo, CriadoEm: agora, AtualizadoEm: agora, Version: 1}
+	tpl := &template.Template{NegocioId: cl.Id, CategoriaId: cat.Id, Tipo: template.TipoWhiteLabel, Origem: template.OrigemNegocio, Nome: "Template Integracao", Conteudo: "<html></html>", Status: template.StatusAtivo, CriadoEm: agora, AtualizadoEm: agora, Version: 1}
 	if err := templateRepo.Salvar(ctx, tpl); err != nil {
 		t.Fatalf("salvar template: %v", err)
 	}
-	templates, totalTemplates, err := templateRepo.Listar(ctx, template.FiltroListagem{ClienteId: cl.Id, Pagina: 1, PorPagina: 10})
+	templates, totalTemplates, err := templateRepo.Listar(ctx, template.FiltroListagem{NegocioId: cl.Id, Pagina: 1, PorPagina: 10})
 	if err != nil {
 		t.Fatalf("listar templates: %v", err)
 	}
@@ -112,11 +112,11 @@ func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {
 		t.Fatalf("templates esperados=1, total=%d len=%d", totalTemplates, len(templates))
 	}
 
-	lp := &landingpage.LandingPage{ClienteId: cl.Id, NegocioId: neg.Id, CategoriaId: cat.Id, TemplateId: tpl.Id, Tipo: landingpage.TipoWhiteLabel, Nome: "Landing Integracao", Conteudo: "html", Status: landingpage.StatusRascunho, IsDraft: true, AutosaveData: json.RawMessage(`{"draft":true}`), CriadoEm: agora, AtualizadoEm: agora, Version: 1}
+	lp := &landingpage.LandingPage{NegocioId: cl.Id, UnidadeId: neg.Id, CategoriaId: cat.Id, TemplateId: tpl.Id, Tipo: landingpage.TipoWhiteLabel, Nome: "Landing Integracao", Conteudo: "html", Status: landingpage.StatusRascunho, IsDraft: true, AutosaveData: json.RawMessage(`{"draft":true}`), CriadoEm: agora, AtualizadoEm: agora, Version: 1}
 	if err := landingPageRepo.Salvar(ctx, lp); err != nil {
 		t.Fatalf("salvar landingpage: %v", err)
 	}
-	if total, err := landingPageRepo.ContarPorCliente(ctx, cl.Id); err != nil || total != 1 {
+	if total, err := landingPageRepo.ContarPorNegocio(ctx, cl.Id); err != nil || total != 1 {
 		t.Fatalf("contar landingpages: total=%d err=%v", total, err)
 	}
 	if err := landingPageRepo.VerificarAcessoUsuario(ctx, lp.Id, us.Id); err != nil {
@@ -147,15 +147,15 @@ func TestPostgresRepositoriesIntegrationBasico(t *testing.T) {
 		t.Fatalf("exportacao persistida inesperada: %+v", exportacaoPersistida)
 	}
 
-	resumoAdmin, err := dashboardRepo.ObterResumoAdmin(ctx, dashboard.FiltroPeriodo{ClienteId: cl.Id, UsuarioId: us.Id, LandingPageId: lp.Id, DataInicio: agora.Format("2006-01-02"), DataFim: agora.Format("2006-01-02")})
+	resumoAdmin, err := dashboardRepo.ObterResumoAdmin(ctx, dashboard.FiltroPeriodo{NegocioId: cl.Id, UsuarioId: us.Id, LandingPageId: lp.Id, DataInicio: agora.Format("2006-01-02"), DataFim: agora.Format("2006-01-02")})
 	if err != nil {
 		t.Fatalf("obter dashboard admin filtrado: %v", err)
 	}
-	if resumoAdmin.ClientesAtivos != 1 || resumoAdmin.UsuariosAtivos != 1 || resumoAdmin.LandingPagesCriadas != 1 || resumoAdmin.LeadsCapturados != 1 || resumoAdmin.ExportacoesGeradas != 1 {
+	if resumoAdmin.NegociosAtivos != 1 || resumoAdmin.UsuariosAtivos != 1 || resumoAdmin.LandingPagesCriadas != 1 || resumoAdmin.LeadsCapturados != 1 || resumoAdmin.ExportacoesGeradas != 1 {
 		t.Fatalf("dashboard admin filtrado inesperado: %+v", resumoAdmin)
 	}
 
-	resumoUsuario, err := dashboardRepo.ObterResumoUsuario(ctx, us.Id, dashboard.FiltroPeriodo{ClienteId: cl.Id, LandingPageId: lp.Id})
+	resumoUsuario, err := dashboardRepo.ObterResumoUsuario(ctx, us.Id, dashboard.FiltroPeriodo{NegocioId: cl.Id, LandingPageId: lp.Id})
 	if err != nil {
 		t.Fatalf("obter dashboard usuario filtrado: %v", err)
 	}
@@ -222,7 +222,7 @@ func conectarPostgresIntegracao(t *testing.T, ctx context.Context) *Postgres {
 		t.Skip("defina TEST_DATABASE_URL para rodar testes de integracao Postgres")
 	}
 
-	schema := "buildnix_test_" + strings.ReplaceAll(uuid.NewString(), "-", "_")
+	schema := "nous_test_" + strings.ReplaceAll(uuid.NewString(), "-", "_")
 	basePool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatalf("conectar postgres base: %v", err)

@@ -13,50 +13,52 @@ const (
 )
 
 type Config struct {
-	DatabaseURL              string
-	JWTSecret                string
-	JWTRefreshSecret         string
-	JWTRSAPrivateKey         string
-	ObserverURL              string
-	GoogleClientID           string
-	GoogleClientSecret       string
-	GoogleRedirectURL        string
-	ServerPort               string
-	MigrationsDirPath        string
-	AdminNome                string
-	AdminEmail               string
-	AdminSenha               string
-	LogFilePath              string
-	LogMaxSizeMB             int
-	LogMaxAgeDays            int
-	LogMaxBackups            int
-	LogCompress              bool
-	LogStdout                bool
-	ResetPasswordReturnToken bool
+	DatabaseURL                  string
+	JWTSecret                    string
+	JWTRefreshSecret             string
+	JWTRSAPrivateKey             string
+	ObserverURL                  string
+	GoogleClientID               string
+	GoogleClientSecret           string
+	GoogleRedirectURL            string
+	ServerPort                   string
+	MigrationsDirPath            string
+	AdminNome                    string
+	AdminEmail                   string
+	AdminSenha                   string
+	LogFilePath                  string
+	LogMaxSizeMB                 int
+	LogMaxAgeDays                int
+	LogMaxBackups                int
+	LogCompress                  bool
+	LogStdout                    bool
+	ResetPasswordReturnToken     bool
+	EmailVerificationReturnToken bool
 }
 
 func Carregar() *Config {
 	return &Config{
-		DatabaseURL:              obterEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/buildnix?sslmode=disable"),
-		JWTSecret:                obterEnv("JWT_SECRET", ""),
-		JWTRefreshSecret:         obterEnv("JWT_REFRESH_SECRET", ""),
-		JWTRSAPrivateKey:         obterEnv("JWT_RSA_PRIVATE_KEY", ""),
-		ObserverURL:              obterEnv("OBSERVER_URL", ""),
-		GoogleClientID:           obterEnv("GOOGLE_CLIENT_ID", ""),
-		GoogleClientSecret:       obterEnv("GOOGLE_CLIENT_SECRET", ""),
-		GoogleRedirectURL:        obterEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/auth/google/callback"),
-		ServerPort:               obterEnv("SERVER_PORT", "8080"),
-		MigrationsDirPath:        obterEnv("MIGRATIONS_DIR", "./migrations/postgres"),
-		AdminNome:                obterEnv("ADMIN_NOME", "Administrador"),
-		AdminEmail:               obterEnv("ADMIN_EMAIL", ""),
-		AdminSenha:               obterEnv("ADMIN_SENHA", ""),
-		LogFilePath:              obterEnv("LOG_FILE_PATH", "./logs/buildnix-backend.log"),
-		LogMaxSizeMB:             obterEnvInt("LOG_MAX_SIZE_MB", 50),
-		LogMaxAgeDays:            obterEnvInt("LOG_MAX_AGE_DAYS", 30),
-		LogMaxBackups:            obterEnvInt("LOG_MAX_BACKUPS", 10),
-		LogCompress:              obterEnvBool("LOG_COMPRESS", true),
-		LogStdout:                obterEnvBool("LOG_STDOUT", true),
-		ResetPasswordReturnToken: obterEnvBool("RESET_PASSWORD_RETURN_TOKEN", false),
+		DatabaseURL:                  obterEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/nous?sslmode=disable"),
+		JWTSecret:                    obterEnv("JWT_SECRET", ""),
+		JWTRefreshSecret:             obterEnv("JWT_REFRESH_SECRET", ""),
+		JWTRSAPrivateKey:             obterEnv("JWT_RSA_PRIVATE_KEY", ""),
+		ObserverURL:                  obterEnv("OBSERVER_URL", ""),
+		GoogleClientID:               obterEnv("GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret:           obterEnv("GOOGLE_CLIENT_SECRET", ""),
+		GoogleRedirectURL:            obterEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/auth/google/callback"),
+		ServerPort:                   obterEnv("SERVER_PORT", "8080"),
+		MigrationsDirPath:            obterEnv("MIGRATIONS_DIR", "./migrations/postgres"),
+		AdminNome:                    obterEnv("ADMIN_NOME", "Administrador"),
+		AdminEmail:                   obterEnv("ADMIN_EMAIL", ""),
+		AdminSenha:                   obterEnv("ADMIN_SENHA", ""),
+		LogFilePath:                  obterEnv("LOG_FILE_PATH", "./logs/nous.log"),
+		LogMaxSizeMB:                 obterEnvInt("LOG_MAX_SIZE_MB", 50),
+		LogMaxAgeDays:                obterEnvInt("LOG_MAX_AGE_DAYS", 30),
+		LogMaxBackups:                obterEnvInt("LOG_MAX_BACKUPS", 10),
+		LogCompress:                  obterEnvBool("LOG_COMPRESS", true),
+		LogStdout:                    obterEnvBool("LOG_STDOUT", true),
+		ResetPasswordReturnToken:     obterEnvBool("RESET_PASSWORD_RETURN_TOKEN", false),
+		EmailVerificationReturnToken: obterEnvBool("EMAIL_VERIFICATION_RETURN_TOKEN", false),
 	}
 }
 

@@ -52,7 +52,7 @@ func (r *landingPageRepositoryFake) SoftDelete(context.Context, string) error { 
 func (r *landingPageRepositoryFake) Listar(context.Context, landingpage.FiltroListagem) ([]*landingpage.LandingPage, int, error) {
 	return nil, 0, nil
 }
-func (r *landingPageRepositoryFake) ContarPorCliente(context.Context, string) (int, error) {
+func (r *landingPageRepositoryFake) ContarPorNegocio(context.Context, string) (int, error) {
 	return 0, nil
 }
 func (r *landingPageRepositoryFake) AtualizarAutosave(context.Context, string, []byte, int) (int, error) {

@@ -30,6 +30,10 @@ func (h *UsuarioHandler) CriarUsuario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output, err := h.useCase.CriarUsuario(r.Context(), input)
+	if errors.Is(err, usuario.ErrEmailDuplicado) {
+		responderErro(w, http.StatusConflict, "email ja cadastrado")
+		return
+	}
 	if err != nil {
 		responderErro(w, http.StatusBadRequest, err.Error())
 		return
@@ -134,12 +138,82 @@ func (h *UsuarioHandler) AtualizarUsuario(w http.ResponseWriter, r *http.Request
 		responderErro(w, http.StatusNotFound, "usuario nao encontrado")
 		return
 	}
+	if errors.Is(err, usuario.ErrEmailDuplicado) {
+		responderErro(w, http.StatusConflict, "email ja cadastrado")
+		return
+	}
 	if errors.Is(err, usuario.ErrVersaoConflito) {
 		responderErro(w, http.StatusConflict, "usuario foi alterado em outra sessao, recarregue os dados e tente novamente")
 		return
 	}
 	if err != nil {
 		responderErro(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	responderJSON(w, http.StatusOK, output)
+}
+
+func (h *UsuarioHandler) AlterarStatus(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var input dto.AlterarStatusInput
+	if err := decodificarJSON(r, &input); err != nil {
+		responderErro(w, http.StatusBadRequest, "payload invalido")
+		return
+	}
+
+	output, err := h.useCase.AlterarStatus(r.Context(), id, input.Status)
+	if errors.Is(err, usuario.ErrStatusInvalido) {
+		responderErro(w, http.StatusBadRequest, "status invalido")
+		return
+	}
+	if errors.Is(err, usuario.ErrUltimoAdmin) {
+		responderErro(w, http.StatusConflict, "nao e possivel inativar o ultimo administrador")
+		return
+	}
+	if errors.Is(err, usuario.ErrNaoEncontrado) {
+		responderErro(w, http.StatusNotFound, "usuario nao encontrado")
+		return
+	}
+	if errors.Is(err, usuario.ErrVersaoConflito) {
+		responderErro(w, http.StatusConflict, "usuario foi alterado em outra sessao, recarregue os dados e tente novamente")
+		return
+	}
+	if err != nil {
+		responderErro(w, http.StatusInternalServerError, "erro interno")
+		return
+	}
+
+	responderJSON(w, http.StatusOK, output)
+}
+
+func (h *UsuarioHandler) AlterarRole(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var input dto.AlterarRoleInput
+	if err := decodificarJSON(r, &input); err != nil {
+		responderErro(w, http.StatusBadRequest, "payload invalido")
+		return
+	}
+
+	output, err := h.useCase.AlterarRole(r.Context(), id, input.Role)
+	if errors.Is(err, usuario.ErrRoleInvalida) {
+		responderErro(w, http.StatusBadRequest, "role invalida")
+		return
+	}
+	if errors.Is(err, usuario.ErrUltimoAdmin) {
+		responderErro(w, http.StatusConflict, "nao e possivel remover o ultimo administrador")
+		return
+	}
+	if errors.Is(err, usuario.ErrNaoEncontrado) {
+		responderErro(w, http.StatusNotFound, "usuario nao encontrado")
+		return
+	}
+	if errors.Is(err, usuario.ErrVersaoConflito) {
+		responderErro(w, http.StatusConflict, "usuario foi alterado em outra sessao, recarregue os dados e tente novamente")
+		return
+	}
+	if err != nil {
+		responderErro(w, http.StatusInternalServerError, "erro interno")
 		return
 	}
 

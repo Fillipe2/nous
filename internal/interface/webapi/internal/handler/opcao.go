@@ -6,37 +6,37 @@ import (
 
 	"nous/internal/app/dto"
 	uccategoria "nous/internal/app/usecase/categoria"
-	uccliente "nous/internal/app/usecase/cliente"
 	uclandingpage "nous/internal/app/usecase/landingpage"
 	ucnegocio "nous/internal/app/usecase/negocio"
 	uctemplate "nous/internal/app/usecase/template"
+	ucunidade "nous/internal/app/usecase/unidade"
 	ucusuario "nous/internal/app/usecase/usuario"
 	"nous/internal/domain/categoria"
-	"nous/internal/domain/cliente"
 	"nous/internal/domain/landingpage"
 	"nous/internal/domain/negocio"
 	"nous/internal/domain/template"
+	"nous/internal/domain/unidade"
 	"nous/internal/domain/usuario"
 	"nous/internal/interface/webapi/internal/middleware"
 )
 
 type OpcaoHandler struct {
-	cliente     *uccliente.UseCase
-	usuario     *ucusuario.UseCase
 	negocio     *ucnegocio.UseCase
+	usuario     *ucusuario.UseCase
+	unidade     *ucunidade.UseCase
 	categoria   *uccategoria.UseCase
 	template    *uctemplate.UseCase
 	landingPage *uclandingpage.UseCase
 }
 
-func NewOpcaoHandler(cliente *uccliente.UseCase, usuario *ucusuario.UseCase, negocio *ucnegocio.UseCase, categoria *uccategoria.UseCase, template *uctemplate.UseCase, landingPage *uclandingpage.UseCase) *OpcaoHandler {
-	return &OpcaoHandler{cliente: cliente, usuario: usuario, negocio: negocio, categoria: categoria, template: template, landingPage: landingPage}
+func NewOpcaoHandler(negocio *ucnegocio.UseCase, usuario *ucusuario.UseCase, unidade *ucunidade.UseCase, categoria *uccategoria.UseCase, template *uctemplate.UseCase, landingPage *uclandingpage.UseCase) *OpcaoHandler {
+	return &OpcaoHandler{negocio: negocio, usuario: usuario, unidade: unidade, categoria: categoria, template: template, landingPage: landingPage}
 }
 
-func (h *OpcaoHandler) ListarClientes(w http.ResponseWriter, r *http.Request) {
+func (h *OpcaoHandler) ListarNegocios(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ObterClaims(r.Context())
 	pagina, porPagina := paginacaoOpcoes(r)
-	filtro := cliente.FiltroListagem{
+	filtro := negocio.FiltroListagem{
 		UsuarioId:  r.URL.Query().Get("usuario_id"),
 		Nome:       r.URL.Query().Get("q"),
 		Status:     r.URL.Query().Get("status"),
@@ -48,27 +48,27 @@ func (h *OpcaoHandler) ListarClientes(w http.ResponseWriter, r *http.Request) {
 
 	if claims.Role != "admin" {
 		filtro.UsuarioId = claims.UsuarioId
-		output, err := h.cliente.ListarClientesDoUsuario(r.Context(), filtro)
+		output, err := h.negocio.ListarNegociosDoUsuario(r.Context(), filtro)
 		if err != nil {
 			responderErro(w, http.StatusInternalServerError, "erro interno")
 			return
 		}
-		responderJSON(w, http.StatusOK, opcoesClientesBasicos(output))
+		responderJSON(w, http.StatusOK, opcoesNegociosBasicos(output))
 		return
 	}
 
-	output, err := h.cliente.ListarClientes(r.Context(), filtro)
+	output, err := h.negocio.ListarNegocios(r.Context(), filtro)
 	if err != nil {
 		responderErro(w, http.StatusInternalServerError, "erro interno")
 		return
 	}
-	responderJSON(w, http.StatusOK, opcoesClientes(output))
+	responderJSON(w, http.StatusOK, opcoesNegocios(output))
 }
 
 func (h *OpcaoHandler) ListarUsuarios(w http.ResponseWriter, r *http.Request) {
 	pagina, porPagina := paginacaoOpcoes(r)
 	output, err := h.usuario.ListarUsuarios(r.Context(), usuario.FiltroListagem{
-		ClienteId:  r.URL.Query().Get("cliente_id"),
+		NegocioId:  r.URL.Query().Get("negocio_id"),
 		Nome:       r.URL.Query().Get("q"),
 		Email:      r.URL.Query().Get("email"),
 		Role:       r.URL.Query().Get("role"),
@@ -85,11 +85,11 @@ func (h *OpcaoHandler) ListarUsuarios(w http.ResponseWriter, r *http.Request) {
 	responderJSON(w, http.StatusOK, opcoesUsuarios(output))
 }
 
-func (h *OpcaoHandler) ListarNegocios(w http.ResponseWriter, r *http.Request) {
+func (h *OpcaoHandler) ListarUnidades(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ObterClaims(r.Context())
 	pagina, porPagina := paginacaoOpcoes(r)
-	output, err := h.negocio.ListarNegocios(r.Context(), negocio.FiltroListagem{
-		ClienteId:  r.URL.Query().Get("cliente_id"),
+	output, err := h.unidade.ListarUnidades(r.Context(), unidade.FiltroListagem{
+		NegocioId:  r.URL.Query().Get("negocio_id"),
 		Nome:       r.URL.Query().Get("q"),
 		Status:     r.URL.Query().Get("status"),
 		Pagina:     pagina,
@@ -97,7 +97,7 @@ func (h *OpcaoHandler) ListarNegocios(w http.ResponseWriter, r *http.Request) {
 		OrdenarPor: "nome",
 		Ordem:      "asc",
 	}, claims.UsuarioId, claims.Role)
-	if errors.Is(err, cliente.ErrNaoAutorizado) {
+	if errors.Is(err, negocio.ErrNaoAutorizado) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
 		return
 	}
@@ -105,7 +105,7 @@ func (h *OpcaoHandler) ListarNegocios(w http.ResponseWriter, r *http.Request) {
 		responderErro(w, http.StatusInternalServerError, "erro interno")
 		return
 	}
-	responderJSON(w, http.StatusOK, opcoesNegocios(output))
+	responderJSON(w, http.StatusOK, opcoesUnidades(output))
 }
 
 func (h *OpcaoHandler) ListarCategorias(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +129,7 @@ func (h *OpcaoHandler) ListarTemplates(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ObterClaims(r.Context())
 	pagina, porPagina := paginacaoOpcoes(r)
 	output, err := h.template.ListarTemplates(r.Context(), template.FiltroListagem{
-		ClienteId:   r.URL.Query().Get("cliente_id"),
+		NegocioId:   r.URL.Query().Get("negocio_id"),
 		CategoriaId: r.URL.Query().Get("categoria_id"),
 		Tipo:        r.URL.Query().Get("tipo"),
 		Origem:      r.URL.Query().Get("origem"),
@@ -140,11 +140,11 @@ func (h *OpcaoHandler) ListarTemplates(w http.ResponseWriter, r *http.Request) {
 		OrdenarPor:  "nome",
 		Ordem:       "asc",
 	}, claims.UsuarioId, claims.Role)
-	if errors.Is(err, template.ErrClienteObrigatorio) {
+	if errors.Is(err, template.ErrNegocioObrigatorio) {
 		responderErro(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, cliente.ErrNaoAutorizado) {
+	if errors.Is(err, template.ErrNaoAutorizado) || errors.Is(err, negocio.ErrNaoAutorizado) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
 		return
 	}
@@ -159,8 +159,8 @@ func (h *OpcaoHandler) ListarLandingPages(w http.ResponseWriter, r *http.Request
 	claims := middleware.ObterClaims(r.Context())
 	pagina, porPagina := paginacaoOpcoes(r)
 	output, err := h.landingPage.ListarLandingPages(r.Context(), landingpage.FiltroListagem{
-		ClienteId:   r.URL.Query().Get("cliente_id"),
 		NegocioId:   r.URL.Query().Get("negocio_id"),
+		UnidadeId:   r.URL.Query().Get("unidade_id"),
 		CategoriaId: r.URL.Query().Get("categoria_id"),
 		TemplateId:  r.URL.Query().Get("template_id"),
 		Nome:        r.URL.Query().Get("q"),
@@ -171,7 +171,7 @@ func (h *OpcaoHandler) ListarLandingPages(w http.ResponseWriter, r *http.Request
 		OrdenarPor:  "nome",
 		Ordem:       "asc",
 	}, claims.UsuarioId, claims.Role)
-	if errors.Is(err, landingpage.ErrNaoAutorizado) || errors.Is(err, cliente.ErrNaoAutorizado) {
+	if errors.Is(err, landingpage.ErrNaoAutorizado) || errors.Is(err, negocio.ErrNaoAutorizado) {
 		responderErro(w, http.StatusForbidden, "acesso negado")
 		return
 	}
@@ -199,7 +199,7 @@ func (h *OpcaoHandler) ListarEnums(w http.ResponseWriter, _ *http.Request) {
 		},
 		"template_origens": {
 			opcaoEstatica("sognix", "Sognix"),
-			opcaoEstatica("cliente", "Cliente"),
+			opcaoEstatica("negocio", "Negocio"),
 		},
 		"lead_status": {
 			opcaoEstatica("novo", "Novo"),
@@ -230,7 +230,7 @@ func opcaoEstatica(id, nome string) *dto.OpcaoOutput {
 	return &dto.OpcaoOutput{Id: id, Nome: nome, Label: nome}
 }
 
-func opcoesClientes(output *dto.ListaClientesOutput) *dto.ListaOpcoesOutput {
+func opcoesNegocios(output *dto.ListaNegociosOutput) *dto.ListaOpcoesOutput {
 	dados := make([]*dto.OpcaoOutput, 0, len(output.Dados))
 	for _, item := range output.Dados {
 		dados = append(dados, &dto.OpcaoOutput{Id: item.Id, Nome: item.Nome, Label: item.Nome, Status: item.Status})
@@ -238,7 +238,7 @@ func opcoesClientes(output *dto.ListaClientesOutput) *dto.ListaOpcoesOutput {
 	return &dto.ListaOpcoesOutput{Dados: dados, Total: output.Total, Pagina: output.Pagina, PorPagina: output.PorPagina}
 }
 
-func opcoesClientesBasicos(output *dto.ListaClientesBasicosOutput) *dto.ListaOpcoesOutput {
+func opcoesNegociosBasicos(output *dto.ListaNegociosBasicosOutput) *dto.ListaOpcoesOutput {
 	dados := make([]*dto.OpcaoOutput, 0, len(output.Dados))
 	for _, item := range output.Dados {
 		dados = append(dados, &dto.OpcaoOutput{Id: item.Id, Nome: item.Nome, Label: item.Nome, Status: item.Status})
@@ -254,10 +254,10 @@ func opcoesUsuarios(output *dto.ListaUsuariosOutput) *dto.ListaOpcoesOutput {
 	return &dto.ListaOpcoesOutput{Dados: dados, Total: output.Total, Pagina: output.Pagina, PorPagina: output.PorPagina}
 }
 
-func opcoesNegocios(output *dto.ListaNegociosOutput) *dto.ListaOpcoesOutput {
+func opcoesUnidades(output *dto.ListaUnidadesOutput) *dto.ListaOpcoesOutput {
 	dados := make([]*dto.OpcaoOutput, 0, len(output.Dados))
 	for _, item := range output.Dados {
-		dados = append(dados, &dto.OpcaoOutput{Id: item.Id, Nome: item.Nome, Label: item.Nome, Status: item.Status, ClienteId: item.ClienteId})
+		dados = append(dados, &dto.OpcaoOutput{Id: item.Id, Nome: item.Nome, Label: item.Nome, Status: item.Status, NegocioId: item.NegocioId})
 	}
 	return &dto.ListaOpcoesOutput{Dados: dados, Total: output.Total, Pagina: output.Pagina, PorPagina: output.PorPagina}
 }
@@ -273,7 +273,7 @@ func opcoesCategorias(output *dto.ListaCategoriasOutput) *dto.ListaOpcoesOutput 
 func opcoesTemplates(output *dto.ListaTemplatesOutput) *dto.ListaOpcoesOutput {
 	dados := make([]*dto.OpcaoOutput, 0, len(output.Dados))
 	for _, item := range output.Dados {
-		dados = append(dados, &dto.OpcaoOutput{Id: item.Id, Nome: item.Nome, Label: item.Nome, Status: item.Status, Tipo: item.Tipo, Origem: item.Origem, ClienteId: item.ClienteId, CategoriaId: item.CategoriaId})
+		dados = append(dados, &dto.OpcaoOutput{Id: item.Id, Nome: item.Nome, Label: item.Nome, Status: item.Status, Tipo: item.Tipo, Origem: item.Origem, NegocioId: item.NegocioId, CategoriaId: item.CategoriaId})
 	}
 	return &dto.ListaOpcoesOutput{Dados: dados, Total: output.Total, Pagina: output.Pagina, PorPagina: output.PorPagina}
 }
@@ -281,7 +281,7 @@ func opcoesTemplates(output *dto.ListaTemplatesOutput) *dto.ListaOpcoesOutput {
 func opcoesLandingPages(output *dto.ListaLandingPagesOutput) *dto.ListaOpcoesOutput {
 	dados := make([]*dto.OpcaoOutput, 0, len(output.Dados))
 	for _, item := range output.Dados {
-		dados = append(dados, &dto.OpcaoOutput{Id: item.Id, Nome: item.Nome, Label: item.Nome, Status: item.Status, Tipo: item.Tipo, ClienteId: item.ClienteId, CategoriaId: item.CategoriaId})
+		dados = append(dados, &dto.OpcaoOutput{Id: item.Id, Nome: item.Nome, Label: item.Nome, Status: item.Status, Tipo: item.Tipo, NegocioId: item.NegocioId, CategoriaId: item.CategoriaId})
 	}
 	return &dto.ListaOpcoesOutput{Dados: dados, Total: output.Total, Pagina: output.Pagina, PorPagina: output.PorPagina}
 }

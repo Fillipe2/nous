@@ -17,11 +17,11 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"nous/internal/app/dto"
-	"nous/internal/domain/cliente"
 	"nous/internal/domain/evento"
 	domainexportacao "nous/internal/domain/exportacao"
 	"nous/internal/domain/hosting"
 	domain "nous/internal/domain/landingpage"
+	"nous/internal/domain/negocio"
 	"nous/internal/domain/plano"
 	"nous/internal/domain/template"
 
@@ -35,7 +35,7 @@ var (
 
 type UseCase struct {
 	repository           domain.Repository
-	clienteRepository    cliente.Repository
+	negocioRepository    negocio.Repository
 	publisher            evento.Publisher
 	planoRepository      plano.Repository
 	templateRepository   template.Repository
@@ -45,7 +45,7 @@ type UseCase struct {
 
 func NewUseCase(
 	repository domain.Repository,
-	clienteRepository cliente.Repository,
+	negocioRepository negocio.Repository,
 	publisher evento.Publisher,
 	planoRepository plano.Repository,
 	templateRepository template.Repository,
@@ -54,7 +54,7 @@ func NewUseCase(
 ) *UseCase {
 	return &UseCase{
 		repository:           repository,
-		clienteRepository:    clienteRepository,
+		negocioRepository:    negocioRepository,
 		publisher:            publisher,
 		planoRepository:      planoRepository,
 		templateRepository:   templateRepository,
@@ -64,23 +64,23 @@ func NewUseCase(
 }
 
 func (u *UseCase) CriarLandingPage(ctx context.Context, input dto.CriarLandingPageInput, usuarioId, role string) (*dto.LandingPageOutput, error) {
-	if input.ClienteId == "" || input.Nome == "" {
-		return nil, fmt.Errorf("cliente_id e nome sao obrigatorios")
+	if input.NegocioId == "" || input.Nome == "" {
+		return nil, fmt.Errorf("negocio_id e nome sao obrigatorios")
 	}
-	if err := u.verificarAcessoCliente(ctx, input.ClienteId, usuarioId, role); err != nil {
+	if err := u.verificarAcessoNegocio(ctx, input.NegocioId, usuarioId, role); err != nil {
 		return nil, err
 	}
 	tipo, err := domain.NormalizarTipo(input.Tipo)
 	if err != nil {
 		return nil, err
 	}
-	if err := u.validarPlanoLandingPage(ctx, input.ClienteId, tipo); err != nil {
+	if err := u.validarPlanoLandingPage(ctx, input.NegocioId, tipo); err != nil {
 		return nil, err
 	}
-	if err := u.validarLimiteLandingPages(ctx, input.ClienteId); err != nil {
+	if err := u.validarLimiteLandingPages(ctx, input.NegocioId); err != nil {
 		return nil, err
 	}
-	conteudo, templateId, categoriaId, err := u.prepararTemplateInicial(ctx, input.ClienteId, tipo, input.TemplateId, input.CategoriaId, input.Conteudo)
+	conteudo, templateId, categoriaId, err := u.prepararTemplateInicial(ctx, input.NegocioId, tipo, input.TemplateId, input.CategoriaId, input.Conteudo)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +94,8 @@ func (u *UseCase) CriarLandingPage(ctx context.Context, input dto.CriarLandingPa
 	}
 
 	lp := &domain.LandingPage{
-		ClienteId:    input.ClienteId,
 		NegocioId:    input.NegocioId,
+		UnidadeId:    input.UnidadeId,
 		CategoriaId:  categoriaId,
 		TemplateId:   templateId,
 		Tipo:         tipo,
@@ -141,7 +141,7 @@ func (u *UseCase) AtualizarLandingPage(ctx context.Context, id string, input dto
 		if err != nil {
 			return nil, err
 		}
-		if err := u.validarPlanoLandingPage(ctx, lp.ClienteId, tipo); err != nil {
+		if err := u.validarPlanoLandingPage(ctx, lp.NegocioId, tipo); err != nil {
 			return nil, err
 		}
 	}
@@ -162,14 +162,14 @@ func (u *UseCase) AtualizarLandingPage(ctx context.Context, id string, input dto
 	if input.Conteudo != "" {
 		lp.Conteudo = input.Conteudo
 	}
-	if input.NegocioId != "" {
-		lp.NegocioId = input.NegocioId
+	if input.UnidadeId != "" {
+		lp.UnidadeId = input.UnidadeId
 	}
 	if input.CategoriaId != "" {
 		lp.CategoriaId = input.CategoriaId
 	}
 	if input.TemplateId != "" {
-		conteudo, templateId, categoriaId, err := u.prepararTemplateInicial(ctx, lp.ClienteId, tipo, input.TemplateId, lp.CategoriaId, lp.Conteudo)
+		conteudo, templateId, categoriaId, err := u.prepararTemplateInicial(ctx, lp.NegocioId, tipo, input.TemplateId, lp.CategoriaId, lp.Conteudo)
 		if err != nil {
 			return nil, err
 		}
@@ -209,9 +209,9 @@ func (u *UseCase) ExcluirLandingPage(ctx context.Context, id, usuarioId, role st
 func (u *UseCase) ListarLandingPages(ctx context.Context, filtro domain.FiltroListagem, usuarioId, role string) (*dto.ListaLandingPagesOutput, error) {
 	if role != "admin" {
 		filtro.UsuarioId = usuarioId
-		if filtro.ClienteId != "" {
-			if err := u.clienteRepository.VerificarAcessoUsuario(ctx, filtro.ClienteId, usuarioId); err != nil {
-				return nil, fmt.Errorf("listar landingpages acesso cliente: %w", err)
+		if filtro.NegocioId != "" {
+			if err := u.negocioRepository.VerificarAcessoUsuario(ctx, filtro.NegocioId, usuarioId); err != nil {
+				return nil, fmt.Errorf("listar landingpages acesso negocio: %w", err)
 			}
 		}
 	}
@@ -244,7 +244,7 @@ func (u *UseCase) Autosave(ctx context.Context, id, usuarioId, role string, inpu
 	if lp.Tipo != domain.TipoCustomizavel {
 		return nil, domain.ErrPlanoNaoPermite
 	}
-	if err := u.validarPlanoLandingPage(ctx, lp.ClienteId, domain.TipoCustomizavel); err != nil {
+	if err := u.validarPlanoLandingPage(ctx, lp.NegocioId, domain.TipoCustomizavel); err != nil {
 		return nil, err
 	}
 	if len(input.AutosaveData) == 0 {
@@ -383,12 +383,12 @@ func (u *UseCase) DespublicarLandingPage(ctx context.Context, id, usuarioId, rol
 	return nil
 }
 
-func (u *UseCase) verificarAcessoCliente(ctx context.Context, clienteId, usuarioId, role string) error {
+func (u *UseCase) verificarAcessoNegocio(ctx context.Context, negocioId, usuarioId, role string) error {
 	if role == "admin" {
 		return nil
 	}
-	if err := u.clienteRepository.VerificarAcessoUsuario(ctx, clienteId, usuarioId); err != nil {
-		return fmt.Errorf("acesso cliente: %w", err)
+	if err := u.negocioRepository.VerificarAcessoUsuario(ctx, negocioId, usuarioId); err != nil {
+		return fmt.Errorf("acesso negocio: %w", err)
 	}
 	return nil
 }
@@ -403,14 +403,14 @@ func (u *UseCase) verificarAcessoLandingPage(ctx context.Context, id, usuarioId,
 	return nil
 }
 
-func (u *UseCase) validarPlanoLandingPage(ctx context.Context, clienteId string, tipo domain.Tipo) error {
+func (u *UseCase) validarPlanoLandingPage(ctx context.Context, negocioId string, tipo domain.Tipo) error {
 	if tipo == domain.TipoWhiteLabel && u.planoRepository == nil {
 		return nil
 	}
 	if u.planoRepository == nil {
 		return domain.ErrPlanoNaoPermite
 	}
-	planoAtivo, err := u.planoRepository.BuscarPlanoAtivoPorCliente(ctx, clienteId)
+	planoAtivo, err := u.planoRepository.BuscarPlanoAtivoPorNegocio(ctx, negocioId)
 	if errors.Is(err, plano.ErrAssinaturaAtivaNaoEncontrada) {
 		if tipo == domain.TipoWhiteLabel {
 			return nil
@@ -429,11 +429,11 @@ func (u *UseCase) validarPlanoLandingPage(ctx context.Context, clienteId string,
 	return nil
 }
 
-func (u *UseCase) validarLimiteLandingPages(ctx context.Context, clienteId string) error {
+func (u *UseCase) validarLimiteLandingPages(ctx context.Context, negocioId string) error {
 	if u.planoRepository == nil {
 		return nil
 	}
-	planoAtivo, err := u.planoRepository.BuscarPlanoAtivoPorCliente(ctx, clienteId)
+	planoAtivo, err := u.planoRepository.BuscarPlanoAtivoPorNegocio(ctx, negocioId)
 	if errors.Is(err, plano.ErrAssinaturaAtivaNaoEncontrada) {
 		return nil
 	}
@@ -443,9 +443,9 @@ func (u *UseCase) validarLimiteLandingPages(ctx context.Context, clienteId strin
 	if planoAtivo.Limites.MaxLandingPages <= 0 {
 		return nil
 	}
-	total, err := u.repository.ContarPorCliente(ctx, clienteId)
+	total, err := u.repository.ContarPorNegocio(ctx, negocioId)
 	if err != nil {
-		return fmt.Errorf("contar landingpages do cliente: %w", err)
+		return fmt.Errorf("contar landingpages do negocio: %w", err)
 	}
 	if total >= planoAtivo.Limites.MaxLandingPages {
 		return domain.ErrPlanoNaoPermite
@@ -453,7 +453,7 @@ func (u *UseCase) validarLimiteLandingPages(ctx context.Context, clienteId strin
 	return nil
 }
 
-func (u *UseCase) prepararTemplateInicial(ctx context.Context, clienteId string, tipo domain.Tipo, templateId, categoriaId, conteudo string) (string, string, string, error) {
+func (u *UseCase) prepararTemplateInicial(ctx context.Context, negocioId string, tipo domain.Tipo, templateId, categoriaId, conteudo string) (string, string, string, error) {
 	templateId = strings.TrimSpace(templateId)
 	if tipo == domain.TipoWhiteLabel && templateId == "" {
 		return "", "", "", domain.ErrTemplateObrigatorio
@@ -471,7 +471,7 @@ func (u *UseCase) prepararTemplateInicial(ctx context.Context, clienteId string,
 	if tipo == domain.TipoWhiteLabel && t.Tipo != template.TipoWhiteLabel {
 		return "", "", "", domain.ErrTemplateIncompativel
 	}
-	if t.Origem == template.OrigemCliente && t.ClienteId != clienteId {
+	if t.Origem == template.OrigemNegocio && t.NegocioId != negocioId {
 		return "", "", "", domain.ErrTemplateIncompativel
 	}
 	if strings.TrimSpace(conteudo) == "" {
@@ -528,8 +528,8 @@ func extrairArquivosZip(dados []byte) ([]hosting.Arquivo, error) {
 func mapearLandingPageOutput(lp *domain.LandingPage) *dto.LandingPageOutput {
 	return &dto.LandingPageOutput{
 		Id:             lp.Id,
-		ClienteId:      lp.ClienteId,
 		NegocioId:      lp.NegocioId,
+		UnidadeId:      lp.UnidadeId,
 		CategoriaId:    lp.CategoriaId,
 		TemplateId:     lp.TemplateId,
 		Tipo:           string(lp.Tipo),

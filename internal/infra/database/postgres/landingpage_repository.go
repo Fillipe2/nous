@@ -32,8 +32,8 @@ func (r *LandingPageRepository) Salvar(ctx context.Context, lp *landingpage.Land
 	stmts := statement.Get()
 	err := r.connection.Exec(ctx, stmts.SalvarLandingPage, pgx.NamedArgs{
 		"id":            lp.Id,
-		"cliente_id":    lp.ClienteId,
-		"negocio_id":    nilableStr(lp.NegocioId),
+		"negocio_id":    lp.NegocioId,
+		"unidade_id":    nilableStr(lp.UnidadeId),
 		"categoria_id":  nilableStr(lp.CategoriaId),
 		"template_id":   nilableStr(lp.TemplateId),
 		"tipo":          string(lp.Tipo),
@@ -72,7 +72,7 @@ func (r *LandingPageRepository) BuscarPorID(ctx context.Context, id string) (*la
 func (r *LandingPageRepository) Atualizar(ctx context.Context, lp *landingpage.LandingPage) error {
 	stmts := statement.Get()
 	commandTag, err := r.connection.ExecResult(ctx, stmts.AtualizarLandingPage, pgx.NamedArgs{
-		"negocio_id":       nilableStr(lp.NegocioId),
+		"unidade_id":       nilableStr(lp.UnidadeId),
 		"categoria_id":     nilableStr(lp.CategoriaId),
 		"template_id":      nilableStr(lp.TemplateId),
 		"tipo":             string(lp.Tipo),
@@ -168,11 +168,11 @@ func (r *LandingPageRepository) VerificarAcessoUsuario(ctx context.Context, land
 	return nil
 }
 
-func (r *LandingPageRepository) ContarPorCliente(ctx context.Context, clienteId string) (int, error) {
+func (r *LandingPageRepository) ContarPorNegocio(ctx context.Context, negocioId string) (int, error) {
 	stmts := statement.Get()
 	var total int
-	if err := r.connection.QueryRow(ctx, stmts.ContarLandingPagesPorCliente, pgx.NamedArgs{"cliente_id": clienteId}).Scan(&total); err != nil {
-		return 0, fmt.Errorf("contar landingpages por cliente: %w", err)
+	if err := r.connection.QueryRow(ctx, stmts.ContarLandingPagesPorNegocio, pgx.NamedArgs{"negocio_id": negocioId}).Scan(&total); err != nil {
+		return 0, fmt.Errorf("contar landingpages por negocio: %w", err)
 	}
 	return total, nil
 }
@@ -180,7 +180,7 @@ func (r *LandingPageRepository) ContarPorCliente(ctx context.Context, clienteId 
 func (r *LandingPageRepository) Listar(ctx context.Context, filtro landingpage.FiltroListagem) ([]*landingpage.LandingPage, int, error) {
 	offset := (filtro.Pagina - 1) * filtro.PorPagina
 
-	query := `SELECT lp.id, lp.cliente_id, lp.negocio_id, lp.categoria_id, lp.template_id, lp.tipo,
+	query := `SELECT lp.id, lp.negocio_id, lp.unidade_id, lp.categoria_id, lp.template_id, lp.tipo,
 		lp.nome, lp.conteudo, lp.status, lp.is_draft, lp.autosave_data,
 		lp.last_autosave_em, lp.locked_by, lp.locked_at, lp.criado_em, lp.atualizado_em, lp.version,
 		lp.slug, lp.url_publica, lp.deploy_id, lp.publicada_em
@@ -189,21 +189,21 @@ func (r *LandingPageRepository) Listar(ctx context.Context, filtro landingpage.F
 	argIdx := 1
 
 	if filtro.UsuarioId != "" {
-		query += fmt.Sprintf(" INNER JOIN usuario_cliente uc ON uc.cliente_id=lp.cliente_id AND uc.usuario_id=$%d", argIdx)
+		query += fmt.Sprintf(" INNER JOIN usuario_negocio uc ON uc.negocio_id=lp.negocio_id AND uc.usuario_id=$%d", argIdx)
 		args = append(args, filtro.UsuarioId)
 		argIdx++
 	}
 
 	query += " WHERE lp.status != 'excluida'"
 
-	if filtro.ClienteId != "" {
-		query += fmt.Sprintf(" AND lp.cliente_id=$%d", argIdx)
-		args = append(args, filtro.ClienteId)
-		argIdx++
-	}
 	if filtro.NegocioId != "" {
 		query += fmt.Sprintf(" AND lp.negocio_id=$%d", argIdx)
 		args = append(args, filtro.NegocioId)
+		argIdx++
+	}
+	if filtro.UnidadeId != "" {
+		query += fmt.Sprintf(" AND lp.unidade_id=$%d", argIdx)
+		args = append(args, filtro.UnidadeId)
 		argIdx++
 	}
 	if filtro.CategoriaId != "" {

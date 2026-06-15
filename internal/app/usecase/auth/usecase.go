@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"nous/internal/app/dto"
-	"nous/internal/domain/cliente"
+	"nous/internal/domain/negocio"
 	"nous/internal/domain/usuario"
 
 	"golang.org/x/crypto/bcrypt"
@@ -19,6 +19,7 @@ import (
 
 const duracaoRefreshToken = 7 * 24 * time.Hour
 const duracaoResetSenhaToken = 30 * time.Minute
+const duracaoVerificacaoEmailToken = 24 * time.Hour
 const duracaoMinimaEsqueciSenha = 150 * time.Millisecond
 
 // hashSenhaDummy é um hash bcrypt válido usado para igualar o tempo de resposta
@@ -33,29 +34,49 @@ type TokenService interface {
 
 type UseCase struct {
 	repository        usuario.Repository
-	clienteRepository cliente.Repository
+	negocioRepository negocio.Repository
 	tokenService      TokenService
+	loginThrottle     *loginThrottle
 }
 
-func NewUseCase(repository usuario.Repository, clienteRepository cliente.Repository, tokenService TokenService) *UseCase {
-	return &UseCase{repository: repository, clienteRepository: clienteRepository, tokenService: tokenService}
+func NewUseCase(repository usuario.Repository, negocioRepository negocio.Repository, tokenService TokenService) *UseCase {
+	return &UseCase{
+		repository:        repository,
+		negocioRepository: negocioRepository,
+		tokenService:      tokenService,
+		loginThrottle:     novoLoginThrottle(maxTentativasLogin, janelaTentativasLogin),
+	}
 }
 
 func (u *UseCase) Login(ctx context.Context, input dto.LoginInput) (*dto.LoginOutput, error) {
+	// Throttle por conta complementa o rate limit por IP do middleware. A
+	// resposta é a mesma de credencial inválida para não revelar o bloqueio,
+	// e o hash dummy mantém o tempo de resposta constante.
+	if u.loginThrottle.Bloqueado(input.Email) {
+		_ = bcrypt.CompareHashAndPassword(hashSenhaDummy, []byte(input.Senha))
+		return nil, fmt.Errorf("login bloqueado temporariamente: %w", usuario.ErrNaoAutorizado)
+	}
+
 	us, err := u.repository.BuscarPorEmail(ctx, input.Email)
 	if err != nil {
 		// Compara contra um hash dummy para manter o tempo de resposta constante
 		// e impedir enumeração de usuários por timing.
 		_ = bcrypt.CompareHashAndPassword(hashSenhaDummy, []byte(input.Senha))
+		u.loginThrottle.RegistrarFalha(input.Email)
 		return nil, fmt.Errorf("login: %w", usuario.ErrNaoAutorizado)
 	}
 	if us.Status == usuario.StatusExcluido || us.Status == usuario.StatusInativo {
 		_ = bcrypt.CompareHashAndPassword(hashSenhaDummy, []byte(input.Senha))
+		u.loginThrottle.RegistrarFalha(input.Email)
 		return nil, usuario.ErrNaoAutorizado
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(us.SenhaHash), []byte(input.Senha)); err != nil {
+		u.loginThrottle.RegistrarFalha(input.Email)
 		return nil, usuario.ErrNaoAutorizado
 	}
+
+	u.loginThrottle.RegistrarSucesso(input.Email)
+	u.registrarUltimoLogin(ctx, us.Id)
 
 	accessToken, refreshToken, err := u.gerarTokens(ctx, us)
 	if err != nil {
@@ -63,6 +84,13 @@ func (u *UseCase) Login(ctx context.Context, input dto.LoginInput) (*dto.LoginOu
 	}
 
 	return u.montarLoginOutput(ctx, us, accessToken, refreshToken)
+}
+
+// registrarUltimoLogin grava o instante do login. É telemetria best-effort: uma
+// falha aqui não impede o login (a escrita do refresh token logo a seguir já
+// detectaria indisponibilidade do banco).
+func (u *UseCase) registrarUltimoLogin(ctx context.Context, usuarioId string) {
+	_ = u.repository.AtualizarUltimoLogin(ctx, usuarioId, time.Now())
 }
 
 func (u *UseCase) RefreshToken(ctx context.Context, input dto.RefreshTokenInput) (*dto.LoginOutput, error) {
@@ -123,13 +151,14 @@ func (u *UseCase) LoginGoogle(ctx context.Context, input GoogleCallbackInput) (*
 			us = existente
 		} else {
 			us = &usuario.Usuario{
-				Nome:         input.Nome,
-				Email:        input.ProviderEmail,
-				Role:         usuario.RoleUsuario,
-				Status:       usuario.StatusAtivo,
-				CriadoEm:     time.Now(),
-				AtualizadoEm: time.Now(),
-				Version:      1,
+				Nome:          input.Nome,
+				Email:         input.ProviderEmail,
+				Role:          usuario.RoleUsuario,
+				Status:        usuario.StatusAtivo,
+				EmailVerified: true,
+				CriadoEm:      time.Now(),
+				AtualizadoEm:  time.Now(),
+				Version:       1,
 			}
 			if salvarErr := u.repository.Salvar(ctx, us); salvarErr != nil {
 				return nil, fmt.Errorf("login google criar usuario: %w", salvarErr)
@@ -155,6 +184,8 @@ func (u *UseCase) LoginGoogle(ctx context.Context, input GoogleCallbackInput) (*
 	if us.Status != usuario.StatusAtivo {
 		return nil, usuario.ErrNaoAutorizado
 	}
+
+	u.registrarUltimoLogin(ctx, us.Id)
 
 	accessToken, refreshToken, err := u.gerarTokens(ctx, us)
 	if err != nil {
@@ -210,6 +241,9 @@ func (u *UseCase) RedefinirSenha(ctx context.Context, input dto.RedefinirSenhaIn
 	if strings.TrimSpace(input.Token) == "" || input.NovaSenha == "" {
 		return usuario.ErrNaoAutorizado
 	}
+	if err := usuario.ValidarSenha(input.NovaSenha); err != nil {
+		return err
+	}
 
 	resetToken, err := u.repository.BuscarResetSenhaTokenPorHash(ctx, hashToken(input.Token))
 	if err != nil || resetToken.UsadoEm != nil || time.Now().After(resetToken.ExpiresAt) {
@@ -240,10 +274,74 @@ func (u *UseCase) RedefinirSenha(ctx context.Context, input dto.RedefinirSenhaIn
 	return nil
 }
 
-func (u *UseCase) montarLoginOutput(ctx context.Context, us *usuario.Usuario, accessToken, refreshToken string) (*dto.LoginOutput, error) {
-	clientes, err := u.clienteRepository.ListarPorUsuario(ctx, us.Id)
+// SolicitarVerificacaoEmail gera um token de verificação para um usuário ativo
+// e ainda não verificado. A resposta é neutra para não revelar cadastro.
+func (u *UseCase) SolicitarVerificacaoEmail(ctx context.Context, input dto.SolicitarVerificacaoEmailInput) (*dto.SolicitarVerificacaoEmailOutput, error) {
+	output := &dto.SolicitarVerificacaoEmailOutput{
+		Mensagem: "se o email estiver cadastrado e ainda nao verificado, enviaremos as instrucoes de verificacao",
+	}
+
+	us, err := u.repository.BuscarPorEmail(ctx, strings.TrimSpace(input.Email))
+	if err != nil || us.Status != usuario.StatusAtivo || us.EmailVerified {
+		return output, nil
+	}
+
+	token, err := gerarTokenSeguro()
 	if err != nil {
-		return nil, fmt.Errorf("listar clientes usuario login: %w", err)
+		return nil, fmt.Errorf("gerar token verificacao email: %w", err)
+	}
+	agora := time.Now()
+	if err := u.repository.SalvarVerificacaoEmailToken(ctx, &usuario.VerificacaoEmailToken{
+		UsuarioId: us.Id,
+		TokenHash: hashToken(token),
+		ExpiresAt: agora.Add(duracaoVerificacaoEmailToken),
+		CriadoEm:  agora,
+	}); err != nil {
+		return nil, fmt.Errorf("salvar token verificacao email: %w", err)
+	}
+
+	if emailVerificationReturnTokenHabilitado() {
+		output.VerificacaoToken = token
+	}
+	return output, nil
+}
+
+// VerificarEmail consome um token de verificação e marca o email do usuário como
+// verificado. Token inválido, usado ou expirado retorna ErrNaoAutorizado.
+func (u *UseCase) VerificarEmail(ctx context.Context, input dto.VerificarEmailInput) error {
+	if strings.TrimSpace(input.Token) == "" {
+		return usuario.ErrNaoAutorizado
+	}
+
+	token, err := u.repository.BuscarVerificacaoEmailTokenPorHash(ctx, hashToken(input.Token))
+	if err != nil || token.UsadoEm != nil || time.Now().After(token.ExpiresAt) {
+		return usuario.ErrNaoAutorizado
+	}
+
+	us, err := u.repository.BuscarPorID(ctx, token.UsuarioId)
+	if err != nil || us.Status != usuario.StatusAtivo {
+		return usuario.ErrNaoAutorizado
+	}
+	if err := u.repository.MarcarVerificacaoEmailTokenUsado(ctx, token.TokenHash, time.Now()); err != nil {
+		return fmt.Errorf("marcar token verificacao email usado: %w", err)
+	}
+
+	if us.EmailVerified {
+		return nil
+	}
+	us.EmailVerified = true
+	us.AtualizadoEm = time.Now()
+	us.Version++
+	if err := u.repository.Atualizar(ctx, us); err != nil {
+		return fmt.Errorf("verificar email salvar usuario: %w", err)
+	}
+	return nil
+}
+
+func (u *UseCase) montarLoginOutput(ctx context.Context, us *usuario.Usuario, accessToken, refreshToken string) (*dto.LoginOutput, error) {
+	negocios, err := u.negocioRepository.ListarPorUsuario(ctx, us.Id)
+	if err != nil {
+		return nil, fmt.Errorf("listar negocios usuario login: %w", err)
 	}
 
 	output := &dto.LoginOutput{
@@ -260,8 +358,8 @@ func (u *UseCase) montarLoginOutput(ctx context.Context, us *usuario.Usuario, ac
 		},
 	}
 
-	for _, c := range clientes {
-		output.Clientes = append(output.Clientes, &dto.ClienteBasicoOutput{
+	for _, c := range negocios {
+		output.Negocios = append(output.Negocios, &dto.NegocioBasicoOutput{
 			Id:       c.Id,
 			Nome:     c.Nome,
 			Email:    c.Email,
@@ -308,6 +406,10 @@ func gerarTokenSeguro() (string, error) {
 
 func resetPasswordReturnTokenHabilitado() bool {
 	return strings.EqualFold(strings.TrimSpace(os.Getenv("RESET_PASSWORD_RETURN_TOKEN")), "true")
+}
+
+func emailVerificationReturnTokenHabilitado() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("EMAIL_VERIFICATION_RETURN_TOKEN")), "true")
 }
 
 func aguardarDuracaoMinima(inicio time.Time, duracao time.Duration) {

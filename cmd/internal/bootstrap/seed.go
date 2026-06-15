@@ -31,6 +31,10 @@ func (c *Container) seedAdmin(ctx context.Context) error {
 			admin.Status = usuario.StatusAtivo
 			alterado = true
 		}
+		if !admin.EmailVerified {
+			admin.EmailVerified = true
+			alterado = true
+		}
 		if alterado {
 			admin.AtualizadoEm = time.Now()
 			admin.Version++
@@ -48,14 +52,15 @@ func (c *Container) seedAdmin(ctx context.Context) error {
 
 	now := time.Now()
 	admin = &usuario.Usuario{
-		Nome:         c.Config.AdminNome,
-		Email:        c.Config.AdminEmail,
-		SenhaHash:    string(hash),
-		Role:         usuario.RoleAdmin,
-		Status:       usuario.StatusAtivo,
-		CriadoEm:     now,
-		AtualizadoEm: now,
-		Version:      1,
+		Nome:          c.Config.AdminNome,
+		Email:         c.Config.AdminEmail,
+		SenhaHash:     string(hash),
+		Role:          usuario.RoleAdmin,
+		Status:        usuario.StatusAtivo,
+		EmailVerified: true,
+		CriadoEm:      now,
+		AtualizadoEm:  now,
+		Version:       1,
 	}
 
 	if err := c.UsuarioRepository.Salvar(ctx, admin); err != nil {

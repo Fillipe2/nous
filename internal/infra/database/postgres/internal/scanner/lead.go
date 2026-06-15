@@ -14,7 +14,7 @@ func Lead(row pgx.Row) (*lead.Lead, error) {
 	var (
 		id                              string
 		landingPageID                   string
-		clienteID                       *string
+		negocioID                       *string
 		nome                            string
 		email                           string
 		telefone                        *string
@@ -42,7 +42,7 @@ func Lead(row pgx.Row) (*lead.Lead, error) {
 		atualizadoEm                    time.Time
 	)
 	if err := row.Scan(
-		&id, &landingPageID, &clienteID, &nome, &email, &telefone, &whatsapp, &mensagem,
+		&id, &landingPageID, &negocioID, &nome, &email, &telefone, &whatsapp, &mensagem,
 		&camposPersonalizados, &origem, &ip, &userAgent, &referrer,
 		&utmSource, &utmMedium, &utmCampaign, &utmContent, &utmTerm,
 		&consentimento, &consentimentoEm, &politicaVersao,
@@ -66,8 +66,8 @@ func Lead(row pgx.Row) (*lead.Lead, error) {
 		CriadoEm:                        criadoEm,
 		AtualizadoEm:                    atualizadoEm,
 	}
-	if clienteID != nil {
-		l.ClienteId = *clienteID
+	if negocioID != nil {
+		l.NegocioId = *negocioID
 	}
 	if telefone != nil {
 		l.Telefone = *telefone

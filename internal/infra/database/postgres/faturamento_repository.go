@@ -27,7 +27,7 @@ func NewUsoRepository(connection *Postgres) (*UsoRepository, error) {
 	return &UsoRepository{connection: connection}, nil
 }
 
-func (r *UsoRepository) Registrar(ctx context.Context, uso *faturamento.UsoClienteEvento) error {
+func (r *UsoRepository) Registrar(ctx context.Context, uso *faturamento.UsoNegocioEvento) error {
 	if uso.Id == "" {
 		uso.Id = uuid.New().String()
 	}
@@ -42,9 +42,9 @@ func (r *UsoRepository) Registrar(ctx context.Context, uso *faturamento.UsoClien
 		metadados = json.RawMessage("{}")
 	}
 	stmts := statement.Get()
-	err := r.connection.Exec(ctx, stmts.RegistrarUsoClienteEvento, pgx.NamedArgs{
+	err := r.connection.Exec(ctx, stmts.RegistrarUsoNegocioEvento, pgx.NamedArgs{
 		"id":                      uso.Id,
-		"cliente_id":              uso.ClienteId,
+		"negocio_id":              uso.NegocioId,
 		"usuario_id":              nilableStr(uso.UsuarioId),
 		"entidade":                nilableStr(uso.Entidade),
 		"entidade_id":             nilableStr(uso.EntidadeId),
@@ -56,7 +56,7 @@ func (r *UsoRepository) Registrar(ctx context.Context, uso *faturamento.UsoClien
 		"ocorrido_em":             uso.OcorridoEm,
 	})
 	if err != nil {
-		return fmt.Errorf("registrar uso cliente evento: %w", err)
+		return fmt.Errorf("registrar uso negocio evento: %w", err)
 	}
 	return nil
 }
@@ -72,20 +72,20 @@ func NewFaturamentoRepository(connection *Postgres) (*FaturamentoRepository, err
 	return &FaturamentoRepository{connection: connection}, nil
 }
 
-func (r *FaturamentoRepository) ObterOuCriarCompetencia(ctx context.Context, clienteId string, competencia time.Time) (*faturamento.FaturamentoMensal, error) {
+func (r *FaturamentoRepository) ObterOuCriarCompetencia(ctx context.Context, negocioId string, competencia time.Time) (*faturamento.FaturamentoMensal, error) {
 	comp := inicioMes(competencia)
 	stmts := statement.Get()
 
 	// Garante que o registro existe antes de consultar.
 	if err := r.connection.Exec(ctx, stmts.CriarFaturamentoMensal, pgx.NamedArgs{
-		"cliente_id":  clienteId,
+		"negocio_id":  negocioId,
 		"competencia": comp,
 	}); err != nil {
 		return nil, fmt.Errorf("criar faturamento mensal: %w", err)
 	}
 
 	row := r.connection.QueryRow(ctx, stmts.ObterFaturamentoMensalPorCompetencia, pgx.NamedArgs{
-		"cliente_id":  clienteId,
+		"negocio_id":  negocioId,
 		"competencia": comp,
 	})
 
@@ -93,7 +93,7 @@ func (r *FaturamentoRepository) ObterOuCriarCompetencia(ctx context.Context, cli
 	var assinaturaId *string
 	var fechadoEm *time.Time
 	if err := row.Scan(
-		&fm.Id, &fm.ClienteId, &assinaturaId, &fm.Competencia,
+		&fm.Id, &fm.NegocioId, &assinaturaId, &fm.Competencia,
 		&fm.ValorMensalCentavos, &fm.ValorUsoCentavos, &fm.ValorTotalCentavos,
 		&fm.Status, &fechadoEm,
 	); err != nil {
@@ -106,10 +106,10 @@ func (r *FaturamentoRepository) ObterOuCriarCompetencia(ctx context.Context, cli
 	return &fm, nil
 }
 
-func (r *FaturamentoRepository) AdicionarUso(ctx context.Context, clienteId string, competencia time.Time, centavos int) error {
+func (r *FaturamentoRepository) AdicionarUso(ctx context.Context, negocioId string, competencia time.Time, centavos int) error {
 	stmts := statement.Get()
 	if err := r.connection.Exec(ctx, stmts.AdicionarUsoFaturamentoMensal, pgx.NamedArgs{
-		"cliente_id":  clienteId,
+		"negocio_id":  negocioId,
 		"competencia": inicioMes(competencia),
 		"centavos":    centavos,
 	}); err != nil {
@@ -118,10 +118,10 @@ func (r *FaturamentoRepository) AdicionarUso(ctx context.Context, clienteId stri
 	return nil
 }
 
-func (r *FaturamentoRepository) FecharCompetencia(ctx context.Context, clienteId string, competencia time.Time) error {
+func (r *FaturamentoRepository) FecharCompetencia(ctx context.Context, negocioId string, competencia time.Time) error {
 	stmts := statement.Get()
 	if err := r.connection.Exec(ctx, stmts.FecharFaturamentoMensal, pgx.NamedArgs{
-		"cliente_id":  clienteId,
+		"negocio_id":  negocioId,
 		"competencia": inicioMes(competencia),
 	}); err != nil {
 		return fmt.Errorf("fechar faturamento mensal: %w", err)
@@ -140,11 +140,11 @@ func NewBiRepository(connection *Postgres) (*BiRepository, error) {
 	return &BiRepository{connection: connection}, nil
 }
 
-func (r *BiRepository) IncrementarMetrica(ctx context.Context, clienteId string, data time.Time, metrica string, valor float64, dimensoes map[string]string) error {
+func (r *BiRepository) IncrementarMetrica(ctx context.Context, negocioId string, data time.Time, metrica string, valor float64, dimensoes map[string]string) error {
 	dimJSON, hash := serializarDimensoes(dimensoes)
 	stmts := statement.Get()
 	if err := r.connection.Exec(ctx, stmts.IncrementarBiMetricaDiaria, pgx.NamedArgs{
-		"cliente_id":    nilableStr(clienteId),
+		"negocio_id":    nilableStr(negocioId),
 		"data":          data.Truncate(24 * time.Hour),
 		"metrica":       metrica,
 		"valor":         valor,

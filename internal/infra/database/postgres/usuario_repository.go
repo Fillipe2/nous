@@ -31,17 +31,21 @@ func (r *UsuarioRepository) Salvar(ctx context.Context, u *usuario.Usuario) erro
 	u.Id = uuid.New().String()
 	stmts := statement.Get()
 	err := r.connection.Exec(ctx, stmts.SalvarUsuario, pgx.NamedArgs{
-		"id":            u.Id,
-		"nome":          u.Nome,
-		"email":         u.Email,
-		"senha_hash":    nilableStr(u.SenhaHash),
-		"role":          string(u.Role),
-		"status":        string(u.Status),
-		"criado_em":     u.CriadoEm,
-		"atualizado_em": u.AtualizadoEm,
-		"version":       u.Version,
+		"id":             u.Id,
+		"nome":           u.Nome,
+		"email":          u.Email,
+		"senha_hash":     nilableStr(u.SenhaHash),
+		"role":           string(u.Role),
+		"status":         string(u.Status),
+		"email_verified": u.EmailVerified,
+		"criado_em":      u.CriadoEm,
+		"atualizado_em":  u.AtualizadoEm,
+		"version":        u.Version,
 	})
 	if err != nil {
+		if isUniqueViolation(err, "usuario_email") {
+			return usuario.ErrEmailDuplicado
+		}
 		return fmt.Errorf("salvar usuario: %w", err)
 	}
 	return nil
@@ -81,18 +85,42 @@ func (r *UsuarioRepository) Atualizar(ctx context.Context, u *usuario.Usuario) e
 		"senha_hash":       nilableStr(u.SenhaHash),
 		"role":             string(u.Role),
 		"status":           string(u.Status),
+		"email_verified":   u.EmailVerified,
 		"atualizado_em":    u.AtualizadoEm,
 		"version":          u.Version,
 		"version_anterior": u.Version - 1,
 		"id":               u.Id,
 	})
 	if err != nil {
+		if isUniqueViolation(err, "usuario_email") {
+			return usuario.ErrEmailDuplicado
+		}
 		return fmt.Errorf("atualizar usuario: %w", err)
 	}
 	if commandTag.RowsAffected() == 0 {
 		return usuario.ErrVersaoConflito
 	}
 	return nil
+}
+
+func (r *UsuarioRepository) AtualizarUltimoLogin(ctx context.Context, id string, em time.Time) error {
+	stmts := statement.Get()
+	if err := r.connection.Exec(ctx, stmts.AtualizarUltimoLoginUsuario, pgx.NamedArgs{
+		"id":              id,
+		"ultimo_login_em": em,
+	}); err != nil {
+		return fmt.Errorf("atualizar ultimo login usuario: %w", err)
+	}
+	return nil
+}
+
+func (r *UsuarioRepository) ContarAdministradoresAtivos(ctx context.Context) (int, error) {
+	stmts := statement.Get()
+	var total int
+	if err := r.connection.QueryRow(ctx, stmts.ContarAdministradoresAtivos).Scan(&total); err != nil {
+		return 0, fmt.Errorf("contar administradores ativos: %w", err)
+	}
+	return total, nil
 }
 
 func (r *UsuarioRepository) SoftDelete(ctx context.Context, id string) error {
@@ -109,11 +137,11 @@ func (r *UsuarioRepository) SoftDelete(ctx context.Context, id string) error {
 
 func (r *UsuarioRepository) Listar(ctx context.Context, filtro usuario.FiltroListagem) ([]*usuario.Usuario, int, error) {
 	offset := (filtro.Pagina - 1) * filtro.PorPagina
-	query := `SELECT u.id, u.nome, u.email, u.senha_hash, u.role, u.status, u.criado_em, u.atualizado_em, u.version FROM usuario u`
+	query := `SELECT u.id, u.nome, u.email, u.senha_hash, u.role, u.status, u.criado_em, u.atualizado_em, u.version, u.email_verified, u.ultimo_login_em FROM usuario u`
 	args := []any{}
 	argIdx := 1
-	if filtro.ClienteId != "" {
-		query += " INNER JOIN usuario_cliente uc ON uc.usuario_id=u.id"
+	if filtro.NegocioId != "" {
+		query += " INNER JOIN usuario_negocio uc ON uc.usuario_id=u.id"
 	}
 	query += " WHERE u.status != 'excluido'"
 	if filtro.Id != "" {
@@ -121,9 +149,9 @@ func (r *UsuarioRepository) Listar(ctx context.Context, filtro usuario.FiltroLis
 		args = append(args, filtro.Id)
 		argIdx++
 	}
-	if filtro.ClienteId != "" {
-		query += fmt.Sprintf(" AND uc.cliente_id=$%d", argIdx)
-		args = append(args, filtro.ClienteId)
+	if filtro.NegocioId != "" {
+		query += fmt.Sprintf(" AND uc.negocio_id=$%d", argIdx)
+		args = append(args, filtro.NegocioId)
 		argIdx++
 	}
 	if filtro.Nome != "" {
@@ -223,6 +251,50 @@ func (r *UsuarioRepository) MarcarResetSenhaTokenUsado(ctx context.Context, toke
 	})
 	if err != nil {
 		return fmt.Errorf("marcar reset senha token usado: %w", err)
+	}
+	if commandTag.RowsAffected() == 0 {
+		return usuario.ErrNaoEncontrado
+	}
+	return nil
+}
+
+func (r *UsuarioRepository) SalvarVerificacaoEmailToken(ctx context.Context, token *usuario.VerificacaoEmailToken) error {
+	token.Id = uuid.New().String()
+	st := statement.Get()
+	err := r.connection.Exec(ctx, st.SalvarUsuarioVerificacaoEmailToken, pgx.NamedArgs{
+		"id":         token.Id,
+		"usuario_id": token.UsuarioId,
+		"token_hash": token.TokenHash,
+		"expires_at": token.ExpiresAt,
+		"criado_em":  token.CriadoEm,
+	})
+	if err != nil {
+		return fmt.Errorf("salvar verificacao email token: %w", err)
+	}
+	return nil
+}
+
+func (r *UsuarioRepository) BuscarVerificacaoEmailTokenPorHash(ctx context.Context, tokenHash string) (*usuario.VerificacaoEmailToken, error) {
+	st := statement.Get()
+	row := r.connection.QueryRow(ctx, st.BuscarUsuarioVerificacaoEmailTokenPorHash, pgx.NamedArgs{"token_hash": tokenHash})
+	token, err := scanner.VerificacaoEmailToken(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, usuario.ErrNaoEncontrado
+	}
+	if err != nil {
+		return nil, fmt.Errorf("buscar verificacao email token: %w", err)
+	}
+	return token, nil
+}
+
+func (r *UsuarioRepository) MarcarVerificacaoEmailTokenUsado(ctx context.Context, tokenHash string, usadoEm time.Time) error {
+	st := statement.Get()
+	commandTag, err := r.connection.ExecResult(ctx, st.MarcarUsuarioVerificacaoEmailTokenUsado, pgx.NamedArgs{
+		"token_hash": tokenHash,
+		"usado_em":   usadoEm,
+	})
+	if err != nil {
+		return fmt.Errorf("marcar verificacao email token usado: %w", err)
 	}
 	if commandTag.RowsAffected() == 0 {
 		return usuario.ErrNaoEncontrado

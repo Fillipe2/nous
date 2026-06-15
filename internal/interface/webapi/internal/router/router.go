@@ -25,7 +25,7 @@ const swaggerHTML = `<!doctype html>
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Buildnix API</title>
+	<title>Nous API</title>
 	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111827'/%3E%3Cpath d='M18 20h12a8 8 0 0 1 0 16H18zm0 16h14a8 8 0 0 1 0 12H18zM38 20h8v28h-8z' fill='%2338bdf8'/%3E%3C/svg%3E">
 	<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
 	<style>
@@ -137,10 +137,10 @@ const swaggerHTML = `<!doctype html>
 <body>
 	<header class="bn-topbar">
 		<div class="bn-brand">
-			<div class="bn-brand-mark">B</div>
+			<div class="bn-brand-mark">N</div>
 			<div class="bn-brand-text">
-				<span class="bn-brand-title">Buildnix Backend</span>
-				<span class="bn-brand-sub">Documentação interativa da API</span>
+				<span class="bn-brand-title">Nous</span>
+				<span class="bn-brand-sub">Backend do Buildnix · documentação da API</span>
 			</div>
 		</div>
 		<nav class="bn-actions">
@@ -175,9 +175,9 @@ const swaggerHTML = `<!doctype html>
 type Handlers struct {
 	Auth          *handler.AuthHandler
 	Usuario       *handler.UsuarioHandler
-	Cliente       *handler.ClienteHandler
-	Dashboard     *handler.DashboardHandler
 	Negocio       *handler.NegocioHandler
+	Dashboard     *handler.DashboardHandler
+	Unidade       *handler.UnidadeHandler
 	Categoria     *handler.CategoriaHandler
 	Template      *handler.TemplateHandler
 	LandingPage   *handler.LandingPageHandler
@@ -214,6 +214,8 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 		r.Post("/auth/logout", handlers.Auth.Logout)
 		r.Post("/auth/esqueci-senha", handlers.Auth.EsqueciSenha)
 		r.Post("/auth/redefinir-senha", handlers.Auth.RedefinirSenha)
+		r.Post("/auth/solicitar-verificacao-email", handlers.Auth.SolicitarVerificacaoEmail)
+		r.Post("/auth/verificar-email", handlers.Auth.VerificarEmail)
 		r.Get("/auth/google/login", handlers.Auth.GoogleLogin)
 		r.Get("/auth/google/callback", handlers.Auth.GoogleCallback)
 
@@ -237,31 +239,33 @@ func NovoRouter(handlers *Handlers, jwtServico *infrajwt.Servico, auditoriaRepo 
 		r.Put("/usuarios/{id}", handlers.Usuario.AtualizarUsuario)
 		r.Delete("/usuarios/{id}", handlers.Usuario.ExcluirUsuario)
 		r.With(middleware.ApenasAdmin).Get("/usuarios", handlers.Usuario.ListarUsuarios)
+		r.With(middleware.ApenasAdmin).Patch("/usuarios/{id}/role", handlers.Usuario.AlterarRole)
+		r.With(middleware.ApenasAdmin).Patch("/usuarios/{id}/status", handlers.Usuario.AlterarStatus)
 
-		// Clientes
-		r.Get("/clientes/me", handlers.Cliente.ListarClientesDoUsuario)
-		r.With(middleware.ApenasAdmin).Get("/clientes", handlers.Cliente.ListarClientes)
-		r.Post("/clientes", handlers.Cliente.CriarCliente)
-		r.With(middleware.ApenasAdmin).Put("/clientes/{id}", handlers.Cliente.AtualizarCliente)
-		r.With(middleware.ApenasAdmin).Delete("/clientes/{id}", handlers.Cliente.ExcluirCliente)
+		// Negocios
+		r.Get("/negocios/me", handlers.Negocio.ListarNegociosDoUsuario)
+		r.With(middleware.ApenasAdmin).Get("/negocios", handlers.Negocio.ListarNegocios)
+		r.Post("/negocios", handlers.Negocio.CriarNegocio)
+		r.With(middleware.ApenasAdmin).Put("/negocios/{id}", handlers.Negocio.AtualizarNegocio)
+		r.With(middleware.ApenasAdmin).Delete("/negocios/{id}", handlers.Negocio.ExcluirNegocio)
 
 		// Dashboard
 		r.Get("/dashboard", handlers.Dashboard.ObterDashboard)
 
 		// Opções para combos/filtros do frontend
-		r.Get("/opcoes/clientes", handlers.Opcao.ListarClientes)
-		r.With(middleware.ApenasAdmin).Get("/opcoes/usuarios", handlers.Opcao.ListarUsuarios)
 		r.Get("/opcoes/negocios", handlers.Opcao.ListarNegocios)
+		r.With(middleware.ApenasAdmin).Get("/opcoes/usuarios", handlers.Opcao.ListarUsuarios)
+		r.Get("/opcoes/unidades", handlers.Opcao.ListarUnidades)
 		r.Get("/opcoes/categorias", handlers.Opcao.ListarCategorias)
 		r.Get("/opcoes/templates", handlers.Opcao.ListarTemplates)
 		r.Get("/opcoes/landingpages", handlers.Opcao.ListarLandingPages)
 		r.Get("/opcoes/enums", handlers.Opcao.ListarEnums)
 
-		// Negócios
-		r.Get("/negocios", handlers.Negocio.ListarNegocios)
-		r.Post("/negocios", handlers.Negocio.CriarNegocio)
-		r.Put("/negocios/{id}", handlers.Negocio.AtualizarNegocio)
-		r.Delete("/negocios/{id}", handlers.Negocio.ExcluirNegocio)
+		// Unidades
+		r.Get("/unidades", handlers.Unidade.ListarUnidades)
+		r.Post("/unidades", handlers.Unidade.CriarUnidade)
+		r.Put("/unidades/{id}", handlers.Unidade.AtualizarUnidade)
+		r.Delete("/unidades/{id}", handlers.Unidade.ExcluirUnidade)
 
 		// Categorias
 		r.Get("/categorias", handlers.Categoria.ListarCategorias)
@@ -343,6 +347,9 @@ func servirOpenAPI(w http.ResponseWriter, _ *http.Request) {
 
 func servirSwaggerUI(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// Sobrescreve o CSP restritivo do middleware: a Swagger UI usa estilos e
+	// scripts inline e carrega os assets do swagger-ui-dist via unpkg.
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(swaggerHTML))
 }

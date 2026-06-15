@@ -69,7 +69,7 @@ func TestClienteIPUsaForwardedComProxyConfiavel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("criar request: %v", err)
 	}
-	// RemoteAddr é o proxy confiável; o cliente real é o último IP do XFF.
+	// RemoteAddr é o proxy confiável; o negocio real é o último IP do XFF.
 	request.RemoteAddr = "10.0.0.1:443"
 	request.Header.Set("X-Forwarded-For", "203.0.113.10")
 

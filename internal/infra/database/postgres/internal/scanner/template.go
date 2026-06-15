@@ -12,7 +12,7 @@ import (
 func Template(row pgx.Row) (*template.Template, error) {
 	var (
 		id           string
-		clienteID    *string
+		negocioID    *string
 		categoriaID  *string
 		tipo         string
 		origem       string
@@ -28,7 +28,7 @@ func Template(row pgx.Row) (*template.Template, error) {
 		atualizadoEm time.Time
 		version      int
 	)
-	if err := row.Scan(&id, &clienteID, &categoriaID, &tipo, &origem, &nome, &arquivoURL, &conteudo, &arquivo, &nomeArquivo, &contentType, &tamanhoBytes, &status, &criadoEm, &atualizadoEm, &version); err != nil {
+	if err := row.Scan(&id, &negocioID, &categoriaID, &tipo, &origem, &nome, &arquivoURL, &conteudo, &arquivo, &nomeArquivo, &contentType, &tamanhoBytes, &status, &criadoEm, &atualizadoEm, &version); err != nil {
 		return nil, err
 	}
 	t := &template.Template{
@@ -46,8 +46,8 @@ func Template(row pgx.Row) (*template.Template, error) {
 		AtualizadoEm: atualizadoEm,
 		Version:      version,
 	}
-	if clienteID != nil {
-		t.ClienteId = *clienteID
+	if negocioID != nil {
+		t.NegocioId = *negocioID
 	}
 	if categoriaID != nil {
 		t.CategoriaId = *categoriaID

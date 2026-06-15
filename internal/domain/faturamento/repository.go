@@ -5,19 +5,19 @@ import (
 	"time"
 )
 
-// UsoRepository persiste e consulta eventos de uso por cliente.
+// UsoRepository persiste e consulta eventos de uso por negocio.
 type UsoRepository interface {
-	Registrar(ctx context.Context, uso *UsoClienteEvento) error
+	Registrar(ctx context.Context, uso *UsoNegocioEvento) error
 }
 
-// FaturamentoRepository gerencia o faturamento mensal por cliente.
+// FaturamentoRepository gerencia o faturamento mensal por negocio.
 type FaturamentoRepository interface {
-	ObterOuCriarCompetencia(ctx context.Context, clienteId string, competencia time.Time) (*FaturamentoMensal, error)
-	AdicionarUso(ctx context.Context, clienteId string, competencia time.Time, centavos int) error
-	FecharCompetencia(ctx context.Context, clienteId string, competencia time.Time) error
+	ObterOuCriarCompetencia(ctx context.Context, negocioId string, competencia time.Time) (*FaturamentoMensal, error)
+	AdicionarUso(ctx context.Context, negocioId string, competencia time.Time, centavos int) error
+	FecharCompetencia(ctx context.Context, negocioId string, competencia time.Time) error
 }
 
 // BiRepository persiste métricas diárias de BI.
 type BiRepository interface {
-	IncrementarMetrica(ctx context.Context, clienteId string, data time.Time, metrica string, valor float64, dimensoes map[string]string) error
+	IncrementarMetrica(ctx context.Context, negocioId string, data time.Time, metrica string, valor float64, dimensoes map[string]string) error
 }
