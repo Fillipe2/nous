@@ -10,9 +10,9 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/phenpessoa/sql2go v0.0.0-20240403011008-3f36b839b0dd
 	github.com/redis/go-redis/v9 v9.19.0
-	golang.org/x/crypto v0.50.0
+	golang.org/x/crypto v0.52.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/text v0.36.0
+	golang.org/x/text v0.37.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
